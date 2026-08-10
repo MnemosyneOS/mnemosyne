@@ -1,7 +1,0 @@
-{
-  "ownerId": "598646",
-  "publishedAt": 1786200000000,
-  "slug": "mnemosyne-memory",
-  "version": "3.0.0",
-  "changelog": "v3.0.0 Major: Human Memory + LLM-Agent mechanisms. Memory Distillation, Spaced Repetition, REST API Server, Version Control, MemoryAgent, Two-stage Retrieval. 5追赶维度全量超越Hindsight。综合评分 9.55/10。"
-}
