@@ -1,6 +1,6 @@
 # Mnemosyne Memory v4.0.0 Stable
 
-> **AI 时代的 L1 记忆缓存引擎 — 零依赖、纯本地、80%+ Token 节省**
+> **AI 时代的 L1 记忆缓存引擎 — 零依赖、纯本地、多语言、跨框架，给任何 AI 装上真正的长期记忆。**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870436.svg)](https://doi.org/10.5281/zenodo.21870436)
 [![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870790.svg)](https://doi.org/10.5281/zenodo.21870790)
@@ -14,7 +14,23 @@
 
 ## 🎯 一句话
 
-**在调用大模型之前，先用 Mnemosyne 从海量记忆中以零算力成本筛出 Top-10 相关内容——帮 LLM 节省 80% 以上 Token，检索速度 <10ms。**
+**在调用大模型之前，先用 Mnemosyne 从海量记忆中以零算力成本筛出 Top-10 相关内容——帮 LLM 节省 80% 以上 Token，检索速度 <10ms。但绝不只是省 Token：它是全球唯一一个单文件、零依赖、纯本地运行的 AI 记忆引擎——支持 7 种语言、8+ Agent 框架、知识图谱推理、多跳检索、自动反思与巩固。复制一个 .py 文件，你的 AI 就有了永不遗忘的长期记忆。**
+
+---
+
+## ⚡ 核心亮点
+
+| 亮点 | 说明 |
+|------|------|
+| 🧠 **真正的长期记忆** | 跨会话、跨平台，AI 不再失忆 |
+| 📦 **单文件零依赖** | 一个 .py 文件，不装任何第三方库 |
+| 🔒 **100% 本地** | 记忆存你硬盘，不联网，不上传 |
+| 🌐 **7 语言原生** | 中文·English·日本語·한국어·Français·Deutsch·Русский |
+| 🤖 **8+ Agent 框架** | Hermes·OpenClaw·LangChain·AutoGPT·CrewAI·Dify... |
+| 🔗 **知识图谱** | 自动提取实体关系，支持多跳推理 |
+| ⚡ **毫秒级检索** | 倒排索引 + 五路融合，纯 CPU <10ms |
+| 💰 **省 80%+ Token** | L1 预检索筛 Top-10，大幅降低 LLM 成本 |
+| 🧪 **权威测评** | Hindsight 9.58/10 · Session Recall 85.0% |
 
 ---
 
@@ -120,11 +136,11 @@ brain.consolidate() # 压缩优化记忆
 | 评测 | 成绩 |
 |------|:--:|
 | Hindsight 14维架构 | **9.58/10** |
-| LongMemEval Session Recall@10 | **83.3%** |
+| LongMemEval Session Recall@10 | **85.0%** |
 | LongMemEval Turn Recall@10 | **33.3%** (纯词法天花板) |
 | 写入 18288条 → 检索 | **<5分钟** |
 
-已发表 arXiv 论文，可公开引用。
+已发表 Zenodo 论文（DOI: 10.5281/zenodo.21870436），可公开引用。
 
 ---
 
