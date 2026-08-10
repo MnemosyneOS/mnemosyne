@@ -1,0 +1,24 @@
+# 旧版本文件
+mnemosyne-memory-2.0.0.zip
+mnemosyne-memory-3.0.0.zip
+mnemosyne-memory-3.0.0/
+mnemosyne-memory-3.2.0/
+mnemosyne-memory-4.2.0/
+mnemosyne-v3.2-final.zip
+mnemosyne-v3.2-final/
+mnemosyne-final.zip
+mnemosyne-final/
+
+# 临时文件
+~$*
+*.pyc
+__pycache__/
+arxiv_submit/
+
+# 旧文档
+AI Memory 系统白皮书.pdf
+AI Memory 系统白皮书（*.txt
+V2.0.0预测评.*
+记忆系统国际测评.txt
+Mnemosyne_论文_中文版.pdf
+Mnemosyne_v3.2_精华提炼报告.pdf
