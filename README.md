@@ -160,7 +160,7 @@ brain.consolidate() # 压缩优化记忆
 cp mnemosyne.py your_project/scripts/
 
 # 方式2：clone 仓库
-git clone https://github.com/yourname/mnemosyne.git
+git clone https://github.com/FrankHu-HK/mnemosyne.git
 ```
 
 **不需要 pip install。不需要 Docker。不需要数据库。**
