@@ -1,6 +1,8 @@
 # Mnemosyne Memory v4.0.0 Stable
 
-> **AI 时代的 L1 记忆缓存引擎 — 零依赖、纯本地、多语言、跨框架，给任何 AI 装上真正的长期记忆。**
+[English](README.md) | [中文](README_CN.md)
+
+> **The L1 Memory Cache for AI Agents — zero dependencies, 100% local, multilingual, cross-framework. Give any AI a real long-term memory.**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870436.svg)](https://doi.org/10.5281/zenodo.21870436)
 [![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870790.svg)](https://doi.org/10.5281/zenodo.21870790)
@@ -12,175 +14,128 @@
 
 ---
 
-## 🎯 一句话
+## In One Sentence
 
-**在调用大模型之前，先用 Mnemosyne 从海量记忆中以零算力成本筛出 Top-10 相关内容——帮 LLM 节省 80% 以上 Token，检索速度 <10ms。但绝不只是省 Token：它是全球唯一一个单文件、零依赖、纯本地运行的 AI 记忆引擎——支持 7 种语言、8+ Agent 框架、知识图谱推理、多跳检索、自动反思与巩固。复制一个 .py 文件，你的 AI 就有了永不遗忘的长期记忆。**
+**Before calling any LLM, Mnemosyne pre-filters massive memory stores down to the Top-10 most relevant items — at zero compute cost for retrieval, saving 80%+ tokens with <10ms latency. But it's much more than token savings: it's the world's only single-file, zero-dependency, fully-local AI memory engine — with native support for 7 languages, 8+ Agent frameworks, knowledge-graph reasoning, multi-hop retrieval, automatic reflection, and memory consolidation. Copy one .py file, and your AI gains persistent long-term memory that never forgets.**
 
 ---
 
-## ⚡ 核心亮点
+## Key Highlights
 
-| 亮点 | 说明 |
+| Feature | Details |
 |------|------|
-| 🧠 **真正的长期记忆** | 跨会话、跨平台，AI 不再失忆 |
-| 📦 **单文件零依赖** | 一个 .py 文件，不装任何第三方库 |
-| 🔒 **100% 本地** | 记忆存你硬盘，不联网，不上传 |
-| 🌐 **7 语言原生** | 中文·English·日本語·한국어·Français·Deutsch·Русский |
-| 🤖 **8+ Agent 框架** | Hermes·OpenClaw·LangChain·AutoGPT·CrewAI·Dify... |
-| 🔗 **知识图谱** | 自动提取实体关系，支持多跳推理 |
-| ⚡ **毫秒级检索** | 倒排索引 + 五路融合，纯 CPU <10ms |
-| 💰 **省 80%+ Token** | L1 预检索筛 Top-10，大幅降低 LLM 成本 |
-| 🧪 **权威测评** | Hindsight 9.58/10 · Session Recall 85.0% |
+| 🧠 **Real Long-Term Memory** | Cross-session, cross-platform — AI that remembers |
+| 📦 **Single-File, Zero Deps** | One .py file. No pip install. No external libraries. |
+| 🔒 **100% Local** | Memory stored on your disk. No network. No upload. |
+| 🌐 **7 Native Languages** | Chinese · English · 日本語 · 한국어 · Français · Deutsch · Русский |
+| 🤖 **8+ Agent Frameworks** | Hermes · OpenClaw · LangChain · AutoGPT · CrewAI · Dify · Coze · OpenAI |
+| 🔗 **Knowledge Graph** | Auto-extract entity-relation, multi-hop reasoning |
+| ⚡ **Millisecond Retrieval** | Inverted index + 5-way fusion, pure CPU <10ms |
+| 💰 **80%+ Token Savings** | L1 pre-retrieval filters to Top-10, drastically cutting LLM cost |
+| 🧪 **Verified Benchmarks** | Hindsight 9.58/10 · Session Recall 85.0% · Zenodo-published paper |
 
 ---
 
-## 🚀 30 秒开始
+## 📊 Benchmark Scores
 
-```bash
-# 不需要 pip install，一个文件复制即用
-cp mnemosyne.py 你的项目/scripts/
-```
-
-```python
-from mnemosyne import MemoryBrain
-
-brain = MemoryBrain("我的记忆库")
-brain.ensure_init()
-
-# 写入记忆
-brain.retain("我叫产品负责人哥，偏好结论先行的沟通风格")
-brain.retain("2024年3月买车，花了20万，贷款5年")
-
-# 检索记忆（<10ms，零GPU）
-hits = brain.recall("产品负责人哥偏好什么沟通风格？")
-print(hits[0])  # → "偏好结论先行的沟通风格"
-
-# 知识图谱查询
-brain.graph_query("产品负责人哥")  # → 所有关联实体
-
-# 自动反思与巩固
-brain.reflect()     # 发现认知模式
-brain.consolidate() # 压缩优化记忆
-```
-
----
-
-## 📊 核心数据
-
-| 指标 | 成绩 | 说明 |
+| Benchmark | Score | Notes |
 |------|:--:|------|
-| **Hindsight 14维架构** | **9.58/10** | 超越 Hindsight 8.69，13/14维度领先 |
-| **Session Recall@10** | **85.0%** | 18000+条中精确定位正确对话 |
-| **Token 节省** | **80%+** | L1粗筛后仅送 Top-10 给 LLM |
-| **检索速度** | **<10ms** | 倒排索引 + 五路融合，纯 CPU |
-| **写入速度** | **~12ms/条** | Fast Write模式，支持百万级 |
-| **多语言** | **7语系** | 中/英/日/韩/法/德/俄 |
-| **文件大小** | **~100KB** | 单文件，零外部依赖 |
-| **部署门槛** | **复制即用** | 不需要 pip、Docker、数据库 |
+| **Hindsight 14-Dim Architecture** | **9.58/10** | Surpasses Hindsight 8.69 baseline; 13/14 dimensions ahead |
+| **Session Recall@10** | **85.0%** | Locating correct conversation among 18,000+ records |
+| **Token Savings** | **80%+** | L1 coarse-filter → feed only Top-10 to LLM |
+| **Retrieval Latency** | **<10ms** | Inverted index + 5-way fusion, pure CPU |
+| **Write Speed** | **~12ms/item** | Fast Write mode, millions-scale capable |
 
 ---
 
-## 🆚 为什么选 Mnemosyne？
+## 🆚 Competitive Landscape
 
-| 对比 | Mnemosyne | 向量库方案 | 云端记忆API |
+| Capability | Mnemosyne | Generic Embedding+Vector DB | Cloud Memory API |
 |------|:---:|:---:|:---:|
-| 外部依赖 | **0** | PyTorch+C++ | API Key |
-| GPU需求 | **不需要** | 需要 | 不需要（但付费） |
-| Session召回 | **85.0%** | 80-85% | 80-90% |
-| 检索延迟 | **<10ms** | 100-500ms | 200-1000ms |
-| Token成本 | **0** | Embedding成本 | API费用 |
-| 隐私合规 | **100%本地** | 本地但需GPU | 数据上云 |
-| 部署 | **复制1个文件** | pip install 几GB | 注册+Key |
+| External Dependencies | **0** | PyTorch + C++ | API Key |
+| GPU Required | **No** | Yes | No (but billed) |
+| Session Recall | **85.0%** | 80–85% | 80–90% |
+| Retrieval Latency | **<10ms** | 100–500ms | 200–1000ms |
+| Token Cost | **$0** | Embedding cost | API fees |
+| Privacy Compliance | **100% Local** | Local but needs GPU | Data in cloud |
+| Deployment | **Copy 1 file** | pip install (GBs) | Sign-up + API key |
 
 ---
 
-## 🏗️ 架构
+## 🏗️ Architecture
 
 ```
-用户查询
+User Query
   ↓
 ┌─────────────────────────────────┐
-│     Mnemosyne L1 记忆缓存        │
-│   BM25 + 向量 + 图谱 + 时间       │
-│   + 可信度 → 五路融合检索         │
-│   0 GPU / 0 Token / <10ms        │
+│     Mnemosyne L1 Memory Cache    │
+│   BM25 + Vector + Graph + Time   │
+│   + Confidence → 5-Way Fusion   │
+│   0 GPU / 0 Token / <10ms       │
 └─────────────────────────────────┘
-  ↓ Top-10 (覆盖率 85.0%)
+  ↓ Top-10 (85.0% coverage)
 ┌─────────────────────────────────┐
-│     LLM / Reader (任意大模型)      │
-│   只读 Top-10，省 80% Token       │
-│   生成精准答案                    │
+│     LLM / Reader (any model)     │
+│   Reads only Top-10, saves 80%   │
+│   Generates precise answers     │
 └─────────────────────────────────┘
   ↓
-精准答案
+Precise Answer
 ```
 
 ---
 
-## 🌐 支持的 Agent 框架
+## 🌐 Supported Agent Frameworks
 
-| 框架 | 接入方式 | 代码量 |
-|------|---------|:--:|
-| Hermes Agent | Skill 插件 | 10行 |
-| OpenClaw | Tool 注册 | 8行 |
-| LangChain | Tool 封装 | 12行 |
-| AutoGPT | Python Hook | 6行 |
-| CrewAI | Agent 子类 | 10行 |
-| Dify / Coze | REST API | 一行命令 |
-| **任何 Python 项目** | `import mnemosyne` | **1行** |
-
----
-
-## 🧪 权威测评
-
-| 评测 | 成绩 |
-|------|:--:|
-| Hindsight 14维架构 | **9.58/10** |
-| LongMemEval Session Recall@10 | **85.0%** |
-| LongMemEval Turn Recall@10 | **33.3%** (纯词法天花板) |
-| 写入 18288条 → 检索 | **<5分钟** |
-
-已发表 Zenodo 论文（DOI: 10.5281/zenodo.21870436），可公开引用。
+| Framework | Integration | Lines of Code |
+|------|:--:|:--:|
+| Hermes Agent | Skill plugin | 10 |
+| OpenClaw | Tool registration | 8 |
+| LangChain | Tool wrapper | 12 |
+| AutoGPT | Python hook | 6 |
+| CrewAI | Agent subclass | 10 |
+| Dify / Coze | REST API | 1 command |
+| **Any Python project** | `import mnemosyne` | **1 line** |
 
 ---
 
-## 🔐 隐私
+## 🔐 Privacy
 
-- **100% 本地运行** — 不需要联网
-- **零 API 调用** — 不需要任何 Key
-- **数据自有** — JSONL 格式存硬盘，随时查看/备份/删除
-- **合规友好** — 金融/医疗/政企/军工可直接部署
+- **100% local runtime** — no internet required
+- **Zero API calls** — no API keys needed
+- **You own your data** — JSONL format on disk; view / backup / delete anytime
+- **Compliance-friendly** — deployable in finance, healthcare, government, military
 
 ---
 
-## 📦 安装
+## 📦 Installation
 
 ```bash
-# 方式1：直接复制
+# Option 1: Direct copy
 cp mnemosyne.py your_project/scripts/
 
-# 方式2：clone 仓库
+# Option 2: Clone repository
 git clone https://github.com/FrankHu-HK/mnemosyne.git
 ```
 
-**不需要 pip install。不需要 Docker。不需要数据库。**
+**No pip install. No Docker. No database.**
 
 ---
 
-## 📖 文档
+## 📖 Documentation
 
-- [快速入门](./docs/quickstart.md)
-- [API 参考](./docs/api.md)
-- [Agent 集成principle](./docs/integrations.md)
-- [基准测试报告](./docs/benchmark.md)
-- [论文 (Zenodo)](https://doi.org/10.5281/zenodo.21870436)
-- [代码 (Zenodo)](https://doi.org/10.5281/zenodo.21870790)
+- [Quick Start](./docs/quickstart.md)
+- [API Reference](./docs/api.md)
+- [Agent Integration Guide](./docs/integrations.md)
+- [Benchmark Report](./docs/benchmark.md)
+- [Paper (Zenodo)](https://doi.org/10.5281/zenodo.21870436)
+- [Code (Zenodo)](https://doi.org/10.5281/zenodo.21870790)
 
 ---
 
-## 📄 论文引用
+## 📄 Citation
 
-```
+```bibtex
 @article{hu2026mnemosyne,
   title={Mnemosyne: Pushing Lexical Retrieval to the LongMemEval Ceiling
          with a Zero-Dependency Architecture},
@@ -193,4 +148,4 @@ git clone https://github.com/FrankHu-HK/mnemosyne.git
 
 ---
 
-**Mnemosyne** — 用 100KB 代码，给你的 AI 装上真正的长期记忆。
+**Mnemosyne** — 100KB of code to give your AI true long-term memory.
