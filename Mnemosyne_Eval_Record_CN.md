@@ -1,4 +1,4 @@
-# Mnemosyne Memory v4.0.0 开发与测评全记录
+# Mnemosyne Memory v4.0.0 Stable — 开发与测评全记录
 
 > 写给其他 AI / 开发者阅读，寻求新的解决方案与第三方复评。
 > 📄 论文 DOI: `10.5281/zenodo.21870436` ｜ 💻 代码 DOI: `10.5281/zenodo.21870790`
@@ -24,7 +24,7 @@ Mnemosyne 是**全球唯一一个完全基于 Python 标准库、零外部依赖
 
 | 评测体系 | 说明 | 地位 |
 |------|------|------|
-| **Hindsight 14维** | GoodAI 发布的 Agent 记忆系统权威评测 | 行业公认基线，被 Mem0/Letta/Zep 广泛引用 |
+| **Hindsight 14维** | GoodAI 发布的 Agent 记忆系统权威评测 | 行业公认基线，Mem0/Letta/Zep 竞品广泛引用 |
 | **LongMemEval** | 斯坦福长时对话记忆检索基准（18000+ 条） | 检索能力黄金标准 |
 | **自建 Token 节省测算** | L1 预过滤 → 仅送 Top-10 给 LLM | 工程实测 |
 
@@ -34,8 +34,8 @@ Mnemosyne 是**全球唯一一个完全基于 Python 标准库、零外部依赖
 
 1. **倒排索引 + BM25**：O(n)→O(log n)，纯 CPU <10ms/查询
 2. **五路融合检索**：BM25 + 向量哈希 + 知识图谱 + 时间衰减 + 可信度加权
-3. **记忆别名扩展（Memory Alias）**：写入时扩索引，不改原始内容 → 不破坏匹配
-4. **会话级局部精排**：会话内两阶段重排，Session Recall 85% vs 21%
+3. **记忆别名扩展（Memory Alias Expansion）**：写入时扩索引，不改原始内容 → 不破坏 Turn 匹配
+4. **会话级局部精排**：会话内两阶段重排 → Session Recall 85.0% vs 21%
 5. **共享数据库模式**：单实例多会话，性能高 60%+
 6. **Fast Write 模式**：写入快 2.6 倍，~12ms/条
 7. **自动反思 + 巩固**：发现认知模式、压缩冗余、解决冲突
@@ -54,7 +54,7 @@ Mnemosyne 是**全球唯一一个完全基于 Python 标准库、零外部依赖
 | S5 Timeline Index | 微变 | 微变 | 时间信息已被 BM25 覆盖 |
 | S6 Alias Expansion（改内容） | 10% | 崩 | 破坏原始 Turn 匹配 |
 | S7 Graph Bridge | 微变 | 微变 | 图谱增益被 BM25 吸收 |
-| S8 8层规则引擎 | 35% 天花板 | 不变 | 纯规则 Turn Recall 天花板约 35% |
+| S8 8层规则引擎 | 35%天花板 | 不变 | 纯规则 Turn Recall 天花板约 35% |
 
 **核心发现**：LongMemEval 匹配逻辑是 `rc[:60] in original_turn`，任何语义增强都会改变检索结果、把原始 Turn 挤出 Top10。**纯词法检索 Turn Recall@10 天花板 = 33.3%**，突破需接 LLM。
 
@@ -66,7 +66,7 @@ Mnemosyne 是**全球唯一一个完全基于 Python 标准库、零外部依赖
 |------|:--:|------|
 | Hindsight 14维架构 | **9.58/10** | 超越 Hindsight 8.69 基线，13/14 维度领先 |
 | LongMemEval Session Recall@10 | **85.0%** | 18000+ 条中精确定位正确对话 |
-| LongMemEval Turn Recall@10 | **33.3%** | 纯词法天花板（已证伪） |
+| LongMemEval Turn Recall@10 | **33.3%** | 纯词法天花板（8组A/B证伪） |
 | LLM Token 节省 | **80%+** | L1 粗筛后仅送 Top-10 |
 | 检索延迟 | **<10ms** | 纯 CPU，零 GPU |
 | 写入速度 | **~12ms/条** | Fast Write 模式 |

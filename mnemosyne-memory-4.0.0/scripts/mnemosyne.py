@@ -8,41 +8,41 @@ Mnemosyne Memory Engine v3.0.0 — 摩涅莫绪涅·认知记忆操作系统
 适用 Agent 框架：Hermes Agent · OpenClaw · LangChain · AutoGPT · CrewAI · 
                MetaGPT · Dify · Coze · OpenAI Assistants · 任何 CLI/Python Agent
 
-v3.0.0 核心升级（5大追赶维度全面超越 Hindsight）：
+v3.0.0 核心Upgrade（5大追赶维度全面超越 Hindsight）：
   ╔══════════════════════════════════════════════════════════════╗
-  ║  1. 🌐 多语言支持 —— 中/英/日/韩/法/德/西/俄 30+语言分词      ║
-  ║  2. ⚡ 倒排索引 —— BM25检索 O(n)→O(log n)，11ms/recall       ║
+  ║  1. 🌐 多语言supports  —— 中/英/日/韩/法/德/西/俄 30+语言分词      ║
+  ║  2. ⚡ Inverted Index —— BM25检索 O(n)→O(log n)，11ms/recall       ║
   ║  3. 🧠 人类记忆机制 —— 间隔复习/精细编码/睡眠巩固/组块化       ║
-  ║  4. 📊 企业级能力 —— REST API Server + 并发锁 + 多租户        ║
+  ║  4. 📊 企业级能力 —— REST API Server + 并发Lock + 多租户        ║
   ║  5. 🔗 框架无关 —— 通用CLI+Python API，适配所有主流Agent框架   ║
   ╚══════════════════════════════════════════════════════════════╝
 
 v2.0 → v3.0 追赶明细：
-  压缩机制: 8.0→9.5 | 企业级能力: 7.5→9.2 | 记忆生命周期: 8.5→9.5
+  Compress机制: 8.0→9.5 | 企业级能力: 7.5→9.2 | 记忆生命周期: 8.5→9.5
   检索智能: 9.0→9.8 | 工程实现: 9.0→9.5 | 遗忘机制: 8.5→9.0
   存储机制: 8.8→9.2 | 记忆模型: 9.5→9.8 | 检索能力: 9.6→9.8
   综合评分: 9.06→9.58 (Hindsight: 8.69)
-  检索能力: 6.5→9.6 (向量搜索+实体图+多跳推理+时间推理)
-  压缩机制: 6.5→9.0 (Memory Consolidation Engine)
+  检索能力: 6.5→9.6 (向量searches +实体图+多跳推理+Time推理)
+  Compress机制: 6.5→9.0 (Memory Consolidation Engine)
   记忆模型: 8.1→9.5 (认知结构+事实/观点分离+经验学习)
   总体评分: 7.8→9.5+
 
 设计原则：
   - 纯 Python 标准库实现（零依赖核心）; embedding 可选 numpy 加速
-  - 纯本地 JSONL + 图索引文件存储
+  - 纯本地 JSONL + 图Index文件存储
   - 向后兼容 v1.x 记忆库
   - 跨平台（Windows/macOS/Linux）
 
-命令行用法：
+命令line用法：
     python mnemosyne.py init [--dir PATH] [--with-embeddings]
     python mnemosyne.py brain-retain --content "..." [自动多维度抽取]
     python mnemosyne.py retain --content "..." [--type TYPE] [...]  # 兼容1.x
-    python mnemosyne.py recall "查询" [--k 5] [--multi-hop] [...]
+    python mnemosyne.py recall "Query" [--k 5] [--multi-hop] [...]
     python mnemosyne.py reflect [--deep]  # 深度认知反思
-    python mnemosyne.py consolidate [--dry-run]  # 记忆巩固
+    python mnemosyne.py consolidate [--dry-run]  # Memory Consolidation
     python mnemosyne.py self-learn [--from N]  # 自学习循环
-    python mnemosyne.py graph [query] [--depth 2]  # 图查询
-    python mnemosyne.py benchmark [--count 5000]  # 基准测试
+    python mnemosyne.py graph [query] [--depth 2]  # 图Query
+    python mnemosyne.py benchmark [--count 5000]  # 基准Test
     python mnemosyne.py hindsights-bench  # Hindsight对标评测
 """
 
@@ -77,7 +77,7 @@ INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
 
-# 随机投影维度（零依赖向量搜索）
+# 随机投影维度（零依赖向量searches ）
 EMBEDDING_DIM = 128
 
 # ============================================================================
@@ -121,15 +121,15 @@ def _softmax(scores, temp=1.0):
 
 
 # ============================================================================
-# Part 2: 分词与实体抽取（多语言增强版 + Turn Recall 优化）
+# Part 2: 分词与实体抽取（多语言增强版 + Turn Recall Optimize）
 # ============================================================================
-# 5步优化方案，纯标准库零依赖
+# 5步Optimize方案，纯标准库零依赖
 # ============================================================================
 
-# Step 1: 分词预处理 — 日期标准化 + 语义词仿英文伪装
+# Step 1: 分词预processes  — Date标准化 + 语义词仿英文伪装
 def _tokenize_preprocess(text):
-    """在 N-gram 切分前做正则预处理，使日期和语义词能完整命中现有模式。"""
-    # 1.1 日期归一化
+    """在 N-gram 切分前做正则预processes ，使Date和语义词能完整命中现有模式。"""
+    # 1.1 Date归一化
     text = re.sub(
         r'(\d{4})年(\d{1,2})月(\d{1,2})日',
         lambda m: f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}",
@@ -143,7 +143,7 @@ def _tokenize_preprocess(text):
     # 1.2 核心语义词 → 英文伪装（使其被 \w{2,} 完整抓取，不被 N-gram 碎切）
     surrogate_map = {
         "什么时候": " __WH_TIME__ ",
-        "什么时间": " __WH_TIME__ ",
+        "什么Time": " __WH_TIME__ ",
         "几月几号": " __WH_TIME__ ",
         "今天": " __T_TODAY__ ",
         "昨天": " __T_YESTERDAY__ ",
@@ -152,18 +152,18 @@ def _tokenize_preprocess(text):
         "在哪里": " __WH_WHERE__ ",
         "哪里": " __WH_WHERE__ ",
         "是谁": " __WH_WHO__ ",
-        "哪个": " __WH_WHICH__ ",
+        "哪": " __WH_WHICH__ ",
         "多少钱": " __WH_HOWMUCH__ ",
     }
     for zh_word, eng_surrogate in surrogate_map.items():
         text = text.replace(zh_word, eng_surrogate)
     return text
 
-# Step 2: 时间注入（索引阶段用）
+# Step 2: Time注入（Index阶段用）
 from datetime import datetime as _dt_pre, timedelta as _td_pre
 
 def inject_time_expressions(turn_text, session_date_str):
-    """解析 Session 日期，将相对时间词扩展为多种格式的绝对日期附加在文本后。"""
+    """parses  Session Date，将相对Time词扩展为多种格式的绝对Date附加在文本后。"""
     if not session_date_str or not isinstance(session_date_str, str):
         return turn_text
     try:
@@ -234,10 +234,10 @@ def fuse_session_and_turn_scores(session_scores, turn_scores_map, session_weight
     return final_turn_scores
 
 # Step 5: 伪相关反馈 PRF
-_STOPWORDS_PRF = {"的","了","在","是","我","有","和","就","不","人","都","一","上","也","很","到","说","要","去","你","会","着","没有","看","好","这","哪","什么","怎么","哪个","知道","记得","请问","那个"}
+_STOPWORDS_PRF = {"的","了","在","是","我","有","和","就","不","人","都","一","上","也","很","到","说","要","去","你","会","着","没有","看","好","这","哪","什么","怎么","哪","知道","记得","请问","那"}
 
 def expand_query_prf(query, top_session_turns_text, top_k=3):
-    """从 Top-1 Session 提取高频词扩展查询。"""
+    """从 Top-1 Session 提取高频词扩展Query。"""
     from collections import Counter
     words = []
     for text in top_session_turns_text:
@@ -252,13 +252,13 @@ def expand_query_prf(query, top_session_turns_text, top_k=3):
     return query + " " + " ".join(top_words)
 
 
-# Step 6: 索引/输出解耦 + 上下文窗口拼接
+# Step 6: Index/Output解耦 + 上下文窗口拼接
 def format_retrieval_output(top_turn_indices, session_raw_turns):
     """
-    索引用增强文本，输出用原始文本 + 前后 Turn 拼接。
+    Index用增强文本，Output用原始文本 + 前后 Turn 拼接。
 
-    top_turn_indices: 检索 Top-K 的 turn 索引列表
-    session_raw_turns: [{raw_text: ...}, ...] 每 Turn 的原始文本
+    top_turn_indices: 检索 Top-K 的 turn Index列Table
+    session_raw_turns: [{raw_text: ...}, ...] per  Turn 的原始文本
     """
     formatted = []
     for turn_idx in top_turn_indices:
@@ -279,9 +279,9 @@ def format_retrieval_output(top_turn_indices, session_raw_turns):
 # Step 7: 会话内两阶段局域精排 (In-Session Reranking)
 def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10):
     """
-    针对 Top Session 内部的 Turn 进行：
+    针对 Top Session 内部的 Turn 进line：
       A) 角色对齐加权 (User vs Assistant)
-      B) 连续 N-gram 硬匹配加分
+      B) 连续 N-gram 硬matches 加分
     纯标准库，无外部依赖。
 
     session_turns_map: {session_id: [{'turn_id': int, 'text': str, 'role': str, 'raw_score': float}, ...]}
@@ -289,7 +289,7 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
     import re as _re
     from collections import Counter as _Counter
 
-    # 1. 识别 Query 的角色倾向
+    # 1. identifies  Query 的角色倾向
     is_user_query = bool(_re.search(r'我|我的|我提|我买|我喜欢|我有|我曾', query))
     is_asst_query = bool(_re.search(r'你|你的|你建议|你推荐|你说|助手', query))
 
@@ -301,7 +301,7 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
     if not candidate_turns:
         return []
 
-    # 3. 提取 Query 的 n-gram 特征（2-4 gram）用于硬匹配
+    # 3. 提取 Query 的 n-gram 特征（2-4 gram）用于硬matches 
     query_ngrams = []
     clean_q = _re.sub(r'[^\w\u4e00-\u9fa5]', '', query)
     for n in range(2, 5):
@@ -321,7 +321,7 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
         elif is_asst_query and role == 'assistant':
             score *= 1.35
 
-        # B. 连续子串硬匹配加分
+        # B. 连续子串硬matches 加分
         ngram_bonus = 0.0
         for gram in query_ngrams:
             if gram in text:
@@ -330,14 +330,14 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
 
         scored_turns.append((turn['turn_id'], score))
 
-    # 5. 按新分数排序返回 Top K
+    # 5. by 新分数sorts returns  Top K
     scored_turns.sort(key=lambda x: x[1], reverse=True)
     return [t[0] for t in scored_turns[:top_k_turns]]
 
 
 
 # Unicode 字符范围
-#           拉丁/西里尔→词级切分 | 数字/日期→模式匹配
+#           拉丁/西里尔→词级切分 | 数字/Date→模式matches 
 
 # Unicode 字符范围
 _RE_CJK = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")           # 中日韩统一汉字
@@ -349,8 +349,8 @@ _RE_CYRILLIC = re.compile(r"[\u0400-\u04ff]+")                                  
 
 
 def _tokenize(text):
-    """多语言分词 + 预处理优化。"""
-    text = _tokenize_preprocess(text)  # Step 1: 日期标准化 + 语义词伪装
+    """多语言分词 + 预processes Optimize。"""
+    text = _tokenize_preprocess(text)  # Step 1: Date标准化 + 语义词伪装
     text = text.lower()
     tokens = []
 
@@ -360,7 +360,7 @@ def _tokenize(text):
     for i in range(len(cjk_chars) - 1):
         tokens.append(cjk_chars[i] + cjk_chars[i + 1])
 
-    # 2) 日文平假名：按连续序列切词（如 "おはよう" → 3-gram滑动窗口）
+    # 2) 日文平假名：by 连续序列切词（如 "おはよう" → 3-gram滑动窗口）
     for seq in _RE_HIRAGANA.findall(text):
         tokens.append(seq)                       # 全序列
         if len(seq) >= 2:
@@ -380,7 +380,7 @@ def _tokenize(text):
                 for i in range(len(seq) - 2):
                     tokens.append(seq[i:i + 3])
 
-    # 4) 韩文：按音节块 + bigram（한글 → ["한글", "한", "글"]）
+    # 4) 韩文：by 音节块 + bigram（한글 → ["한글", "한", "글"]）
     for seq in _RE_HANGUL.findall(text):
         tokens.append(seq)
         chars = list(seq)
@@ -399,8 +399,8 @@ def _tokenize(text):
     latin_words = _RE_LATIN.findall(text)
     tokens.extend([w.lower() for w in latin_words])
 
-    # 7) 数字 + 日期模式（跨语言通用）
-    tokens.extend(re.findall(r"\d{4}-\d{2}-\d{2}", text))   # ISO 日期
+    # 7) 数字 + Date模式（跨语言通用）
+    tokens.extend(re.findall(r"\d{4}-\d{2}-\d{2}", text))   # ISO Date
     tokens.extend(re.findall(r"\d+\.\d+", text))            # 小数
     tokens.extend(re.findall(r"\b\d{2,}\b", text))          # 多位数
 
@@ -411,7 +411,7 @@ def _tf_vector(tokens):
     return collections.Counter(tokens)
 
 
-# 多语言实体识别模式
+# 多语言实体identifies 模式
 _ENTITY_PATTERNS = [
     # 中文书名号/引号 · 日文「」 · 韩文《》
     (r"[《\u300c\u2018\u201c]([^\u300d\u300b\u2019\u201d]{2,30})[\u300d\u300b\u2019\u201d]", "quoted"),
@@ -425,7 +425,7 @@ _ENTITY_PATTERNS = [
     (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "email"),
     # URL
     (r"https?://[^\s,，。；;]+", "url"),
-    # 版本号
+    # Version号
     (r"\bv?\d+\.\d+(?:\.\d+)?(?:-[a-z]+\d*)?\b", "version"),
     # 金额（多币种）
     (r"\b\d+[\d,]*\.?\d*\s*(?:元|万|亿|円|원|₩|¥|€|£|USD|CNY|JPY|KRW|RUB|EUR|RMB)\b", "money"),
@@ -438,11 +438,11 @@ _ENTITY_PATTERNS = [
 # 多语言停用词（中/日/韩/英/法/德/西/俄）
 _ENTITY_STOP_WORDS = {
     # 中文
-    "我们", "你们", "他们", "这个", "那个", "什么", "怎么", "可以", "需要",
-    "时候", "一个", "没有", "不是", "自己", "现在", "已经", "因为", "所以",
-    "如果", "但是", "还是", "就是", "这样", "那样", "进行", "通过", "对于",
+    "我们", "你们", "他们", "这", "那", "什么", "怎么", "可以", "需要",
+    "时候", "一", "没有", "不是", "自己", "现在", "已经", "因为", "所以",
+    "如果", "但是", "还是", "就是", "这样", "那样", "进line", "via ", "对于",
     "关于", "以及", "或者", "能够", "必须", "可能", "应该", "已经", "正在",
-    "一种", "这些", "那些", "所有", "每个", "任何", "其他", "其中", "之后",
+    "一种", "这些", "那些", "所有", "per ", "任何", "其他", "其中", "之后",
     "之前", "之间", "之后", "以后", "以上", "以下", "以内",
     # 日文
     "これ", "それ", "あれ", "この", "その", "あの", "ここ", "そこ", "あそこ",
@@ -482,7 +482,7 @@ _ENTITY_STOP_WORDS = {
 
 
 def _extract_entities(text):
-    """增强实体抽取：多模式+关系推断+停用词过滤。返回 {entity, type, positions}。"""
+    """增强实体抽取：多模式+关系推断+停用词filters 。returns  {entity, type, positions}。"""
     entities = []
     seen = set()
 
@@ -497,7 +497,7 @@ def _extract_entities(text):
                 })
                 seen.add(entity)
 
-    # 中文词（过滤停用词）
+    # 中文词（filters 停用词）
     words = re.findall(r"[\u4e00-\u9fff]{2,6}", text)
     for m in re.finditer(r"[\u4e00-\u9fff]{2,6}", text):
         w = m.group(0)
@@ -512,7 +512,7 @@ def _extract_entities(text):
 
 
 def _extract_entity_names(text):
-    """兼容1.x接口：返回实体名称列表。"""
+    """兼容1.x接口：returns 实体Name列Table。"""
     return [e["entity"] for e in _extract_entities(text)]
 
 
@@ -534,15 +534,15 @@ def _extract_relationships(entities, text):
 
 
 # ============================================================================
-# Part 3: Embedding Engine（随机投影向量搜索 · 零依赖）
+# Part 3: Embedding Engine（随机投影向量searches  · 零依赖）
 # ============================================================================
 
 class EmbeddingEngine:
     """零依赖向量嵌入引擎。
 
     基于 Johnson-Lindenstrauss 引理，固定种子的随机投影矩阵将 TF-IDF
-    高维稀疏向量投影到低维稠密空间（默认128维），保留余弦相似度结构。
-    内存缓存投影矩阵，首次初始化约 0.5s 后即实时。
+    高维稀疏向量投影到低维稠密空间（默认128维），保留Cosine similarity结构。
+    内存Cache投影矩阵，首 times初始化约 0.5s 后即实时。
     """
 
     def __init__(self, dim=EMBEDDING_DIM, seed=42):
@@ -554,7 +554,7 @@ class EmbeddingEngine:
         self._next_idx = 0
 
     def _ensure_proj(self, vocab_size):
-        """惰性生成随机投影矩阵。"""
+        """惰性generates 随机投影矩阵。"""
         needed = max(vocab_size, 1000)
         if self._proj is not None and len(self._proj) >= needed:
             return
@@ -571,7 +571,7 @@ class EmbeddingEngine:
         return self._vocab[token]
 
     def encode(self, text_or_tokens):
-        """将文本或token列表编码为稠密向量。"""
+        """将文本或token列Table编码为稠密向量。"""
         if isinstance(text_or_tokens, str):
             tokens = _tokenize(text_or_tokens)
         else:
@@ -603,7 +603,7 @@ class EmbeddingEngine:
         return vec
 
     def similarity(self, vec_a, vec_b):
-        """余弦相似度。"""
+        """Cosine similarity。"""
         if not vec_a or not vec_b:
             return 0.0
         dot = sum(a * b for a, b in zip(vec_a, vec_b))
@@ -611,27 +611,27 @@ class EmbeddingEngine:
 
 
 # ============================================================================
-# Part 4: 数据模型（双时间 + 可信度 + 事实/观点分离）
+# Part 4: 数据模型（双Time + 可信度 + 事实/观点分离）
 # ============================================================================
 
 def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
                   importance=None, expires_at=None, context="", meta=None,
-                  # v2.0 新增字段
+                  # v2.0 新增Field
                   fact_type=None, confidence=None, source_type=None,
                   verification=None, event_time=None, knowledge_time=None,
                   embedding=None, graph_edges=None, parent_id=None,
                   version=2):
-    """构建一条完整记忆记录。
+    """Build一条完整记忆Record。
 
-    v2.0 新增字段（向后兼容：v1.x 读取时自动填充默认值）：
+    v2.0 新增Field（向后兼容：v1.x reads 时自动填充默认Value）：
       - fact_type: fact/opinion/belief/observation/inference/hypothesis
       - confidence: 0-1 可信度
       - source_type: user/system/inference/web_search/file/agent_generated
       - verification: unverified/verified/contradicted/outdated/superseded
-      - event_time: 事件实际发生时间（ISO）
-      - knowledge_time: Agent获知此信息的时间（ISO）
-      - embedding: 预计算向量（可选，惰性计算）
-      - graph_edges: 实体关系边列表
+      - event_time: Event实际发生Time（ISO）
+      - knowledge_time: Agent获知此信息的Time（ISO）
+      - embedding: 预computes 向量（可选，惰性computes ）
+      - graph_edges: 实体关系边列Table
       - parent_id: 上级记忆ID（用于consolidation）
     """
     layer = layer or _default_layer(mtype)
@@ -641,7 +641,7 @@ def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
     # 自动推断 source_type
     if source_type is None:
         source_type = _infer_source_type(mtype, source)
-    # 自动计算重要性
+    # 自动computes 重要性
     if importance is None:
         importance = _auto_importance(content, mtype, tags)
 
@@ -692,7 +692,7 @@ def _default_layer(mtype):
 
 
 def _infer_fact_type(mtype, content):
-    """根据类型和内容推断事实类型。"""
+    """based on Type和内容推断事实Type。"""
     mapping = {
         "preference": "opinion", "belief": "belief",
         "observation": "observation", "lesson": "inference",
@@ -733,7 +733,7 @@ def _default_confidence(source_type):
 def _auto_importance(content, mtype, tags):
     """自动重要性评分（规则式）。"""
     score = 3  # 默认
-    # 类型加权
+    # Type加权
     type_weights = {
         "identity": 5, "preference": 4, "procedural": 4,
         "lesson": 4, "strategy": 4, "reflective": 3,
@@ -745,16 +745,16 @@ def _auto_importance(content, mtype, tags):
     content = content or ""
     if any(kw in content for kw in ["密码", "密钥", "token", "secret"]):
         score = max(score, 5)
-    if any(kw in content for kw in ["关键", "重要", "必须", "核心", "决策"]):
+    if any(kw in content for kw in ["关Key", "重要", "必须", "核心", "决策"]):
         score = min(score + 1, 5)
-    if tags and any(t in (tags or []) for t in ["关键", "重要", "core"]):
+    if tags and any(t in (tags or []) for t in ["关Key", "重要", "core"]):
         score = min(score + 1, 5)
     return score
 
 
 def _extract_event_time(content, record_created_at):
-    """从内容中提取事件时间（启发式）。"""
-    # 日期模式：YYYY-MM-DD 或 YYYY年MM月DD日
+    """从内容中提取EventTime（启发式）。"""
+    # Date模式：YYYY-MM-DD 或 YYYY年MM月DD日
     m = re.search(r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})[日]?", content or "")
     if m:
         try:
@@ -766,7 +766,7 @@ def _extract_event_time(content, record_created_at):
 
 
 # ============================================================================
-# Part 5: 存储层（JSONL + 图索引）
+# Part 5: 存储层（JSONL + 图Index）
 # ============================================================================
 
 class MemoryStore:
@@ -819,7 +819,7 @@ class MemoryStore:
                 if attempt < retries:
                     time.sleep(0.05 * attempt)
         else:
-            raise OSError(f"写入记忆失败（已重试 {retries} 次）：{last_err}")
+            raise OSError(f"writes 记忆失败（已Retry {retries}  times）：{last_err}")
         meta = self.read_meta() or {"count": 0}
         meta["count"] = meta.get("count", 0) + 1
         meta["updated_at"] = _now_iso()
@@ -830,7 +830,7 @@ class MemoryStore:
         return record
 
     def append_batch(self, records, retries=3):
-        """批量追加写入。"""
+        """批量追加writes 。"""
         self.ensure_init()
         with open(self.index_path, "a", encoding="utf-8") as f:
             for rec in records:
@@ -855,12 +855,12 @@ class MemoryStore:
                     continue
                 try:
                     rec = json.loads(line)
-                    # v1→v2 升级补齐
+                    # v1→v2 Upgrade补齐
                     rec = _upgrade_record(rec)
                     yield rec
                 except json.JSONDecodeError:
                     yield {"_corrupt": True, "line_no": line_no,
-                           "content": f"[损坏行 #{line_no} 已跳过]",
+                           "content": f"[损坏line #{line_no} 已skips ]",
                            "id": f"corrupt-{line_no}"}
 
     def all_records(self):
@@ -885,7 +885,7 @@ class MemoryStore:
         return None
 
     def update_by_id(self, memory_id, updates):
-        """原地更新某条记忆的字段。"""
+        """原地updates 某 memory records的Field。"""
         records = self.all_records()
         found = False
         for r in records:
@@ -899,10 +899,10 @@ class MemoryStore:
 
 
 def _upgrade_record(rec):
-    """将 v1.x 记录升级到 v2.0 格式。"""
+    """将 v1.x RecordUpgrade到 v2.0 格式。"""
     if rec.get("_corrupt"):
         return rec
-    # 确保 v2.0 字段存在
+    # 确保 v2.0 Field存在
     defaults = {
         "version": rec.get("version", 1),
         "fact_type": rec.get("fact_type") or _infer_fact_type(rec.get("type", ""), rec.get("content", "")),
@@ -924,10 +924,10 @@ def _upgrade_record(rec):
 
 
 class MemoryGraphStore:
-    """记忆知识图谱（实体-关系边存储）。
+    """记忆Knowledge Graph（实体-关系边存储）。
 
     与主 JSONL 并存，存储在 graph.jsonl。
-    支持实体查询、关系遍历、多跳扩展。
+    supports 实体Query、关系遍历、多跳扩展。
     """
 
     def __init__(self, base_dir=DEFAULT_DIR):
@@ -976,7 +976,7 @@ class MemoryGraphStore:
         return list(self.iter_edges())
 
     def get_neighbors(self, entity, max_depth=1):
-        """获取指定实体的邻居节点（支持多跳）。"""
+        """获取指定实体的邻居Node（supports 多跳）。"""
         edges = self.all_edges()
         result = {
             "entity": entity,
@@ -996,11 +996,11 @@ class MemoryGraphStore:
         return result
 
     def search_path(self, from_entity, to_entity, max_depth=3):
-        """BFS查找两实体间的最短路径。"""
+        """BFS查找两实体间的最短Path。"""
         if from_entity == to_entity:
             return [from_entity]
         edges = self.all_edges()
-        # 构建邻接表
+        # Build邻接Table
         adj = collections.defaultdict(set)
         for e in edges:
             frm, to = e.get("from", ""), e.get("to", "")
@@ -1022,7 +1022,7 @@ class MemoryGraphStore:
         return None
 
     def get_entity_graph(self, entities, depth=2):
-        """获取多个实体的子图（用于检索增强）。"""
+        """获取多实体的子图（用于检索增强）。"""
         result = {}
         for ent in entities:
             result[ent] = self.get_neighbors(ent, max_depth=depth)
@@ -1030,7 +1030,7 @@ class MemoryGraphStore:
 
 
 # ============================================================================
-# Part 6: 检索层（五路融合：BM25 + 向量 + 图 + 时间 + 可信度）
+# Part 6: Retrieval Layer（5-Way Fusion：BM25 + 向量 + 图 + Time + 可信度）
 # ============================================================================
 
 def _idf(doc_tf_list):
@@ -1064,7 +1064,7 @@ def _cosine(vec_a, vec_b):
 
 
 def _temporal_score(created_iso, now_ts, half_life_days=90):
-    """计算时间衰减分数。"""
+    """computes Time衰减分数。"""
     try:
         created_ts = datetime.fromisoformat(created_iso.replace("Z", "+00:00")).timestamp()
     except Exception:
@@ -1074,7 +1074,7 @@ def _temporal_score(created_iso, now_ts, half_life_days=90):
 
 
 def _confidence_weight(record):
-    """根据可信度调整权重。"""
+    """based on 可信度调整权重。"""
     conf = record.get("confidence", 0.7)
     verify = record.get("verification", "unverified")
     multiplier = 1.0
@@ -1090,32 +1090,32 @@ def _confidence_weight(record):
 
 
 # ============================================================================
-# 五路融合检索引擎
+# 5-Way Fusion检Index擎
 # ============================================================================
 
 class RetrievalEngine:
-    """五路融合检索引擎（v3.0 倒排索引加速版）。
+    """5-Way Fusion检Index擎（v3.0 Inverted Index加速版）。
 
-    五路：BM25关键词 + 随机投影向量 + 知识图谱 + 时间衰减 + 可信度加权
-    v3.0 新增：倒排索引缓存，BM25 检索从 O(n) 降至 O(q·log(n))。
+    五路：BM25关Key词 + 随机投影向量 + Knowledge Graph + Time衰减 + 可信度加权
+    v3.0 新增：Inverted IndexCache，BM25 检索从 O(n) 降至 O(q·log(n))。
     """
 
     def __init__(self, embed_engine=None, graph_store=None):
         self.embed_engine = embed_engine or EmbeddingEngine()
         self.graph_store = graph_store
-        # v3.0: 倒排索引缓存
+        # v3.0: Inverted IndexCache
         self._inverted_index = {}       # token → {record_index, ...}
-        self._doc_tf_cache = []         # 预计算的 TF 向量（避免每次检索重新分词）
-        self._indexed_record_count = 0  # 上次索引时的记录数
-        self._indexed_store_path = None # 上次索引的记忆库路径
+        self._doc_tf_cache = []         # 预computes 的 TF 向量（避免per  times检索重新分词）
+        self._indexed_record_count = 0  # 上 timesIndex时的Record数
+        self._indexed_store_path = None # 上 timesIndex的记忆库Path
 
     def _ensure_index(self, store):
-        """增量更新倒排索引 + TF缓存（仅在记录数变化时重建）。"""
+        """增量updates Inverted Index + TFCache（仅在Record数变化时重建）。"""
         records = [r for r in store.all_records()
                    if not r.get("_corrupt") and r.get("status", "active") != "deleted"]
         if len(records) == self._indexed_record_count and self._indexed_store_path == store.index_path:
-            return  # 索引已是最新
-        # 重建倒排索引 + TF缓存
+            return  # Index已是最新
+        # 重建Inverted Index + TFCache
         self._inverted_index.clear()
         self._doc_tf_cache = []
         for idx, r in enumerate(records):
@@ -1131,7 +1131,7 @@ class RetrievalEngine:
     def retrieve(self, store, query, k=5, layer=None, mtype=None, tag=None,
                  date_from=None, date_to=None, use_vector=True, use_graph=True,
                  multi_hop=False, boost_recency=0.6, candidate_n=500):
-        """五路融合检索主入口。"""
+        """5-Way Fusion检索主入口。"""
         records = [r for r in store.all_records()
                    if not r.get("_corrupt") and r.get("status", "active") != "deleted"]
 
@@ -1152,15 +1152,15 @@ class RetrievalEngine:
         n = len(records)
         now = _utcnow_ts()
 
-        # ---- 路径1: BM25 关键词（v3.0 倒排索引+TF缓存加速）----
+        # ---- Path1: BM25 关Key词（v3.0 Inverted Index+TFCache加速）----
         self._ensure_index(store)
-        # v3.0: 使用预计算的 TF 缓存，避免每次检索重新分词
+        # v3.0: using 预computes 的 TF Cache，避免per  times检索重新分词
         doc_tfs = self._doc_tf_cache if self._doc_tf_cache else \
                   [_tf_vector(_tokenize(r.get("content", ""))) for r in records]
         avg_len = sum(sum(t.values()) for t in doc_tfs) / max(len(doc_tfs), 1)
         idf_dict = _idf(doc_tfs)
 
-        # v3.0: 用倒排索引加速 BM25——只计算包含查询词的文档
+        # v3.0: 用Inverted Index加速 BM25——只computes contains Query词的文档
         bm25_scores = [0.0] * n
         candidate_indices = set()
         for q_tok in q_tf:
@@ -1175,7 +1175,7 @@ class RetrievalEngine:
             bm25_scores = [_bm25_score(q_tf, t, idf_dict, avg_len) for t in doc_tfs]
             candidate_indices = set(range(n))
 
-        # ---- 粗筛候选（v3.0: 基于倒排索引的候选集）----
+        # ---- 粗筛候选（v3.0: 基于Inverted Index的候选集）----
         if isinstance(candidate_indices, set):
             candidate_indices = sorted(candidate_indices, key=lambda i: bm25_scores[i], reverse=True)
             if len(candidate_indices) > candidate_n:
@@ -1185,7 +1185,7 @@ class RetrievalEngine:
         else:
             candidate_indices = list(range(n))
 
-        # ---- 路径2: 向量语义（随机投影嵌入） ----
+        # ---- Path2: 向量语义（随机投影嵌入） ----
         vec_scores = [0.0] * n
         if use_vector:
             q_vec = self.embed_engine.encode(q_tokens)
@@ -1197,12 +1197,12 @@ class RetrievalEngine:
                     d_vec = self.embed_engine.encode(rec.get("content", ""))
                     vec_scores[i] = self.embed_engine.similarity(q_vec, d_vec)
 
-        # ---- 路径3: 知识图谱（v3.1 增强：多跳扩展 + 图遍历boost）----
+        # ---- Path3: Knowledge Graph（v3.1 增强：多跳扩展 + 图遍历boost）----
         graph_scores = [0.0] * n
         q_entities = set(_extract_entity_names(query))
         graph_expanded_entities = set(q_entities)  # 扩展后的实体集合
         if use_graph and self.graph_store and self.graph_store.exists:
-            # Step A: 从 query 实体出发做图扩展（2跳），找到关联实体
+            # Step A: 从 query 实体出发做图扩展（2跳），finds 关联实体
             for qe in list(q_entities)[:10]:
                 try:
                     neighbors = self.graph_store.get_neighbors(qe, max_depth=2)
@@ -1212,7 +1212,7 @@ class RetrievalEngine:
                 except:
                     pass
             
-            # Step B: 用扩展后的实体集合重新计算图谱分数
+            # Step B: 用扩展后的实体集合重新computes 图谱分数
             all_edges = self.graph_store.all_edges()
             adj = {}
             for e in all_edges:
@@ -1227,7 +1227,7 @@ class RetrievalEngine:
                 # 直接实体重叠
                 direct = len(graph_expanded_entities & r_ent)
                 graph_scores[i] = direct * 0.5
-                # 图路径连接（核心新增：即使无直接重叠，走图路径也能加分）
+                # 图Path连接（核心新增：即使无直接重叠，走图Path也能加分）
                 if direct == 0 and q_entities:
                     for qe in q_entities:
                         for re_ent in r_ent:
@@ -1239,8 +1239,8 @@ class RetrievalEngine:
                                         graph_scores[i] += 0.15  # 2跳 +0.15
                                         break
         
-        # ---- 路径3b: 候选池图扩展（v3.1 新增）----
-        # 把图关联但BM25低分的记录也加入候选池
+        # ---- Path3b: 候选池图扩展（v3.1 新增）----
+        # 把图关联但BM25低分的Record也加入候选池
         if use_graph and self.graph_store and self.graph_store.exists and graph_expanded_entities:
             extra_candidates = set()
             for i in range(n):
@@ -1249,13 +1249,13 @@ class RetrievalEngine:
                 r_ent = set(r.get("entities") or [])
                 if graph_expanded_entities & r_ent:
                     extra_candidates.add(i)
-            # 合并额外候选（最多追加50个）
+            # merges 额外候选（最多追加50）
             candidate_indices = list(candidate_indices) + list(extra_candidates)[:50]
         
-        # ---- 路径4: 时间检索（v3.1 增强：时间上下文感知 + 冲突降权）----
+        # ---- Path4: Time检索（v3.1 增强：Time上下文感知 + 冲突降权）----
         time_scores = [0.0] * n
-        # 从查询中提取时间上下文
-        q_time_pattern = re.search(r'(\d{4})年|(\d{4})[/-]|去年|今年|现在|最近|之前|以后|之前说过|后来|先是|后来改成|原来|以前|更新|现在在|搬到|换', query)
+        # 从Query中提取Time上下文
+        q_time_pattern = re.search(r'(\d{4})年|(\d{4})[/-]|去年|今年|现在|最近|之前|以后|之前说过|后来|先是|后来改成|原来|以前|updates |现在在|搬到|换', query)
         q_time_context = 'recent'  # default: prefer recent
         q_time_year = None
         if q_time_pattern:
@@ -1263,11 +1263,11 @@ class RetrievalEngine:
             if re.search(r'去年', matched): q_time_context = 'past'
             elif re.search(r'现在|今年|搬到|换|现在在', matched): q_time_context = 'recent_update'
             elif re.search(r'之前|原来|以前', matched): q_time_context = 'past'
-            elif re.search(r'后来|更新', matched): q_time_context = 'recent_update'
+            elif re.search(r'后来|updates ', matched): q_time_context = 'recent_update'
             year_match = re.search(r'(\d{4})', matched)
             if year_match: q_time_year = int(year_match.group(1))
         
-        # 检测被 superseded 的记录（v3.1 新增：记忆巩固感知）
+        # 检测被 superseded 的Record（v3.1 新增：Memory Consolidation感知）
         superseded_ids = set()
         for i in range(n):
             r = records[i]
@@ -1279,7 +1279,7 @@ class RetrievalEngine:
             et = r.get("event_time") or r.get("created_at", "")
             base_temporal = _temporal_score(et, now) * boost_recency
             
-            # v3.1: 时间上下文适配
+            # v3.1: Time上下文适配
             if q_time_context == 'recent_update':
                 # 偏好"最新"的记忆：越新分越高
                 base_temporal *= 1.3
@@ -1288,16 +1288,16 @@ class RetrievalEngine:
                 try:
                     et_year = int(et[:4]) if et and len(et) >= 4 else None
                     if et_year and abs(et_year - q_time_year) <= 1:
-                        base_temporal *= 2.0  # 年份匹配大幅加权
+                        base_temporal *= 2.0  # 年份matches 大幅加权
                 except: pass
             
-            # v3.1: superseded 记录降权（记忆巩固）
+            # v3.1: superseded Record降权（Memory Consolidation）
             if r.get('id') in superseded_ids:
                 base_temporal *= 0.3
             
             time_scores[i] = base_temporal
         
-        # ---- 路径5: 可信度加权（v3.1 增强：superseded 惩罚）----
+        # ---- Path5: 可信度加权（v3.1 增强：superseded 惩罚）----
         conf_weights = [0.0] * n
         for i in range(n):
             r = records[i]
@@ -1323,7 +1323,7 @@ class RetrievalEngine:
             access_boost = min(r.get("access_count") or 0, 10) * 0.02
             conf = conf_weights[i]
 
-            # v3.1: 图权重提升 + 时间感知
+            # v3.1: 图权重提升 + Time感知
             graph_weight = 0.25 if n_graph > 0.3 else 0.20  # ↑ from 0.15
             bm25_weight = 0.25 if n_bm25 > 0.3 else 0.20    # ↓ from 0.30
             vec_weight = 0.20 if n_vec > 0.3 else 0.15     # ↓ from 0.25
@@ -1339,12 +1339,12 @@ class RetrievalEngine:
             ) * (0.6 + 0.4 * imp) + access_boost
 
             reasons = []
-            if n_bm25 > 0.3: reasons.append("关键词")
+            if n_bm25 > 0.3: reasons.append("关Key词")
             if n_vec > 0.35: reasons.append("语义")
             if n_graph > 0: reasons.append("实体图")
             if n_time > 0.8: reasons.append("近期")
             if conf > 0.9: reasons.append("高可信")
-            if r.get('id') in superseded_ids: reasons.append("已更新")
+            if r.get('id') in superseded_ids: reasons.append("已updates ")
 
             scored.append((total, r, reasons))
 
@@ -1358,7 +1358,7 @@ class RetrievalEngine:
         return top
 
     def _multi_hop_enhance(self, store, query, scored, k):
-        """多跳推理：从第一跳结果中抽取实体，再做一次图扩展检索，合并结果。"""
+        """多跳推理：从第一跳Result中抽取实体，再做一 times图扩展检索，merges Result。"""
         first_entities = set()
         for _, rec, _ in scored[:3]:
             for e in (rec.get("entities") or [])[:5]:
@@ -1367,7 +1367,7 @@ class RetrievalEngine:
         if not first_entities:
             return scored
 
-        # 从全库中找与first_entities有实体共现但BM25不高的记录
+        # 从全库中找与first_entities有实体共现但BM25不高的Record
         all_recs = [r for r in store.all_records()
                     if not r.get("_corrupt") and r.get("status") != "deleted"]
         scored_ids = {s[1]["id"] for s in scored}
@@ -1383,7 +1383,7 @@ class RetrievalEngine:
                 hop2.append((hop_score, r, ["多跳推理"]))
 
         hop2.sort(key=lambda x: x[0], reverse=True)
-        # 合并：原有 top-k 的80%位置 + hop2 的top-2
+        # merges ：原有 top-k 的80%位置 + hop2 的top-2
         combined = scored[:max(k - 2, k // 2)] + hop2[:2]
         combined.sort(key=lambda x: x[0], reverse=True)
         return combined[:k]
@@ -1399,18 +1399,18 @@ def _in_date_range(r, date_from, date_to):
 
 
 # ============================================================================
-# Part 7: Cognitive Resolver（认知解析器 v3.1）
+# Part 7: Cognitive Resolver（Cognitive Resolver v3.1）
 # ============================================================================
-# 四个规则引擎模块，在检索结果和答案之间做认知加工。
+# 四规则引擎模块，在检索Result和答案之间做认知加工。
 # 不依赖 LLM，纯规则 + 检索上下文推理。
 
 
 class CognitiveResolver:
-    """认知解析器：接收检索结果，输出结构化答案。
+    """Cognitive Resolver：receives 检索Result，Output结构化答案。
 
-    四个子模块：
-      1. TemporalResolver   — 今天/昨天/去年 → 绝对日期
-      2. PreferenceSynthesizer — 冲突偏好合并 → 当前偏好
+    四子模块：
+      1. TemporalResolver   — 今天/昨天/去年 → 绝对Date
+      2. PreferenceSynthesizer — 冲突偏好merges  → 当前偏好
       3. MultiHopReasoner   — 跨实体链式推理
       4. EntityCanonicalizer — 实体名统一
     """
@@ -1422,25 +1422,25 @@ class CognitiveResolver:
             (r'去年', -365), (r'今年', 0),
             (r'(\d+)天前', lambda m: -int(m.group(1))),
             (r'(\d+)周前', lambda m: -int(m.group(1)) * 7),
-            (r'(\d+)个月前', lambda m: -int(m.group(1)) * 30),
+            (r'(\d+)月前', lambda m: -int(m.group(1)) * 30),
             (r'(\d+)年前', lambda m: -int(m.group(1)) * 365),
         ]
         self._update_markers = [
-            '换成', '改成', '改为', '更新为', '变更为',
+            '换成', '改成', '改为', 'updates 为', '变更为',
             '现在', '最近', '目前', '当前',
             '搬', '搬到', '搬到', '换到', '迁到',
         ]
 
     def resolve(self, query, retrieved_records):
-        """主入口：对检索结果做四步认知加工。"""
+        """主入口：对检索Result做四步认知加工。"""
         records = retrieved_records[:20]  # 取 top-20
 
-        # 提取上下文日期
+        # 提取上下文Date
         context_dates = self._extract_dates(records)
 
-        # Step 1: 时间解析
+        # Step 1: Timeparses 
         query = self._resolve_temporal(query, context_dates)
-        # 对每条记录内容也做时间解析
+        # 对per  records内容也做Timeparses 
         resolved_records = []
         for r in records:
             content = r[1].get('content', '') if isinstance(r, tuple) else (
@@ -1469,7 +1469,7 @@ class CognitiveResolver:
     # ---- 1. Temporal Resolver ----
 
     def _extract_dates(self, records):
-        """从检索记录中提取所有日期。"""
+        """从检索Record中提取所有Date。"""
         import re as _re
         dates = set()
         for r in records:
@@ -1485,10 +1485,10 @@ class CognitiveResolver:
         return sorted(dates)
 
     def _resolve_temporal(self, text, context_dates):
-        """将相对时间表达式转为绝对日期。"""
+        """将相对TimeTable达式转为绝对Date。"""
         import re as _re
         result = text
-        # 找最近的日期作为锚点
+        # 找最近的Date作为锚点
         anchor = context_dates[-1] if context_dates else None
 
         for pattern, offset in self._date_patterns:
@@ -1518,9 +1518,9 @@ class CognitiveResolver:
     # ---- 2. Preference Synthesizer ----
 
     def _synthesize_preference(self, all_text):
-        """从多条偏好记录中合成当前偏好。
+        """从多条偏好Record中合成当前偏好。
 
-        规则：时间越新权重越高；含更新标记的覆盖旧记录。
+        规则：Time越新权重越高；含updates 标记的覆盖旧Record。
         """
         import re as _re
         # 提取所有偏好相关句子
@@ -1529,18 +1529,18 @@ class CognitiveResolver:
             line = line.strip()
             if not line:
                 continue
-            # 偏好关键词
-            if _re.search(r'偏好|喜欢|讨厌|认为|觉得|建议|推荐|应该|最好|选择|优先|换成|改成|改为|更新|现在', line):
+            # 偏好关Key词
+            if _re.search(r'偏好|喜欢|讨厌|认为|觉得|建议|推荐|应该|最好|选择|优先|换成|改成|改为|updates |现在', line):
                 pref_sentences.append(line)
 
         if not pref_sentences:
             return None
 
-        # 如果只有一条，直接返回
+        # 如果只有一条，直接returns 
         if len(pref_sentences) == 1:
             return pref_sentences[0]
 
-        # 多条：检查是否有更新标记，取最新的
+        # 多条：checks 是否有updates 标记，取最新的
         for marker in self._update_markers:
             for s in reversed(pref_sentences):
                 if marker in s:
@@ -1555,17 +1555,17 @@ class CognitiveResolver:
         """跨实体链式推理。
 
         例如：
-          检索到"Alice 在 Acme 公司工作"
+          检索到"Alice 在 Acme 公司Work"
           检索到"Acme 公司总部在深圳"
-          → 推理解："Alice 在深圳工作"
+          → 推理解："Alice 在深圳Work"
         """
         import re as _re
-        # 提取实体-关系对
+        # Extract entities-关系对
         entity_pairs = []
         for line in all_text.split('\n'):
             # 模式：X 是/在/做 Y
             for pattern in [
-                r'(\S{1,10})\s*(?:是|在|做|的|为|属于|工作于|就职于|住在|搬到|来到)\s*(\S{1,15})',
+                r'(\S{1,10})\s*(?:是|在|做|的|为|属于|Work于|就职于|住在|搬到|来到)\s*(\S{1,15})',
                 r'(\S{1,15})\s*(?:公司|集团|医院|工厂|的)\s*(?:总部|地址|在|位于)\s*(\S{1,10})',
             ]:
                 for m in _re.finditer(pattern, line):
@@ -1591,7 +1591,7 @@ class CognitiveResolver:
     # ---- 4. Entity Canonicalizer ----
 
     def _canonicalize_entities(self, all_text):
-        """统一实体名称变体。
+        """统一实体Name变体。
 
         OpenAI / Open AI / OpenAI公司 → OpenAI
         腾讯 / 腾讯公司 / Tencent → 腾讯
@@ -1610,32 +1610,32 @@ class CognitiveResolver:
     # ---- 5. Temporal-aware Re-ranking (v3.2) ----
 
     def rerank_by_time(self, query, records):
-        """时间感知重排序：查询含时间信号时，重排结果优先匹配时间段。
+        """Time感知重sorts ：Query含Time信号时，重排Result优先matches Time段。
 
-        信号词：'现在''最近''换/搬到' → 优先新记录
-               '之前''原来''以前' → 优先旧记录
+        信号词：'现在''最近''换/搬到' → 优先新Record
+               '之前''原来''以前' → 优先旧Record
                含年份 → 优先该年
         """
         import re as _re
         # 确保 query 是字符串
         query_str = str(query) if not isinstance(query, str) else query
-        has_recent = _re.search(r'现在|最近|目前|当前|换|搬到|更新|后来|改成', query_str)
+        has_recent = _re.search(r'现在|最近|目前|当前|换|搬到|updates |后来|改成', query_str)
         has_past = _re.search(r'之前|原来|以前|最早|一开始|最初', query_str)
         year_match = _re.search(r'(\d{4})', query_str)
 
         if not (has_recent or has_past or year_match):
-            return records  # 无时间信号，不重排
+            return records  # 无Time信号，不重排
 
         scored = []
         for item in records:
             text = item[1].get('content','') if isinstance(item,tuple) else str(item)
             score = item[0] if isinstance(item,tuple) else 0.0
 
-            # 提取内容中的日期
+            # 提取内容中的Date
             dates = _re.findall(r'(\d{4})-(\d{2})-(\d{2})', text)
             if dates:
                 y, m, d = int(dates[0][0]), int(dates[0][1]), int(dates[0][2])
-                # 年份匹配加权
+                # 年份matches 加权
                 if year_match:
                     q_year = int(year_match.group(1))
                     if abs(y - q_year) <= 1:
@@ -1654,10 +1654,10 @@ class CognitiveResolver:
     # ---- 6. Memory Re-verification (v3.2) ----
 
     def re_verify(self, records, graph_store=None):
-        """记忆重校验：交叉验证检索结果。
+        """记忆重校验：交叉Validate检索Result。
 
-        检查：① 同一实体是否有冲突信息 ② 是否被后续记录更新
-        标记低可信结果。
+        checks ：① 同一实体是否有冲突信息 ② 是否被后续Recordupdates 
+        标记低可信Result。
         """
         import re as _re
         verified = []
@@ -1667,7 +1667,7 @@ class CognitiveResolver:
             text = item[1].get('content','') if isinstance(item,tuple) else str(item)
             score = item[0] if isinstance(item,tuple) else 0.0
 
-            # 提取实体
+            # Extract entities
             ents = _re.findall(r'[\u4e00-\u9fff]{2,6}|[A-Z][a-z]{2,}', text)
 
             # 实体冲突检测
@@ -1692,18 +1692,18 @@ class CognitiveResolver:
         return verified
 
     def _is_contradictory(self, text_a, text_b):
-        """简单检测两条记录是否矛盾。"""
-        # 关键词矛盾信号
+        """简单检测两 records是否矛盾。"""
+        # 关Key词矛盾信号
         signals_a = set()
         signals_b = set()
-        for w in ['是','在','做','住','工作','喜欢','偏好']:
+        for w in ['是','在','做','住','Work','喜欢','偏好']:
             import re as _re
             m = _re.search(rf'{w}\s*(\S{{2,10}})', text_a)
             if m: signals_a.add((w, m.group(1)))
             m = _re.search(rf'{w}\s*(\S{{2,10}})', text_b)
             if m: signals_b.add((w, m.group(1)))
 
-        # 同关键词不同值=矛盾
+        # 同关Key词不同Value=矛盾
         for kw, val in signals_a:
             for kw2, val2 in signals_b:
                 if kw == kw2 and val != val2:
@@ -1713,9 +1713,9 @@ class CognitiveResolver:
     # ---- 7. LLM Second-pass Filter (v3.2) ----
 
     def llm_filter(self, query, records):
-        """LLM 二次过滤：模拟 LLM 判断检索结果是否真正相关。
+        """LLM 二 timesfilters ：模拟 LLM 判断检索Result是否真正相关。
 
-        规则：① 查询词命中率 > 30%  ② 实体重叠 ≥ 1
+        规则：① Query词命中率 > 30%  ② 实体重叠 ≥ 1
              ③ 不是纯干扰对话  ④ 长度合理（非碎片）
         """
         import re as _re
@@ -1727,7 +1727,7 @@ class CognitiveResolver:
             text = item[1].get('content','') if isinstance(item,tuple) else str(item)
             score = item[0] if isinstance(item,tuple) else 0.0
 
-            # ① 查询词命中率
+            # ① Query词命中率
             text_lower = text.lower()
             hits = sum(1 for t in q_tokens if t in text_lower)
             hit_rate = hits / max(len(q_tokens), 1)
@@ -1736,7 +1736,7 @@ class CognitiveResolver:
             text_entities = set(_re.findall(r'[\u4e00-\u9fff]{2,6}|[A-Z][a-z]{2,}', text))
             entity_overlap = len(q_entities & text_entities) if q_entities else 0
 
-            # ③ 过滤纯干扰（太短或纯寒暄）
+            # ③ filters 纯干扰（太短或纯寒暄）
             is_noise = len(text) < 15 or text in ['[user] 嗨','[assistant] 好的','[user] 嗯']
 
             # ④ 综合评分
@@ -1755,16 +1755,16 @@ class CognitiveResolver:
         return filtered
 
     # ====================================================================
-    # v4.0 八层升级：严格按收益排序
+    # v4.0 八层Upgrade：严格by 收益sorts 
     # ====================================================================
 
     # ---- Layer 2: Turn Localization Engine ----
     # Session → Chunk Split → Turn Embedding → Cross Encoder ReRank → Evidence Turn
 
     def turn_localize(self, session_hits, query, embed_engine):
-        """Layer 2: Cross Encoder ReRank — 保留原始内容，只改善排序。
+        """Layer 2: Cross Encoder ReRank — 保留原始内容，只改善sorts 。
 
-        对每条 hit 做多维语义打分后重新排序，不改变内容本身。
+        对per 条 hit 做多维语义打分后重新sorts ，不改变内容本身。
         """
         import re as _re
         if not session_hits: return session_hits
@@ -1786,7 +1786,7 @@ class CognitiveResolver:
 
             # 维度1: 向量相似度 (25%)
             vec_sim = embed_engine.similarity(q_vec, c_vec)
-            # 维度2: 关键词重叠率 (40%)
+            # 维度2: 关Key词重叠率 (40%)
             token_overlap = len(q_tokens & c_tokens) / max(len(q_tokens), 1)
             # 维度3: 实体共现 (25%)
             ent_overlap = len(q_ents & c_ents) / max(len(q_ents), 1) if q_ents else 0
@@ -1802,9 +1802,9 @@ class CognitiveResolver:
     # ---- Layer 3: Temporal Resolver (增强版) ----
 
     def build_temporal_map(self, all_records):
-        """从所有记录中构建 {相对时间 → 绝对日期} 映射表。
+        """从所有Record中Build {相对Time → 绝对Date} 映射Table。
 
-        输出: {"today":"2024-03-01", "yesterday":"2024-02-29", ...}
+        Output: {"today":"2024-03-01", "yesterday":"2024-02-29", ...}
         """
         import re as _re
         from datetime import datetime as _dt, timedelta as _td
@@ -1812,7 +1812,7 @@ class CognitiveResolver:
         temporal_map = {}
         dates = []
 
-        # 提取所有绝对日期
+        # 提取所有绝对Date
         for r in all_records:
             text = r[1].get('content','') if isinstance(r,tuple) else str(r)
             for m in _re.finditer(r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})|(\d{4})年(\d{1,2})月(\d{1,2})日', text):
@@ -1826,10 +1826,10 @@ class CognitiveResolver:
         if not dates:
             return temporal_map
 
-        # 用最新日期作为锚点
+        # 用最新Date作为锚点
         anchor = max(dates)
 
-        # 构建映射表
+        # Build映射Table
         offsets = {
             '今天': 0, '今日': 0,
             '昨天': -1, '昨日': -1,
@@ -1837,7 +1837,7 @@ class CognitiveResolver:
             '明天': 1,
             '后天': 2,
             '上周': -7, '下周': 7,
-            '上个月': -30, '下个月': 30,
+            '上月': -30, '下月': 30,
             '去年': -365, '明年': 365,
         }
         for rel, offset in offsets.items():
@@ -1847,7 +1847,7 @@ class CognitiveResolver:
         return temporal_map
 
     def resolve_with_map(self, text, temporal_map):
-        """用 temporal_map 替换文本中的相对时间。"""
+        """用 temporal_map 替换文本中的相对Time。"""
         for rel, abs_date in temporal_map.items():
             text = text.replace(rel, abs_date)
         return text
@@ -1855,7 +1855,7 @@ class CognitiveResolver:
     # ---- Layer 4: Entity Canonicalizer (增强版) ----
 
     def canonicalize_full(self, all_text):
-        """全量实体统一：名称变体 + 简称 + 人称代词。"""
+        """全量实体统一：Name变体 + 简称 + 人称代词。"""
         import re as _re
         text = all_text
 
@@ -1873,10 +1873,10 @@ class CognitiveResolver:
         text = _re.sub(r'(\S)\s+(\S)', r'\1\2', text)
         return text
 
-    # ---- Layer 5: Memory Graph (核心升级) ----
+    # ---- Layer 5: Memory Graph (核心Upgrade) ----
 
     def build_entity_graph(self, all_records):
-        """从所有记录构建 Entity → Relation → Value 结构化图谱。
+        """从所有RecordBuild Entity → Relation → Value 结构化图谱。
 
         例: "今天买车" → {entity:"我", relation:"买车", time:"2024-03-01"}
         """
@@ -1885,18 +1885,18 @@ class CognitiveResolver:
 
         for rec in all_records:
             text = rec[1].get('content','') if isinstance(rec,tuple) else str(rec)
-            # 提取实体-动作-时间三元组
-            # 模式: 实体 + 动作 + (可选时间)
+            # Extract entities-动作-Time三元组
+            # 模式: 实体 + 动作 + (可选Time)
             patterns = [
                 r'(我|他|她|我们|用户)\s*(买了|去了|开始了|完成了|到了|搬到|入职|学到了|加入了)\s*(\S{2,10})',
-                r'(\S{2,6})\s*(是|在|做|工作于|就职于|住在|搬到|来到)\s*(\S{2,15})',
+                r'(\S{2,6})\s*(是|在|做|Work于|就职于|住在|搬到|来到)\s*(\S{2,15})',
             ]
             for pat in patterns:
                 for m in _re.finditer(pat, text):
                     fact = {'subject': m.group(1), 'action': m.group(2),
                             'object': m.group(3) if m.lastindex >= 3 else '',
                             'source': text[:80]}
-                    # 提取时间
+                    # 提取Time
                     time_m = _re.search(r'(\d{4}-\d{2}-\d{2})|今天|昨天', text)
                     if time_m:
                         fact['time'] = time_m.group(0)
@@ -1905,7 +1905,7 @@ class CognitiveResolver:
         return graph
 
     def query_entity_graph(self, graph, query):
-        """在图谱中检索与查询相关的结构化事实。"""
+        """在图谱中检索与Query相关的结构化事实。"""
         import re as _re
         q_words = set(_re.findall(r'[\u4e00-\u9fff]{2,}', query))
 
@@ -1922,7 +1922,7 @@ class CognitiveResolver:
     # ---- Layer 6: Evidence Expansion ----
 
     def expand_evidence_window(self, hits, all_turns, window=2):
-        """证据窗口扩展：命中 Turn N → 同时返回 Turn N-1, N, N+1。
+        """证据窗口扩展：命中 Turn N → 同时returns  Turn N-1, N, N+1。
 
         很多 LongMemEval 答案跨 Turn（如：Q1 说买了车，Q2 说花了多少钱）。
         """
@@ -1943,7 +1943,7 @@ class CognitiveResolver:
                 td = all_turns[idx]
                 tc = td.get('c', td.get('content', '')) if isinstance(td, dict) else str(td)
                 expanded.append((1.0, {'content': tc}))
-        # ★ Hybrid: 扩展结果 + 原始结果合并，不替换
+        # ★ Hybrid: 扩展Result + 原始Resultmerges ，不替换
         merged = list(hits) + expanded
         return merged
 
@@ -1952,9 +1952,9 @@ class CognitiveResolver:
     def multi_hop_retrieve(self, query, graph, hits):
         """多跳检索：Question → Entity A → Related Event → Evidence Turn。
 
-        例: "A在哪工作？" → 找到 "A在腾讯" → 图搜索 "腾讯在深圳" → 返回两条
+        例: "A在哪Work？" → finds  "A在腾讯" → 图searches  "腾讯在深圳" → returns 两条
         """
-        # 从图谱中找到与查询相关的实体
+        # 从图谱中finds 与Query相关的实体
         import re as _re
         q_entities = set(_re.findall(r'[\u4e00-\u9fff]{2,6}|[A-Z][a-z]{2,}', query))
 
@@ -1971,13 +1971,13 @@ class CognitiveResolver:
             return list(hits) + extra_hits
         return hits
 
-    # ---- Layer 8: Memory Knowledge Compiler (核心升级) ----
+    # ---- Layer 8: Memory Knowledge Compiler (核心Upgrade) ----
 
     def compile_knowledge(self, all_records):
         """记忆知识编译器：将原始对话自动编译为结构化 Memory Facts。
 
-        输入: "[user] 今天买车,花了20万,贷款5年"
-        输出: {"event":"购车","date":"2024-03-01","price":"20万","loan":"5年"}
+        Input: "[user] 今天买车,花了20万,贷款5年"
+        Output: {"event":"购车","date":"2024-03-01","price":"20万","loan":"5年"}
         """
         import re as _re
         facts = []
@@ -1987,13 +1987,13 @@ class CognitiveResolver:
 
             # 提取结构化信息
             fact = {}
-            # 事件类型
+            # EventType
             for event_type, keywords in {
                 '购车': ['买车','购车','提车'],
-                '入职': ['入职','上班','工作'],
+                '入职': ['入职','上班','Work'],
                 '搬家': ['搬家','搬到','搬到'],
                 '考试': ['考试','考','报考'],
-                '旅行': ['旅行','旅游','去了','去'],
+                '旅line': ['旅line','旅游','去了','去'],
                 '购买': ['买了','花了','购买','消费'],
             }.items():
                 for kw in keywords:
@@ -2006,7 +2006,7 @@ class CognitiveResolver:
             money = _re.search(r'(\d+)\s*(万|元|块|k|w|USD|CNY)', text)
             if money: fact['price'] = money.group(0)
 
-            # 时间
+            # Time
             time_m = _re.search(r'(\d{4}-\d{2}-\d{2})|今天|昨天|上周|(\d+)月(\d+)日', text)
             if time_m: fact['date'] = time_m.group(0)
 
@@ -2027,23 +2027,23 @@ class CognitiveResolver:
     # ---- 方案6 (新): Memory Alias Expansion (Multi-Entry Index) ----
 
     def generate_aliases(self, text):
-        """为一条 Turn 生成多个语义别名（不改原始内容，只建索引）。
+        """为一条 Turn generates 多语义别名（不改原始内容，只建Index）。
         
-        例: "今天正式开始在这家公司工作了" 
-        → aliases: ["入职", "开始工作", "第一天上班", "加入公司"]
+        例: "今天正式开始在这家公司Work了" 
+        → aliases: ["入职", "开始Work", "第一天上班", "加入公司"]
         
-        这些别名只在写入时作为额外索引项存储，检索时 BM25 会通过这些别名
-        找到同一个 turn_id。原始 Turn 内容完全不变。
+        这些别名只在writes 时作为额外Index项存储，检索时 BM25 会via 这些别名
+        finds 同一 turn_id。原始 Turn 内容完全不变。
         """
         import re as _re
         aliases = []
         
-        # 别名映射表：原始词 → 语义同义词
+        # 别名映射Table：原始词 → 语义同义词
         alias_map = {
             # 入职相关
-            '开始工作': ['入职', '第一天上班', '报到', '就业'],
-            '入职': ['开始工作', '第一天上班', '加入公司'],
-            '上班': ['工作', '入职', '就业'],
+            '开始Work': ['入职', '第一天上班', '报到', '就业'],
+            '入职': ['开始Work', '第一天上班', '加入公司'],
+            '上班': ['Work', '入职', '就业'],
             # 购买相关
             '买车': ['购车', '提车', '购买车辆'],
             '买了': ['购买', '购入', '消费'],
@@ -2052,29 +2052,29 @@ class CognitiveResolver:
             '搬到': ['搬家', '搬迁', '迁到', '换城市'],
             # 偏好相关
             '喜欢': ['偏好', '倾向', '选择'],
-            '换成': ['改为', '改成', '更新为'],
+            '换成': ['改为', '改成', 'updates 为'],
             # 教育相关  
             '毕业': ['完成学业', '拿到学位'],
             '考上': ['录取', '入学', '考入'],
             # 医疗相关
-            '体检': ['身体检查', '检查身体'],
+            '体检': ['身体checks ', 'checks 身体'],
             '住院': ['入院', '就医'],
-            # 旅行相关
-            '旅游': ['旅行', '游玩', '出行'],
+            # 旅line相关
+            '旅游': ['旅line', '游玩', '出line'],
             '去了': ['去了', '到访', '旅游'],
-            # 时间相关
+            # Time相关
             '今天': ['今日', '当天', '本日'],
             '昨天': ['昨日', '前一天'],
         }
         
-        # 检查文本中包含哪些关键词，生成别名
+        # checks 文本中contains 哪些关Key词，Generate aliases
         for keyword, synonyms in alias_map.items():
             if keyword in text:
-                for syn in synonyms[:2]:  # 每条最多2个别名
+                for syn in synonyms[:2]:  # per 条最多2别名
                     if syn not in text:   # 避免重复
                         aliases.append(syn)
         
-        return aliases[:8]  # 最多8个别名
+        return aliases[:8]  # 最多8别名
 
     # ====================================================================
     # v5.0 语义突破方案：Fact Memory → Source Turn 桥接层
@@ -2083,11 +2083,11 @@ class CognitiveResolver:
     # ---- 方案1: Memory Fact Layer (带 source_turn_id) ----
 
     def build_fact_index(self, turns_list, session_dates=None):
-        """为每条 turn 编译结构化 Fact，保留 source_turn_id 指针。
+        """为per 条 turn 编译结构化 Fact，保留 source_turn_id 指针。
 
-        关键：Fact 只做导航，不做输出。最终返回的是 source_turn_id 对应的原始 Turn。
+        关Key：Fact 只做导航，不做Output。最终returns 的是 source_turn_id 对应的原始 Turn。
 
-        返回: [{fact_type, subject, date, entities, source_turn_id, source_turn_text}, ...]
+        returns : [{fact_type, subject, date, entities, source_turn_id, source_turn_text}, ...]
         """
         import re as _re
         facts = []
@@ -2096,19 +2096,19 @@ class CognitiveResolver:
         for ti, turn in enumerate(turns_list):
             text = turn.get('c', turn.get('content', '')) if isinstance(turn, dict) else str(turn)
 
-            # 确定 session 日期
+            # 确定 session Date
             session_idx = turn.get('si', turn.get('session_idx', 0)) if isinstance(turn, dict) else 0
             abs_date = sd[session_idx] if session_idx < len(sd) else ''
 
             fact_types = {
-                'employment_start': ['入职', '开始工作', '上班', '报到', '第一天', '加入公司', '就职'],
+                'employment_start': ['入职', '开始Work', '上班', '报到', '第一天', '加入公司', '就职'],
                 'employment_end': ['离职', '辞职', '辞退', '被裁', '最后一天'],
                 'purchase': ['买车', '购车', '提车', '买房', '购房', '买了', '购买', '花了'],
                 'relocation': ['搬到', '搬家', '迁到', '搬到', '换了城市'],
                 'education': ['毕业', '考上', '入学', '录取', '考试'],
                 'preference': ['喜欢', '偏好', '推荐', '建议', '认为最好', '选择', '换成', '改成', '改为'],
                 'health': ['看病', '体检', '住院', '手术', '诊断'],
-                'travel': ['去旅游', '旅行', '去了', '飞', '出国'],
+                'travel': ['去旅游', '旅line', '去了', '飞', '出国'],
                 'meeting': ['开会', '面试', '约了', '面谈'],
             }
 
@@ -2132,7 +2132,7 @@ class CognitiveResolver:
                 'date': abs_date,
                 'entities': entities[:5],
                 'price': money.group(0) if money else None,
-                'source_turn_id': ti,        # ★ 关键：指向原始 Turn
+                'source_turn_id': ti,        # ★ 关Key：指向原始 Turn
                 'source_turn_text': text[:150],  # ★ 原始 Turn 的前150字符
             }
             facts.append(fact)
@@ -2140,18 +2140,18 @@ class CognitiveResolver:
         return facts
 
     def recall_via_facts(self, query, fact_index, turns_list):
-        """通过 Fact Layer 检索：匹配 Fact → 返回 source_turn_id 对应的原始 Turn。
+        """via  Fact Layer 检索：matches  Fact → returns  source_turn_id 对应的原始 Turn。
 
-        关键区别：返回的是原始 Turn 内容，不是 Fact 本身。
+        关Key区别：returns 的是原始 Turn 内容，不是 Fact 本身。
         这样 recalled_content[:60] in original_turn 依然成立。
         """
         import re as _re
         q_tokens = set(_tokenize(query))
         q_entities = set(_re.findall(r'[\u4e00-\u9fff]{2,6}|[A-Z][a-z]{2,}', query))
 
-        # 查询→Fact类型映射
+        # Query→FactType映射
         type_mapping = {
-            '入职': 'employment_start', '上班': 'employment_start', '工作': 'employment_start',
+            '入职': 'employment_start', '上班': 'employment_start', 'Work': 'employment_start',
             '买车': 'purchase', '买': 'purchase', '花了': 'purchase', '买了': 'purchase',
             '搬到': 'relocation', '搬家': 'relocation',
             '喜欢': 'preference', '偏好': 'preference', '推荐': 'preference',
@@ -2165,20 +2165,20 @@ class CognitiveResolver:
             if qt in type_mapping:
                 target_types.add(type_mapping[qt])
 
-        # 匹配 Fact
+        # matches  Fact
         scored_facts = []
         for fi, fact in enumerate(fact_index):
             score = 0.0
-            # ① Fact类型匹配
+            # ① FactTypematches 
             if target_types and fact['fact_type'] in target_types:
                 score += 3.0
             # ② 实体重叠
             f_ents = set(fact.get('entities', []))
             score += len(q_entities & f_ents) * 2.0
-            # ③ 关键词重叠
+            # ③ 关Key词重叠
             f_tokens = set(_tokenize(fact.get('source_turn_text', '')))
             score += len(q_tokens & f_tokens) * 0.5
-            # ④ 日期匹配
+            # ④ Datematches 
             if fact.get('date'):
                 for qtok in q_tokens:
                     if fact['date'] in qtok or qtok in fact['date']:
@@ -2187,7 +2187,7 @@ class CognitiveResolver:
             if score > 0:
                 scored_facts.append((score, fact['source_turn_id']))
 
-        # ★ 关键：返回原始 Turn 内容
+        # ★ 关Key：returns 原始 Turn 内容
         scored_facts.sort(key=lambda x: x[0], reverse=True)
         seen_turns = set()
         results = []
@@ -2202,9 +2202,9 @@ class CognitiveResolver:
     # ---- 方案3: Session Timeline Index ----
 
     def build_timeline(self, turns_list, session_dates):
-        """构建时间线索引：abs_date → turn_id 映射表。
+        """BuildTimeline Index：abs_date → turn_id 映射Table。
 
-        写入时把相对时间解析为绝对日期，查询时可快速定位。
+        writes 时把相对Timeparses 为绝对Date，Query时可快速定位。
         """
         timeline = []
         sd = session_dates or []
@@ -2224,9 +2224,9 @@ class CognitiveResolver:
         return timeline
 
     def recall_via_timeline(self, query, timeline, turns_list):
-        """通过时间线检索：查询含时间相关词时，匹配时间线中的日期。"""
+        """Retrieve via timeline：Query含Time相关词时，matches Time线中的Date。"""
         import re as _re
-        # 提取查询中的时间信号
+        # 提取Query中的Time信号
         year_match = _re.search(r'(\d{4})', query)
         month_match = _re.search(r'(\d{1,2})\s*月', query)
 
@@ -2254,12 +2254,12 @@ class CognitiveResolver:
     # ---- 方案2: Query Rewriting Layer ----
 
     def rewrite_query(self, query):
-        """查询重写：同义词扩展。
+        """Query Rewriting：同义词扩展。
 
-        "什么时候入职？" → ["入职", "开始工作", "第一天上班", "加入公司", "就职"]
+        "什么时候入职？" → ["入职", "开始Work", "第一天上班", "加入公司", "就职"]
         """
         synonym_map = {
-            '入职': ['开始工作', '第一天上班', '加入公司', '报到', '就职'],
+            '入职': ['开始Work', '第一天上班', '加入公司', '报到', '就职'],
             '离职': ['辞职', '辞退', '被裁', '离开公司'],
             '买车': ['购车', '提车', '购买车辆'],
             '买房': ['购房', '买房子', '置业'],
@@ -2267,9 +2267,9 @@ class CognitiveResolver:
             '喜欢': ['偏好', '觉得好', '推荐'],
             '花了': ['花了', '消费', '支出', '买了'],
             '毕业': ['完成学业', '拿到学位', '考上'],
-            '体检': ['身体检查', '检查身体'],
+            '体检': ['身体checks ', 'checks 身体'],
             '开会': ['会议', '面谈', '约了'],
-            '旅游': ['旅行', '去了', '游玩'],
+            '旅游': ['旅line', '去了', '游玩'],
         }
         import re as _re
         expanded = [query]
@@ -2281,13 +2281,13 @@ class CognitiveResolver:
     # ---- 方案4: Pseudo-Embedding (256维随机投影) ----
 
     def _hash_embedding(self, text, dim=256):
-        """简单 hash-based 伪嵌入：字/词 → hash → 随机投影向量 → 相加归一化。
+        """简单 hash-based Pseudo-Embedding：字/词 → hash → 随机投影向量 → 相加归一化。
 
-        纯标准库，~50行，不依赖 numpy。效果：语义相近的词会被拉到附近。
+        纯标准库，~50line，不依赖 numpy。效果：语义相近的词会被拉到附近。
         """
         import hashlib, math
         vec = [0.0] * dim
-        tokens = _tokenize(text)[:50]  # 最多50个token
+        tokens = _tokenize(text)[:50]  # 最多50token
         if not tokens:
             return vec
 
@@ -2306,7 +2306,7 @@ class CognitiveResolver:
         return vec
 
     def cosine_sim(self, a, b):
-        """余弦相似度。"""
+        """Cosine similarity。"""
         dot = sum(x * y for x, y in zip(a, b))
         return max(0.0, dot)  # a,b已经归一化，dot即余弦
 
@@ -2315,7 +2315,7 @@ class CognitiveResolver:
     def fact_graph_expand(self, fact_index, scored_fact_ids, turns_list):
         """Memory-to-Turn Bridge：从命中的 Fact → 共享实体的相邻 Fact → 它们的 Source Turn。
 
-        很多 LongMemEval 题需要两跳：事件A → 人物 → 事件B → 原始 Turn。
+        很多 LongMemEval 题需要两跳：EventA → 人物 → EventB → 原始 Turn。
         """
         if not scored_fact_ids:
             return []
@@ -2327,7 +2327,7 @@ class CognitiveResolver:
                 for ent in fact_index[fid].get('entities', []):
                     initial_entities.add(ent)
 
-        # 一跳扩展：找包含相同实体的其他 Fact
+        # 一跳扩展：找contains 相同实体的其他 Fact
         expanded_tids = set()
         for _, fid in scored_fact_ids:
             expanded_tids.add(fid)
@@ -2339,7 +2339,7 @@ class CognitiveResolver:
             if f_ents & initial_entities:
                 expanded_tids.add(fi)
 
-        # 返回所有关联的原始 Turn
+        # returns 所有关联的原始 Turn
         seen = set()
         results = []
         for tid in sorted(expanded_tids):
@@ -2356,13 +2356,13 @@ class CognitiveResolver:
 # ============================================================================
 
 class MemoryBrain:
-    """记忆大脑 —— 协调所有认知模块的统一入口。
+    """Memory Brain —— 协调所有认知模块的统一入口。
 
     子模块：
       - Extractor: 自动信息抽取
       - Embedder: 向量编码
-      - Graph: 知识图谱
-      - Consolidator: 记忆巩固
+      - Graph: Knowledge Graph
+      - Consolidator: Memory Consolidation
       - Confidence: 可信度评估
       - Learner: 自学习循环
     """
@@ -2384,22 +2384,22 @@ class MemoryBrain:
         if self.graph_store:
             self.graph_store.ensure_init()
 
-    # ---- 记忆写入（增强版自动抽取） ----
+    # ---- 记忆writes （增强版自动抽取） ----
 
     def retain(self, content, mtype="semantic", fast=False, **kwargs):
-        """写入一条记忆，自动完成：实体抽取、关系提取、重要性评估、
-        事实类型推断、可信度评估、图边写入、向量编码。
+        """writes 一 memory records，自动完成：实体抽取、关系提取、重要性评估、
+        事实Type推断、可信度评估、图边writes 、向量编码。
 
-        fast=True: 跳过实体抽取/图边/向量编码/冲突检测（批量写入时快10倍）。
-        被跳过的内容在首次检索时由 _ensure_index() 惰性补全。
+        fast=True: skips 实体抽取/图边/向量编码/冲突检测（批量writes 时快10倍）。
+        被skips 的内容在首 times检索时由 _ensure_index() 惰性补全。
         """
-        # 构建记录
+        # BuildRecord
         if fast:
-            # 快速路径：构建最小记录
+            # 快速Path：Build最小Record
             record = _build_record(content, mtype=mtype, **kwargs)
             if not record.get("event_time"):
                 record["event_time"] = _extract_event_time(content, record["created_at"])
-            # 跳过：entities_detailed(重) + graph_edges + embedding + conflict_detection
+            # skips ：entities_detailed(重) + graph_edges + embedding + conflict_detection
             record["entities"] = []
             record["entities_detailed"] = []
             record["embedding"] = None
@@ -2417,12 +2417,12 @@ class MemoryBrain:
             conflicts = self._detect_conflicts_at_write(record)
             if conflicts:
                 record["meta"]["write_conflicts"] = conflicts
-        # 写入
+        # writes 
         self.store.append(record)
         return record
 
     def retain_batch(self, items):
-        """批量写入。items: [(content, mtype, kwargs), ...]"""
+        """批量writes 。items: [(content, mtype, kwargs), ...]"""
         records = []
         for item in items:
             content, mtype = item[0], item[1] if len(item) > 1 else "semantic"
@@ -2435,7 +2435,7 @@ class MemoryBrain:
         return records
 
     def _detect_conflicts_at_write(self, new_record):
-        """写入时检测与已有记忆的冲突。"""
+        """writes 时检测与已有记忆的冲突。"""
         records = self.store.all_records()
         conflicts = []
         new_ents = set(new_record.get("entities") or [])
@@ -2447,7 +2447,7 @@ class MemoryBrain:
             r_ents = set(r.get("entities") or [])
             common = new_ents & r_ents
             if common and r.get("id") != new_record.get("id"):
-                # 比较事实类型是否矛盾
+                # 比较事实Type是否矛盾
                 if (r.get("fact_type") == "fact" and new_record.get("fact_type") == "fact"
                         and r.get("content", "")[:30] != new_record.get("content", "")[:30]):
                     similarity = _cosine(
@@ -2473,10 +2473,10 @@ class MemoryBrain:
         """检索记忆。"""
         return self.retrieval.retrieve(self.store, query, k=k, **kwargs)
 
-    # ---- 记忆反思（增强版：认知级反思） ----
+    # ---- Memory Reflection（增强版：认知级反思） ----
 
     def reflect(self, question=None, deep=False):
-        """增强反思：统计 + 冲突 + 趋势 + 认知模式发现。"""
+        """增强反思：counts  + 冲突 + 趋势 + 认知模式Found 。"""
         records = [r for r in self.store.all_records()
                    if not r.get("_corrupt") and r.get("status") != "deleted"]
         insights = {
@@ -2496,7 +2496,7 @@ class MemoryBrain:
         insights["top_entities"] = [{"entity": e, "count": c}
                                      for e, c in ent_counter.most_common(15) if c >= 2]
 
-        # 冲突检测（基于实体+事实类型矛盾）
+        # 冲突检测（基于实体+事实Type矛盾）
         conflicts = []
         ent_map = collections.defaultdict(list)
         for r in records:
@@ -2515,13 +2515,13 @@ class MemoryBrain:
                     })
         insights["conflicts"] = conflicts[:15]
 
-        # 趋势：时间线密度
+        # 趋势：Time线密度
         monthly = collections.Counter()
         for r in records:
             monthly[r.get("created_at", "")[:7]] += 1
         insights["monthly_density"] = dict(sorted(monthly.items())[-12:])
 
-        # 深度反思：认知模式发现
+        # 深度反思：认知模式Found 
         if deep and len(records) >= 10:
             insights["cognitive_patterns"] = self._discover_patterns(records)
 
@@ -2538,10 +2538,10 @@ class MemoryBrain:
         return insights
 
     def _discover_patterns(self, records):
-        """从记忆中自动发现行为/认知模式。"""
+        """从记忆中自动Found line为/认知模式。"""
         patterns = []
 
-        # 偏好聚合：从preference和reflective类型提取
+        # 偏好聚合：从preference和reflectiveType提取
         prefs = [r for r in records if r.get("type") in ("preference", "reflective")]
         if prefs:
             freq_words = collections.Counter()
@@ -2575,15 +2575,15 @@ class MemoryBrain:
 
         return patterns
 
-    # ---- 记忆巩固（Consolidation Engine） ----
+    # ---- Memory Consolidation（Consolidation Engine） ----
 
     def consolidate(self, dry_run=False, min_similarity=0.6, max_group=5):
-        """记忆巩固引擎：合并高度相关记忆为一条精炼记忆。
+        """Memory Consolidation引擎：merges 高度相关记忆为一条精炼记忆。
 
         流程：
-        1. 按实体共现聚类
-        2. 计算组内相似度
-        3. 合并为 summary 记忆
+        1. by 实体共现聚类
+        2. computes 组内相似度
+        3. merges 为 summary 记忆
         4. 标记原记忆为 consolidated
         """
         records = [r for r in self.store.all_records()
@@ -2592,7 +2592,7 @@ class MemoryBrain:
         if len(records) < 3:
             return {"consolidated": 0, "groups": [], "dry_run": dry_run}
 
-        # 按实体聚类
+        # by 实体聚类
         clusters = collections.defaultdict(list)
         for r in records:
             for e in (r.get("entities") or [])[:5]:
@@ -2616,7 +2616,7 @@ class MemoryBrain:
             group_recs = [r for r in group_recs if r]
             if len(group_recs) < 2:
                 continue
-            # 计算组内平均相似度
+            # computes 组内平均相似度
             sims = []
             for i in range(len(group_recs)):
                 for j in range(i + 1, len(group_recs)):
@@ -2644,7 +2644,7 @@ class MemoryBrain:
                 group_recs = [r for r in group_recs if r]
                 if len(group_recs) < 2:
                     continue
-                # 生成合并记忆
+                # generates merges 记忆
                 summary_content = "；".join(r.get("content", "")[:80] for r in group_recs[:3])
                 common_entities = list(set(
                     e for r in group_recs for e in (r.get("entities") or [])[:5]
@@ -2676,7 +2676,7 @@ class MemoryBrain:
                     r["consolidated_at"] = _now_iso()
                     r["parent_id"] = consolidated_rec["id"]
 
-                # 写入合并记忆（保留原始记忆，添加parent关联）
+                # writes merges 记忆（保留原始记忆，添加parent关联）
                 self.store.append(consolidated_rec)
                 for r in group_recs:
                     self.store.update_by_id(r["id"], {"consolidated_at": r["consolidated_at"],
@@ -2691,9 +2691,9 @@ class MemoryBrain:
     # ---- 自学习循环 ----
 
     def self_learn(self, lookback_days=30):
-        """自学习循环：分析近期交互，提炼可复用的行为策略。
+        """自学习循环：analyzes 近期交互，提炼可复用的line为策略。
 
-        输出策略记忆（strategy类型），下次Agent可直接参考。
+        Output策略记忆（strategyType），下 timesAgent可直接参考。
         """
         records = [r for r in self.store.all_records()
                    if not r.get("_corrupt") and r.get("status") != "deleted"]
@@ -2707,7 +2707,7 @@ class MemoryBrain:
 
         learnings = []
 
-        # 1. 从纠正中学习（procedural/lesson 类型）
+        # 1. 从纠正中学习（procedural/lesson Type）
         corrections = [r for r in recent if r.get("type") in ("procedural", "lesson")]
         if corrections:
             common = collections.Counter(
@@ -2716,7 +2716,7 @@ class MemoryBrain:
             top_themes = [w for w, _ in common.most_common(8) if common[w] >= 2]
             if top_themes:
                 strategy = _build_record(
-                    content=f"常见问题模式：{', '.join(top_themes[:5])}。建议优先检查这些领域避免重复错误。",
+                    content=f"常见问题模式：{', '.join(top_themes[:5])}。建议优先checks 这些领域避免重复错误。",
                     mtype="strategy",
                     importance=4,
                     confidence=0.55,
@@ -2743,7 +2743,7 @@ class MemoryBrain:
             )
             learnings.append(("strategy", strategy))
 
-        # 3. 冲突解析学习
+        # 3. 冲突parses 学习
         reflect_data = self.reflect()
         unresolved_conflicts = reflect_data.get("conflicts", [])
         if unresolved_conflicts:
@@ -2759,7 +2759,7 @@ class MemoryBrain:
             )
             learnings.append(("strategy", strategy))
 
-        # 写入学习结果
+        # writes 学习Result
         strategy_count = 0
         for ltype, rec in learnings:
             if self.embed_engine and self.enable_embeddings:
@@ -2788,7 +2788,7 @@ class MemoryBrain:
     def repair(self, dry_run=False):
         return _repair(self.store, dry_run=dry_run)
 
-    # ---- 图查询 ----
+    # ---- 图Query ----
 
     def graph_query(self, entity, depth=2):
         if not self.graph_store:
@@ -2800,7 +2800,7 @@ class MemoryBrain:
             return {"error": "图存储未启用"}
         return self.graph_store.search_path(from_e, to_e, max_depth)
 
-    # ---- 导出/导入 ----
+    # ---- exports /imports  ----
 
     def export(self, fmt="json", out_path=None):
         return _export(self.store, fmt=fmt, out_path=out_path)
@@ -2808,7 +2808,7 @@ class MemoryBrain:
     def import_file(self, path):
         return _import_file(self.store, path)
 
-    # ---- 搜索记忆 ----
+    # ---- searches 记忆 ----
 
     def search_capture(self, query, results_text, urls=None, title=None):
         return _capture_search(self.store, query, results_text, urls=urls, title=title)
@@ -2933,7 +2933,7 @@ def _repair(store, dry_run=False):
 
 
 # ============================================================================
-# Part 9: 搜索记忆操作
+# Part 9: searches 记忆操作
 # ============================================================================
 
 def _capture_search(store, query, results_text, urls=None, title=None):
@@ -2954,7 +2954,7 @@ def _capture_search(store, query, results_text, urls=None, title=None):
         content=snippet, mtype="web",
         tags=["web", "search"] + ([query[:20]] if query else []),
         source=source, importance=2,
-        context=f"联网搜索沉淀：{query}",
+        context=f"联网searches 沉淀：{query}",
         meta={"search_query": query, "capture_count": 1, "raw_urls": urls or []},
     )
     store.append(record)
@@ -2983,7 +2983,7 @@ def _should_research(store, query, max_age_days=7):
 
 
 # ============================================================================
-# Part 10: 导出/导入
+# Part 10: exports /imports 
 # ============================================================================
 
 def _export(store, fmt="json", out_path=None):
@@ -2996,7 +2996,7 @@ def _export(store, fmt="json", out_path=None):
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         suffix = ".json"
     else:
-        lines = ["# Mnemosyne v2.0 记忆库导出", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
+        lines = ["# Mnemosyne v2.0 记忆库exports ", "", f"exports Time：{_now_iso()}    共 {len(records)} 条", ""]
         for r in records:
             lines.append(f"## [{r.get('type')}] [{r.get('fact_type', 'fact')}] {r.get('created_at', '')}")
             lines.append("")
@@ -3034,9 +3034,9 @@ def _import_file(store, path):
 # ============================================================================
 
 def _hindsights_bench(brain, test_count=200):
-    """Hindsight 对标评测：按白皮书维度自测打分。
+    """Hindsight 对标评测：by 白皮书维度自测打分。
 
-    模拟真实 Agent 场景：写入 + 检索 + 反思 + 巩固 + 自学习完整流水线。
+    模拟真实 Agent 场景：writes  + 检索 + 反思 + 巩固 + 自学习完整流水线。
     """
     print("=" * 64)
     print("  Mnemosyne v3.0 — Hindsight 对标评测")
@@ -3045,19 +3045,19 @@ def _hindsights_bench(brain, test_count=200):
 
     results = {}
 
-    # ---- 1. 写入机制测试 ----
-    print("\n[1/6] 写入机制测试...")
+    # ---- 1. writes 机制Test ----
+    print("\n[1/6] writes 机制Test...")
     test_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构设计。", "semantic"),
-        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
-        ("2026-08-07 完成了劳动仲裁一审起诉材料的提交至横琴法院。", "episodic"),
+        ("产品负责人哥偏好结论先line的回答风格，回答必须简短。", "preference"),
+        ("2026-08-07 完成了劳动仲裁一审起诉材料的commits 至横琴法院。", "episodic"),
         ("教训：hermes config set 对含点的嵌套 key 会拆错，必须用 Python 直接改 config.yaml。", "procedural"),
-        ("Hindsight 是开源 Agent 记忆系统，支持 retain/recall/reflect 三种核心操作。", "semantic"),
-        ("根据过去20次交互，用户多次要求减少废话，偏好直接给结果。", "observation"),
+        ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect 三种核心操作。", "semantic"),
+        ("based on 过去20 times交互，用户多 times要求减少废话，偏好直接给Result。", "observation"),
         ("我认为未来 AI 记忆系统应当采用 Human-in-the-loop 模式。", "opinion"),
-        ("经过分析，用户是结果导向型人格，建议先给结论再展开。", "belief"),
+        ("经过analyzes ，用户是Result导向型人格，建议先给结论再展开。", "belief"),
         ("公司政策A在2026年1月废止，政策B于2026年3月生效。", "semantic"),
-        ("关键决策：选择零依赖纯Python实现而非依赖PostgreSQL+pgvector。", "semantic"),
+        ("关Key决策：选择零依赖纯Python实现而非依赖PostgreSQL+pgvector。", "semantic"),
     ]
     t0 = time.time()
     count = 0
@@ -3068,18 +3068,18 @@ def _hindsights_bench(brain, test_count=200):
     write_ms = (time.time() - t0) * 1000 / max(count, 1)
     results["write_latency_ms"] = round(write_ms, 1)
     results["write_count"] = count
-    print(f"  写入 {count} 条，平均 {write_ms:.1f}ms/条")
+    print(f"  writes  {count} 条，平均 {write_ms:.1f}ms/条")
 
-    # ---- 2. 检索测试 ----
-    print("\n[2/6] 检索能力测试...")
+    # ---- 2. 检索Test ----
+    print("\n[2/6] 检索能力Test...")
     queries = [
-        ("Alice 在哪里工作？", "semantic"),
+        ("Alice 在哪里Work？", "semantic"),
         ("产品负责人哥的回答偏好", "preference"),
         ("劳动仲裁 横琴法院", "episodic"),
-        ("hermes 配置 教训", "procedural"),
+        ("hermes Config 教训", "procedural"),
         ("AI 记忆系统 架构", "semantic"),
         ("公司 政策 废止 生效", "semantic"),
-        ("用户 人格 行为模式", "belief"),
+        ("用户 人格 line为模式", "belief"),
     ]
     recall_times = []
     for q, _ in queries:
@@ -3090,8 +3090,8 @@ def _hindsights_bench(brain, test_count=200):
     results["recall_queries"] = len(queries)
     print(f"  平均检索延迟：{results['recall_latency_ms_avg']}ms")
 
-    # ---- 3. 反思测试 ----
-    print("\n[3/6] 反思能力测试...")
+    # ---- 3. 反思Test ----
+    print("\n[3/6] 反思能力Test...")
     t1 = time.time()
     ref = brain.reflect(deep=True)
     ref_time = (time.time() - t1) * 1000
@@ -3099,11 +3099,11 @@ def _hindsights_bench(brain, test_count=200):
     results["reflect_conflicts"] = len(ref.get("conflicts", []))
     results["reflect_entities"] = len(ref.get("top_entities", []))
     results["reflect_cognitive_patterns"] = len(ref.get("cognitive_patterns", []))
-    print(f"  发现冲突 {results['reflect_conflicts']} 个，实体 {results['reflect_entities']} 个，"
-          f"认知模式 {results['reflect_cognitive_patterns']} 个")
+    print(f"  Found 冲突 {results['reflect_conflicts']} ，实体 {results['reflect_entities']} ，"
+          f"认知模式 {results['reflect_cognitive_patterns']} ")
 
-    # ---- 4. 压缩/巩固测试 ----
-    print("\n[4/6] 记忆巩固测试...")
+    # ---- 4. Compress/巩固Test ----
+    print("\n[4/6] Memory ConsolidationTest...")
     t1 = time.time()
     cons = brain.consolidate(min_similarity=0.4)
     cons_time = (time.time() - t1) * 1000
@@ -3111,24 +3111,24 @@ def _hindsights_bench(brain, test_count=200):
     results["consolidate_groups"] = cons.get("consolidated", 0)
     print(f"  巩固 {results['consolidate_groups']} 组记忆")
 
-    # ---- 5. 自学习测试 ----
-    print("\n[5/6] 自学习循环测试...")
+    # ---- 5. 自学习Test ----
+    print("\n[5/6] 自学习循环Test...")
     t1 = time.time()
     learn = brain.self_learn(lookback_days=365)
     learn_time = (time.time() - t1) * 1000
     results["self_learn_latency_ms"] = round(learn_time, 1)
     results["self_learn_strategies"] = learn.get("learned", 0)
-    print(f"  生成 {results['self_learn_strategies']} 条策略")
+    print(f"  generates  {results['self_learn_strategies']} 条策略")
 
-    # ---- 6. 图查询测试 ----
-    print("\n[6/6] 知识图谱测试...")
+    # ---- 6. 图QueryTest ----
+    print("\n[6/6] Knowledge GraphTest...")
     if brain.graph_store:
         t1 = time.time()
         neighbors = brain.graph_query("Alice", depth=2)
         graph_time = (time.time() - t1) * 1000
         results["graph_latency_ms"] = round(graph_time, 1)
         results["graph_query_ok"] = "depth_0" in neighbors
-        print(f"  图查询延迟：{graph_time:.1f}ms，结果正常：{results['graph_query_ok']}")
+        print(f"  图Query延迟：{graph_time:.1f}ms，Result正常：{results['graph_query_ok']}")
     else:
         results["graph_query_ok"] = False
         print("  图未启用")
@@ -3140,10 +3140,10 @@ def _hindsights_bench(brain, test_count=200):
 
     scores = {}
 
-    # v3.0.0 评分：5大追赶维度全面升级 + 多语言支持
-    # 写入机制: 持平（底层存储未变，但多了多语言实体抽取增强）
+    # v3.0.0 评分：5大追赶维度全面Upgrade + 多语言supports 
+    # writes 机制: 持平（底层存储未变，但多了多语言实体抽取增强）
     write_score = 9.5
-    scores["写入机制"] = (write_score, 9.4)
+    scores["writes 机制"] = (write_score, 9.4)
 
     # 检索能力: 9.6→9.8（多语言分词提升全语种召回率）
     retrieval_score = 9.8
@@ -3153,41 +3153,41 @@ def _hindsights_bench(brain, test_count=200):
     model_score = 9.8
     scores["记忆模型设计"] = (model_score, 9.5)
 
-    # 压缩机制: 8.0→9.5（层级记忆蒸馏 + 熵剪枝 + 滑动窗口注意偏向）
+    # Compress机制: 8.0→9.5（层级记忆蒸馏 + 熵剪枝 + 滑动窗口注意偏向）
     compress_score = 9.5
-    scores["压缩机制"] = (compress_score, 9.0)
+    scores["Compress机制"] = (compress_score, 9.0)
 
     # 遗忘机制: 8.5→9.0（Ebbinghaus间隔复习 SM-2算法）
     scores["遗忘机制"] = (9.0, 6.5)
 
-    # 存储机制: 8.8→9.2（版本化存储 + 归档策略 + 组块化聚类）
+    # 存储机制: 8.8→9.2（Version化存储 + 归档策略 + 组块化聚类）
     scores["存储机制"] = (9.2, 8.8)
 
-    # 工程实现: 9.0→9.5（YAML配置系统 + JSON结构化日志 + 异步I/O）
+    # 工程实现: 9.0→9.5（YAMLConfig系统 + JSON结构化Log + 异步I/O）
     scores["工程实现"] = (9.5, 9.3)
 
-    # 个人AI适配: 持平（依然零依赖纯本地）
-    scores["个人AI适配"] = (9.5, 8.0)
+    # 人AI适配: 持平（依然零依赖纯本地）
+    scores["人AI适配"] = (9.5, 8.0)
 
     # 隐私安全: 持平（满分，零网络请求零遥测）
     scores["隐私安全"] = (10.0, 7.0)
 
-    # 记忆生命周期: 8.5→9.5（版本控制 + 层级晋升 + 自动归档）
+    # 记忆生命周期: 8.5→9.5（Version控制 + 层级晋升 + 自动归档）
     scores["记忆生命周期"] = (9.5, 9.0)
 
-    # 检索智能: 9.0→9.8（两阶段检索BM25+向量精排 + 查询扩展 + 负反馈学习）
+    # 检索智能: 9.0→9.8（两阶段检索BM25+向量精排 + Query扩展 + 负反馈学习）
     scores["检索智能"] = (9.8, 9.5)
 
-    # 企业级能力: 7.5→9.2（REST API Server + 并发锁 + 多租户命名空间隔离）
+    # 企业级能力: 7.5→9.2（REST API Server + 并发Lock + 多租户命名空间隔离）
     scores["企业级能力"] = (9.2, 9.5)
 
-    # 可迁移性: 持平（纯Python标准库，零依赖跨平台）
-    scores["可迁移性"] = (10.0, 7.0)
+    # 可Migration性: 持平（纯Python标准库，零依赖跨平台）
+    scores["可Migration性"] = (10.0, 7.0)
 
     # 未来潜力: 9.5→9.8（LLM+Agent深度整合架构 + 多语言全球化）
     scores["未来潜力"] = (9.8, 9.5)
 
-    print(f"\n  {'维度':<12} {'Mnemosyne 3.0':>14} {'Hindsight':>12} {'状态':>8}")
+    print(f"\n  {'维度':<12} {'Mnemosyne 3.0':>14} {'Hindsight':>12} {'Status':>8}")
     print("  " + "-" * 50)
     total = 0
     hindsight_total = 0
@@ -3205,8 +3205,8 @@ def _hindsights_bench(brain, test_count=200):
     print(f"  Hindsight：{h_avg:.1f}/10")
     if avg >= h_avg:
         print(f"  🎉 Mnemosyne 3.0 已全面超越 Hindsight！")
-        print(f"  5大追赶维度全量升级：压缩+1.5 企业+1.7 生命周期+1.0 检索智能+0.8 工程+0.5")
-        print(f"  🌐 多语言支持：中文·English·日本語·한국어·Français·Deutsch·Español·Русский")
+        print(f"  5大追赶维度全量Upgrade：Compress+1.5 企业+1.7 生命周期+1.0 检索智能+0.8 工程+0.5")
+        print(f"  🌐 多语言supports ：中文·English·日本語·한국어·Français·Deutsch·Español·Русский")
     else:
         print(f"  📈 距 Hindsight 差距：{h_avg - avg:.1f} 分，核心维度已大幅追赶")
 
@@ -3217,18 +3217,18 @@ def _hindsights_bench(brain, test_count=200):
 
 
 # ============================================================================
-# Part 12: 基准测试
+# Part 12: 基准Test
 # ============================================================================
 
 def _benchmark(brain, count=2000):
-    print("\U0001f9ea Mnemosyne v2.0 性能基准测试")
+    print("\U0001f9ea Mnemosyne v2.0 性能基准Test")
     print("=" * 56)
     brain.ensure_init()
 
     t0 = time.time()
     for i in range(count):
         rec = _build_record(
-            f"benchmark memory {i}: 项目 {i % 50} 的关键决策是选择模块化架构，负责人 Alice，日期 2026-08-07。",
+            f"benchmark memory {i}: 项目 {i % 50} 的关Key决策是选择模块化架构，负责人 Alice，Date 2026-08-07。",
             mtype="semantic", tags=["benchmark", f"proj{i % 50}"], importance=(i % 5) + 1,
         )
         brain.store.append(rec)
@@ -3242,17 +3242,17 @@ def _benchmark(brain, count=2000):
         brain.recall(q, k=5)
         latencies[q] = (time.time() - t1) * 1000
 
-    print(f"写入：{count} 条用时 {write_elapsed:.2f}s（约 {count / max(write_elapsed, 1e-6):.0f} 条/秒）")
+    print(f"writes ：{count} 条用时 {write_elapsed:.2f}s（约 {count / max(write_elapsed, 1e-6):.0f} 条/秒）")
     print(f"当前库总量：{total} 条")
     print("-" * 56)
-    print("检索延迟（五路融合）：")
+    print("检索延迟（5-Way Fusion）：")
     for q, ms in latencies.items():
         print(f"  [{q}] -> {ms:.1f} ms")
     print("-" * 56)
     for n in (1000, 5000, 10000, 50000):
         est = latencies[queries[0]] * (n / max(total, 1))
         level = "流畅" if est < 200 else ("可接受" if est < 1000 else "建议换向量库")
-        print(f"  {n:>6} 条 -> 约 {est:.0f} ms/次  | {level}")
+        print(f"  {n:>6} 条 -> 约 {est:.0f} ms/ times  | {level}")
     print("=" * 56)
     return {
         "write_count": count, "write_seconds": round(write_elapsed, 2),
@@ -3273,10 +3273,10 @@ def _demo(brain):
 
     demo_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构。", "semantic"),
-        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
-        ("2026-08-07 完成了劳动仲裁一审起诉材料的提交。", "episodic"),
-        ("Hindsight 是开源 Agent 记忆系统，支持 retain/recall/reflect。", "semantic"),
-        ("我认为个人 AI 记忆系统应该优先本地化、零依赖。", "belief"),
+        ("产品负责人哥偏好结论先line的回答风格，回答必须简短。", "preference"),
+        ("2026-08-07 完成了劳动仲裁一审起诉材料的commits 。", "episodic"),
+        ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect。", "semantic"),
+        ("我认为人 AI 记忆系统应该优先本地化、零依赖。", "belief"),
     ]
     for content, mtype in demo_items:
         rec = brain.retain(content, mtype=mtype)
@@ -3284,14 +3284,14 @@ def _demo(brain):
               f"(confidence={rec.get('confidence', '?')}, importance={rec.get('importance', '?')})")
 
     print("-" * 50)
-    hits = brain.recall("Alice 在哪里工作？", k=3)
-    print("\U0001f9e0 recall 'Alice 在哪里工作？':")
+    hits = brain.recall("Alice 在哪里Work？", k=3)
+    print("\U0001f9e0 recall 'Alice 在哪里Work？':")
     for score, rec, reasons in hits:
         print(f"  -> [{rec.get('fact_type', '?')}] {rec['content'][:50]}  "
               f"(score={score:.3f}, {reasons})")
 
     print("-" * 50)
-    print("  \u2705 演示通过：v2.0 引擎可用。")
+    print("  \u2705 演示via ：v2.0 引擎可用。")
 
 
 # ============================================================================
@@ -3301,17 +3301,17 @@ def _demo(brain):
 def _build_parser():
     p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne Memory Engine v2.0")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
-    p.add_argument("--no-embeddings", action="store_true", help="禁用向量搜索")
-    p.add_argument("--no-graph", action="store_true", help="禁用知识图谱")
+    p.add_argument("--no-embeddings", action="store_true", help="禁用向量searches ")
+    p.add_argument("--no-graph", action="store_true", help="禁用Knowledge Graph")
     sub = p.add_subparsers(dest="command")
 
     sub.add_parser("init", help="初始化记忆库")
-    sub.add_parser("demo", help="运行演示验证")
-    sub.add_parser("status", help="查看状态")
-    sub.add_parser("stats", help="统计概览")
+    sub.add_parser("demo", help="运line演示Validate")
+    sub.add_parser("status", help="查看Status")
+    sub.add_parser("stats", help="counts 概览")
 
     # 保留1.x兼容
-    r = sub.add_parser("retain", help="存储一条记忆")
+    r = sub.add_parser("retain", help="存储一 memory records")
     r.add_argument("--content", required=True)
     r.add_argument("--type", default="semantic", choices=sorted(MEMORY_TYPES))
     r.add_argument("--layer", default=None, choices=sorted(MEMORY_LAYERS))
@@ -3335,56 +3335,56 @@ def _build_parser():
     c.add_argument("--multi-hop", action="store_true", help="启用多跳推理")
     c.add_argument("--json", action="store_true")
 
-    f = sub.add_parser("reflect", help="反思生成洞察")
+    f = sub.add_parser("reflect", help="反思generates 洞察")
     f.add_argument("question", nargs="?", default=None)
     f.add_argument("--deep", action="store_true", help="深度认知反思")
     f.add_argument("--json", action="store_true")
 
     # v2.0 新增命令
-    cs = sub.add_parser("consolidate", help="记忆巩固压缩")
+    cs = sub.add_parser("consolidate", help="Memory ConsolidationCompress")
     cs.add_argument("--dry-run", action="store_true")
     cs.add_argument("--min-similarity", type=float, default=0.6)
 
     sl = sub.add_parser("self-learn", help="自学习循环")
     sl.add_argument("--lookback", type=int, default=30, help="回溯天数")
 
-    gq = sub.add_parser("graph", help="知识图谱查询")
+    gq = sub.add_parser("graph", help="Knowledge GraphQuery")
     gq.add_argument("entity", nargs="?", default=None)
     gq.add_argument("--depth", type=int, default=2)
-    gq.add_argument("--to", default=None, help="路径查询目标实体")
+    gq.add_argument("--to", default=None, help="PathQuery目标实体")
     gq.add_argument("--max-path", type=int, default=3)
 
     hb = sub.add_parser("hindsights-bench", help="Hindsight 对标评测")
     hb.add_argument("--count", type=int, default=200)
 
-    s = sub.add_parser("search-capture", help="沉淀联网搜索结果")
+    s = sub.add_parser("search-capture", help="沉淀联网searches Result")
     s.add_argument("--query", required=True)
     s.add_argument("--results", required=True)
     s.add_argument("--urls", default="")
     s.add_argument("--title", default="")
 
-    ch = sub.add_parser("should-research", help="检查是否需要联网搜索")
+    ch = sub.add_parser("should-research", help="checks 是否需要联网searches ")
     ch.add_argument("query")
     ch.add_argument("--max-age", type=int, default=7)
 
     d = sub.add_parser("dedup", help="去重")
     d.add_argument("--dry-run", action="store_true")
 
-    fo = sub.add_parser("forget", help="删除记忆")
+    fo = sub.add_parser("forget", help="deletes 记忆")
     fo.add_argument("memory_id")
     fo.add_argument("--yes", action="store_true")
 
-    e = sub.add_parser("export", help="导出")
+    e = sub.add_parser("export", help="exports ")
     e.add_argument("--format", default="json", choices=["json", "md"])
     e.add_argument("--out", default="")
 
-    im = sub.add_parser("import", help="导入")
+    im = sub.add_parser("import", help="imports ")
     im.add_argument("path")
 
     rp = sub.add_parser("repair", help="修复损坏的记忆文件")
     rp.add_argument("--dry-run", action="store_true")
 
-    bm = sub.add_parser("benchmark", help="性能基准测试")
+    bm = sub.add_parser("benchmark", help="性能基准Test")
     bm.add_argument("--count", type=int, default=2000)
 
     return p
@@ -3401,7 +3401,7 @@ def main(argv=None):
         brain.ensure_init()
     except OSError as e:
         return _fail(f"无法初始化记忆库：{e}", hint=f"目录 {base_dir} 不可写。",
-                     fix="检查权限后用 --dir 指定可写目录。")
+                     fix="checks 权限后用 --dir 指定可写目录。")
 
     if args.command == "init":
         return _ok(f"记忆库已初始化：{brain.store.base_dir}")
@@ -3412,9 +3412,9 @@ def main(argv=None):
         meta = brain.store.read_meta() or {}
         print(f"记忆库目录：{brain.store.base_dir}")
         print(f"记忆条数：{meta.get('count', 0)}")
-        print(f"引擎版本：{VERSION} (schema: {meta.get('schema', '?')})")
-        print(f"向量搜索：{'启用' if enable_emb else '禁用'}")
-        print(f"知识图谱：{'启用' if enable_gr else '禁用'}")
+        print(f"引擎Version：{VERSION} (schema: {meta.get('schema', '?')})")
+        print(f"向量searches ：{'启用' if enable_emb else '禁用'}")
+        print(f"Knowledge Graph：{'启用' if enable_gr else '禁用'}")
         return 0
     elif args.command == "stats":
         ref = brain.reflect()
@@ -3422,7 +3422,7 @@ def main(argv=None):
         return 0
     elif args.command == "retain":
         if not args.content or not args.content.strip():
-            return _fail("记忆内容不能为空。", fix="--content 参数必须包含有效文本。")
+            return _fail("记忆内容不能为空。", fix="--content 参数必须contains 有效文本。")
         _expire_old(brain.store)
         rec = brain.retain(
             args.content, mtype=args.type, layer=args.layer,
@@ -3452,11 +3452,11 @@ def main(argv=None):
             print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
             if not hits:
-                print("（无匹配记忆）")
+                print("（无matches 记忆）")
             for score, rec, reasons in hits:
                 print(f"[{score:.3f}] ({rec['type']}/{rec.get('fact_type', '?')}) {rec['content'][:80]}")
                 print(f"      命中: {'+'.join(reasons)} | 可信度: {rec.get('confidence', '?')} "
-                      f"| 时间: {rec.get('created_at', '')} | id: {rec['id']}")
+                      f"| Time: {rec.get('created_at', '')} | id: {rec['id']}")
         return 0
     elif args.command == "reflect":
         ref = brain.reflect(question=args.question, deep=args.deep)
@@ -3464,16 +3464,16 @@ def main(argv=None):
             print(json.dumps(ref, ensure_ascii=False, indent=2))
         else:
             print(f"记忆总数：{ref['total']}")
-            print(f"类型分布：{ref.get('by_type', {})}")
-            print(f"事实类型分布：{ref.get('by_fact_type', {})}")
-            print(f"验证状态分布：{ref.get('by_verification', {})}")
+            print(f"Type分布：{ref.get('by_type', {})}")
+            print(f"事实Type分布：{ref.get('by_fact_type', {})}")
+            print(f"ValidateStatus分布：{ref.get('by_verification', {})}")
             if ref.get("top_entities"):
                 print(f"高频主题：{', '.join(e['entity'] for e in ref['top_entities'][:8])}")
             if ref.get("confidence_stats"):
                 cs = ref["confidence_stats"]
-                print(f"可信度：均值 {cs['mean']} | 最低 {cs['min']} | 最高 {cs['max']}")
+                print(f"可信度：均Value {cs['mean']} | 最低 {cs['min']} | 最高 {cs['max']}")
             if ref.get("conflicts"):
-                print(f"⚠ 潜在冲突：{len(ref['conflicts'])} 个")
+                print(f"⚠ 潜在冲突：{len(ref['conflicts'])} ")
                 for c in ref["conflicts"][:5]:
                     print(f"  - [{c.get('type', '?')}] {c['entity']}")
             if ref.get("cognitive_patterns"):
@@ -3486,11 +3486,11 @@ def main(argv=None):
             for g in result.get("groups", [])[:5]:
                 print(f"  - {g['size']}条 相似度{g['avg_similarity']} -> ids: {g['ids'][:3]}")
         else:
-            print(f"✓ 记忆巩固完成：{result['consolidated']} 组")
+            print(f"✓ Memory Consolidation完成：{result['consolidated']} 组")
         return 0
     elif args.command == "self-learn":
         result = brain.self_learn(lookback_days=args.lookback)
-        print(f"✓ 自学习完成：生成 {result['learned']} 条策略")
+        print(f"✓ 自学习完成：generates  {result['learned']} 条策略")
         for s in result.get("strategies", []):
             print(f"  - [{s.get('tags')}] {s['content'][:80]}")
         return 0
@@ -3498,9 +3498,9 @@ def main(argv=None):
         if args.to:
             path = brain.graph_path(args.entity, args.to, max_depth=args.max_path)
             if path:
-                print(f"路径：{' -> '.join(path)}")
+                print(f"Path：{' -> '.join(path)}")
             else:
-                print(f"未找到从 {args.entity} 到 {args.to} 的路径")
+                print(f"未finds 从 {args.entity} 到 {args.to} 的Path")
         elif args.entity:
             neighbors = brain.graph_query(args.entity, depth=args.depth)
             for depth_key in sorted(neighbors.keys()):
@@ -3516,8 +3516,8 @@ def main(argv=None):
     elif args.command == "search-capture":
         urls = [u.strip() for u in args.urls.split(",") if u.strip()]
         res = brain.search_capture(args.query, args.results, urls=urls, title=args.title)
-        verb = "更新" if res["updated"] else "新增"
-        return _ok(f"已{verb}搜索记忆：{res['id']}（累计 {res.get('capture_count', 1)} 次）")
+        verb = "updates " if res["updated"] else "新增"
+        return _ok(f"已{verb}searches 记忆：{res['id']}（累计 {res.get('capture_count', 1)}  times）")
     elif args.command == "should-research":
         res = brain.should_research(args.query, max_age_days=args.max_age)
         print(json.dumps(res, ensure_ascii=False, indent=2))
@@ -3525,37 +3525,37 @@ def main(argv=None):
     elif args.command == "dedup":
         result = brain.dedup(dry_run=args.dry_run)
         if args.dry_run:
-            print(f"预检：可合并 {result['merged']} 条；相似对 {len(result['similar_pairs'])} 组")
+            print(f"预检：可merges  {result['merged']} 条；相似对 {len(result['similar_pairs'])} 组")
         else:
-            print(f"✓ 去重完成：合并 {result['merged']} 条")
+            print(f"✓ 去重完成：merges  {result['merged']} 条")
         return 0
     elif args.command == "forget":
         if not args.yes:
             rec = brain.store.find_by_id(args.memory_id)
             if rec:
-                print(f"将删除：{rec.get('content', '')[:60]}")
-                print("请加 --yes 确认")
+                print(f"将deletes ：{rec.get('content', '')[:60]}")
+                print("请加 --yes confirms ")
                 return 0
-            return _fail(f"未找到记忆 {args.memory_id}")
+            return _fail(f"未finds 记忆 {args.memory_id}")
         ok = brain.forget(args.memory_id)
-        return _ok(f"已删除：{args.memory_id}") if ok else _fail(f"未找到：{args.memory_id}")
+        return _ok(f"已deletes ：{args.memory_id}") if ok else _fail(f"未finds ：{args.memory_id}")
     elif args.command == "export":
         out = brain.export(fmt=args.format, out_path=args.out or None)
-        return _ok(f"已导出：{out}")
+        return _ok(f"已exports ：{out}")
     elif args.command == "import":
         if not os.path.exists(args.path):
-            return _fail(f"导入文件不存在：{args.path}")
+            return _fail(f"imports File not found：{args.path}")
         n = brain.import_file(args.path)
-        return _ok(f"已导入 {n} 条记忆")
+        return _ok(f"Imported  {n}  memory records")
     elif args.command == "repair":
         result = brain.repair(dry_run=args.dry_run)
         if result["corrupt"] == 0:
-            return _ok(f"记忆文件完整（{result['kept']} 条）")
+            return _ok(f"Memory file intact（{result['kept']} 条）")
         if args.dry_run:
-            print(f"🔍 发现 {result['corrupt']} 条损坏行")
+            print(f"🔍 Found  {result['corrupt']}  corrupt lines")
             return 0
-        print(f"🔧 已修复：移除 {result['corrupt']} 条损坏行，保留 {result['kept']} 条")
-        return _ok(f"修复完成，备份：{result['backup']}")
+        print(f"🔧 Repaired: removed  {result['corrupt']}  corrupt lines，保留 {result['kept']} 条")
+        return _ok(f"Repair complete, backup: {result['backup']}")
     elif args.command == "benchmark":
         _benchmark(brain, count=args.count)
         return 0

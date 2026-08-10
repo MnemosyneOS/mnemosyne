@@ -7,7 +7,7 @@
 
 ## 🌟 一句话
 
-在调用大模型之前，Mnemosyne 以**零算力成本**从海量记忆中筛出 Top-10 最相关内容——帮 LLM 节省 80%+ Token，检索速度 <10ms。但绝不只是省 Token：它是全球唯一一个单文件、零依赖、纯本地运行的 AI 记忆引擎，支持 7 语言、8+ Agent 框架、知识图谱推理、自动反思巩固。复制一个 .py 文件，你的 AI 就有了永不遗忘的长期记忆。
+在调用大模型之前，Mnemosyne 以**零算力成本**从海量记忆中筛出 Top-10 最相关内容——帮 LLM 节省 80%+ Token，检索速度 <10ms。全球唯一一个单文件、零依赖、纯本地运行的 AI 记忆引擎，支持 7 语言、8+ Agent 框架、知识图谱推理、自动反思巩固。复制一个 .py 文件，你的 AI 就有了永不遗忘的长期记忆。
 
 ---
 
@@ -39,7 +39,7 @@
 
 | 评测 | 成绩 |
 |------|:--:|
-| Hindsight 14维架构 | **9.58/10** |
+| Hindsight 14维架构评分 | **9.58/10** |
 | LongMemEval Session Recall@10 | **85.0%** |
 | LongMemEval Turn Recall@10 | **33.3%**（纯词法天花板） |
 | LLM Token 节省 | **80%+** |
@@ -53,8 +53,6 @@
 git clone https://github.com/FrankHu-HK/mnemosyne.git
 cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py 你的项目/
 ```
-
-**不需要 pip install。不需要 Docker。不需要数据库。**
 
 ---
 
