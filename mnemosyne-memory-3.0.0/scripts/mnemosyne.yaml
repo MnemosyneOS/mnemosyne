@@ -1,0 +1,98 @@
+# Mnemosyne v3.0.0 配置文件
+# 可选：放在 ~/.mnemosyne/config.yaml 或通过 --config 指定
+
+version: "3.0.0"
+
+# === 存储 ===
+storage:
+  base_dir: "~/.mnemosyne"
+  index_format: "jsonl"          # jsonl | sqlite (未来)
+  durable_write: true            # fsync 每次写入
+
+# === 嵌入引擎 ===
+embeddings:
+  enabled: true
+  dim: 128                       # 随机投影维度
+  seed: 42                       # 固定种子保证可复现
+
+# === 知识图谱 ===
+graph:
+  enabled: true
+  max_edges_per_memory: 30
+
+# === 检索 ===
+retrieval:
+  # 五路融合权重
+  bm25_weight: 0.25
+  vector_weight: 0.25
+  graph_weight: 0.15
+  temporal_weight: 0.15
+  confidence_weight: 0.15
+  # 两阶段检索 (v3.0新增)
+  two_stage:
+    enabled: true
+    candidate_pool: 100          # BM25 粗筛数量
+    rerank_top: 10               # 精排数量
+  # 查询扩展 (v3.0新增)
+  query_expansion:
+    enabled: true
+    synonyms: true
+    llm_expand: false            # 需要 LLM 钩子
+  # 负反馈学习 (v3.0新增)
+  negative_feedback:
+    enabled: true
+    decay_factor: 0.9
+
+# === 记忆蒸馏 (v3.0新增) ===
+distillation:
+  enabled: true
+  min_similarity: 0.5            # 最小相似度触发合并
+  max_group_size: 5              # 每组最多记忆数
+  target_layer: "semantic"       # 目标层级
+  auto_distill_interval_hours: 24 # 自动蒸馏间隔
+
+# === 间隔复习 (v3.0新增) ===
+spaced_repetition:
+  enabled: true
+  algorithm: "sm2"               # SM-2 算法 (SuperMemo)
+  default_ease: 2.5
+  min_interval_days: 1
+  max_interval_days: 365
+
+# === 记忆生命周期 (v3.0新增) ===
+lifecycle:
+  versioning: true               # 版本控制
+  max_versions: 10               # 每条记忆最多保留版本
+  auto_archive_days: 365         # 超期自动归档
+  promotion:
+    enabled: true
+    access_threshold: 5          # 访问5次以上自动晋升
+
+# === MemoryAgent (v3.0新增) ===
+memory_agent:
+  enabled: false                 # 默认关闭，需显式启用
+  review_interval_hours: 6
+  consolidate_interval_hours: 24
+  prune_interval_hours: 48
+  max_memories_per_review: 100
+
+# === API Server (v3.0新增) ===
+server:
+  enabled: false
+  host: "127.0.0.1"
+  port: 8765
+  auth_required: false
+  cors_origins: ["*"]
+
+# === 多租户 (v3.0新增) ===
+multi_tenancy:
+  enabled: false
+  namespace: "default"
+  isolation: "directory"         # directory | prefix
+
+# === 日志 (v3.0新增) ===
+logging:
+  level: "INFO"                  # DEBUG | INFO | WARNING | ERROR
+  format: "json"                 # json | text
+  output: "stderr"               # stderr | file | both
+  file_path: "~/.mnemosyne/mnemosyne.log"

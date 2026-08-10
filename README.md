@@ -70,7 +70,7 @@ brain.consolidate() # 压缩优化记忆
 | 指标 | 成绩 | 说明 |
 |------|:--:|------|
 | **Hindsight 14维架构** | **9.58/10** | 超越 Hindsight 8.69，13/14维度领先 |
-| **Session Recall@10** | **83.3%** | 18000+条中精确定位正确对话 |
+| **Session Recall@10** | **85.0%** | 18000+条中精确定位正确对话 |
 | **Token 节省** | **80%+** | L1粗筛后仅送 Top-10 给 LLM |
 | **检索速度** | **<10ms** | 倒排索引 + 五路融合，纯 CPU |
 | **写入速度** | **~12ms/条** | Fast Write模式，支持百万级 |
@@ -86,7 +86,7 @@ brain.consolidate() # 压缩优化记忆
 |------|:---:|:---:|:---:|
 | 外部依赖 | **0** | PyTorch+C++ | API Key |
 | GPU需求 | **不需要** | 需要 | 不需要（但付费） |
-| Session召回 | **83.3%** | 80-85% | 80-90% |
+| Session召回 | **85.0%** | 80-85% | 80-90% |
 | 检索延迟 | **<10ms** | 100-500ms | 200-1000ms |
 | Token成本 | **0** | Embedding成本 | API费用 |
 | 隐私合规 | **100%本地** | 本地但需GPU | 数据上云 |
@@ -105,7 +105,7 @@ brain.consolidate() # 压缩优化记忆
 │   + 可信度 → 五路融合检索         │
 │   0 GPU / 0 Token / <10ms        │
 └─────────────────────────────────┘
-  ↓ Top-10 (覆盖率 83.3%)
+  ↓ Top-10 (覆盖率 85.0%)
 ┌─────────────────────────────────┐
 │     LLM / Reader (任意大模型)      │
 │   只读 Top-10，省 80% Token       │
@@ -173,7 +173,8 @@ git clone https://github.com/yourname/mnemosyne.git
 - [API 参考](./docs/api.md)
 - [Agent 集成principle](./docs/integrations.md)
 - [基准测试报告](./docs/benchmark.md)
-- [arXiv 论文](https://arxiv.org/abs/xxxx.xxxxx)
+- [论文 (Zenodo)](https://doi.org/10.5281/zenodo.21870436)
+- [代码 (Zenodo)](https://doi.org/10.5281/zenodo.21870790)
 
 ---
 

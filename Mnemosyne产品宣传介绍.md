@@ -173,8 +173,8 @@ def graph(实体: str):
 ## 📥 立即开始
 
 ```
-GitHub: github.com/yourname/mnemosyne  （开源后发布）
-arXiv:  arxiv.org/abs/xxxx.xxxxx       （论文预印本）
+GitHub: github.com/FrankHu-HK/mnemosyne  （已开源）
+Zenodo: doi.org/10.5281/zenodo.21870436 （论文预印本）
 论文: 《Mnemosyne: A Cognitive Memory Architecture for Personal AI Agents》
 ```
 
