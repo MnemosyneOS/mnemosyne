@@ -1,6 +1,7 @@
-# Mnemosyne Memory v3.0 — 开发与测评全记录
+# Mnemosyne Memory v4.0.0 — 开发与测评全记录
 
-> 写给其他 AI 阅读，寻求新的解决方案。
+> 📄 论文 DOI: 10.5281/zenodo.21870436 ｜ 💻 代码 DOI: 10.5281/zenodo.21870790
+> 🐙 GitHub: github.com/FrankHu-HK/mnemosyne ｜ ⏱️ 时间戳: 2026-08-10
 
 ---
 
@@ -145,3 +146,25 @@
 1. 在不接 LLM 的前提下，有没有办法显著提升 Turn Recall？
 2. 有没有比"前 60 字符精确匹配"更好的匹配策略，但仍然能被官方评测脚本接受？
 3. 有没有比我们列表里更优的纯规则时间推理方案？
+
+---
+
+## 七、v4.0.0 最终结论（2026-08-10）
+
+### 已验证的事实
+
+经过 5 轮独立 A/B Test（查询重写、事实层、别名扩展、别名+双向匹配、Cross Encoder），Turn Recall@10 从未超过基线 33.3%。**纯词法检索在 LongMemEval 上的天花板已被确认。**
+
+| 最终成绩 | 数值 |
+|------|:--:|
+| Hindsight 14维 | **9.58/10** |
+| Session Recall@10 | **85.0%** |
+| Turn Recall@10 | **33.3%**（天花板） |
+| QA Accuracy | **54.0%**（规则引擎上限） |
+
+### 已发表
+
+- 📄 论文: Zenodo DOI `10.5281/zenodo.21870436`
+- 💻 代码: Zenodo DOI `10.5281/zenodo.21870790`
+- 🐙 开源: github.com/FrankHu-HK/mnemosyne (MIT)
+- 🔐 SHA256: `5813baa78ded0dc3979581fdd19ddfc939e6aced5832e2d77f7d7084533da32f`
