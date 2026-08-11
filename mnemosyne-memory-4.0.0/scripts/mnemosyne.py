@@ -60,6 +60,7 @@ import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
+import heapq
 
 VERSION = "4.0.0 Stable"
 MEMORY_TYPES = {
@@ -637,6 +638,7 @@ def _extract_relationships(entities, text):
 # ============================================================================
 
 class EmbeddingEngine:
+    __slots__ = ('dim', 'seed', '_proj', '_vocab', '_vocab_size', '_next_idx')
     """零依赖向量嵌入引擎。
 
     基于 Johnson-Lindenstrauss 引理，固定种子的随机投影矩阵将 TF-IDF
@@ -1193,6 +1195,8 @@ def _confidence_weight(record):
 # ============================================================================
 
 class RetrievalEngine:
+    __slots__ = ('embed_engine', 'graph_store', '_inverted_index', '_doc_tf_cache',
+                 '_indexed_record_count', '_indexed_store_path', '_fast_match_cache')
     """5-Way Fusion检Index擎（v3.0 Inverted Index加速版）。
 
     五路：BM25关Key词 + 随机投影向量 + Knowledge Graph + Time衰减 + 可信度加权
@@ -2016,7 +2020,7 @@ class CognitiveResolver:
                 results.append((score, fact))
 
         results.sort(key=lambda x: x[0], reverse=True)
-        return results[:10]
+        return heapq.nlargest(10, results, key=lambda x: x[0])
 
     # ---- Layer 6: Evidence Expansion ----
 
