@@ -31,7 +31,7 @@ class MnemosyneAdapter:
     """将 Mnemosyne 的 retain/recall 映射到 benchmark 期望的接口"""
     def __init__(self):
         self.brain_dir = tempfile.mkdtemp(prefix='bench_')
-        self.brain = MemoryBrain(base_dir=self.brain_dir)
+        self.brain = MemoryBrain(base_dir=self.brain_dir, enable_stats=False)
         self.brain.ensure_init()
 
     def ingest_session(self, session_id: str, raw_text: str):

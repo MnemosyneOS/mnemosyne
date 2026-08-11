@@ -61,6 +61,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 import heapq
+import functools
 
 VERSION = "4.0.0 Stable"
 MEMORY_TYPES = {
@@ -448,6 +449,7 @@ _RE_LATIN = re.compile(r"[a-z\u00e0-\u024f\u1e00-\u1eff][a-z\u00e0-\u024f\u1e00-
 _RE_CYRILLIC = re.compile(r"[\u0400-\u04ff]+")                                  # 西里尔字母序列
 
 
+@functools.lru_cache(maxsize=10000)
 def _tokenize(text):
     """多语言分词 + 预processes Optimize。"""
     text = _tokenize_preprocess(text)  # Step 1: Date标准化 + 语义词伪装
