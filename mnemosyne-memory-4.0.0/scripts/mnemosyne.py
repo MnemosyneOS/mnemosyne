@@ -876,6 +876,7 @@ class MemoryStore:
         self.base_dir = os.path.abspath(base_dir)
         self.index_path = os.path.join(self.base_dir, INDEX_NAME)
         self.meta_path = os.path.join(self.base_dir, META_NAME)
+        self._cache = None  # 内存热缓存，消除检索时 JSONL 读盘
 
     def ensure_init(self):
         os.makedirs(self.base_dir, exist_ok=True)
@@ -927,6 +928,7 @@ class MemoryStore:
             self._write_meta(meta)
         except OSError:
             pass
+        self._invalidate_cache()
         return record
 
     def append_batch(self, records, retries=3):
@@ -943,6 +945,7 @@ class MemoryStore:
             self._write_meta(meta)
         except OSError:
             pass
+        self._invalidate_cache()
         return records
 
     def iter_records(self):
@@ -964,7 +967,12 @@ class MemoryStore:
                            "id": f"corrupt-{line_no}"}
 
     def all_records(self):
-        return list(self.iter_records())
+        if self._cache is None:
+            self._cache = list(self.iter_records())
+        return self._cache
+
+    def _invalidate_cache(self):
+        self._cache = None
 
     def rewrite(self, records):
         self.ensure_init()
@@ -977,6 +985,7 @@ class MemoryStore:
         meta["count"] = len(records)
         meta["updated_at"] = _now_iso()
         self._write_meta(meta)
+        self._invalidate_cache()
 
     def find_by_id(self, memory_id):
         for r in self.iter_records():
