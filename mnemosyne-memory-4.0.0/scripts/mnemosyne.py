@@ -73,6 +73,101 @@ FACT_TYPES = {"fact", "opinion", "belief", "observation", "inference", "hypothes
 SOURCE_TYPES = {"user", "system", "inference", "web_search", "file", "agent_generated", "external"}
 VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "superseded"}
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
+
+
+# ═══════════════════════════════════════════════
+# StatsTracker — 自动统计 retain/recall/命中率/Token节省
+# ═══════════════════════════════════════════════
+class StatsTracker:
+    """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
+    Auto-saves to stats.json in the brain's base directory."""
+    def __init__(self, base_dir):
+        self.base_dir = base_dir
+        self.path = os.path.join(base_dir, "stats.json")
+        self.data = self._load()
+        self._today = _today_str()
+        self._ensure_day()
+
+    def _load(self):
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {"daily": {}, "totals": {"retain": 0, "recall": 0, "hit": 0, "miss": 0,
+                "total_memory_chars": 0, "total_recalled_chars": 0, "total_latency_ms": 0}}
+
+    def _save(self):
+        d = os.path.dirname(self.path)
+        os.makedirs(d, exist_ok=True)
+        with open(self.path, 'w', encoding='utf-8') as f:
+            json.dump(self.data, f, ensure_ascii=False, indent=2)
+
+    def _ensure_day(self):
+        if self._today not in self.data["daily"]:
+            self.data["daily"][self._today] = {
+                "retain": 0, "recall": 0, "hit": 0, "miss": 0,
+                "total_memory_chars": 0, "total_recalled_chars": 0, "total_latency_ms": 0}
+
+    def track_retain(self, content_len):
+        self._ensure_day()
+        d = self.data["daily"][self._today]; t = self.data["totals"]
+        d["retain"] += 1; d["total_memory_chars"] += content_len
+        t["retain"] += 1; t["total_memory_chars"] += content_len
+        self._save()
+
+    def track_recall(self, hit, recalled_chars, latency_ms):
+        self._ensure_day()
+        d = self.data["daily"][self._today]; t = self.data["totals"]
+        d["recall"] += 1; d["total_recalled_chars"] += recalled_chars
+        d["total_latency_ms"] += latency_ms
+        t["recall"] += 1; t["total_recalled_chars"] += recalled_chars
+        t["total_latency_ms"] += latency_ms
+        if hit: d["hit"] += 1; t["hit"] += 1
+        else: d["miss"] += 1; t["miss"] += 1
+        self._save()
+
+    def summary(self):
+        t = self.data["totals"]; d = self.data["daily"].get(self._today, {})
+        total_mem = t.get("total_memory_chars", 0)
+        total_rec = t.get("total_recalled_chars", 0)
+        est_saved = max(0, (total_mem - total_rec) // 4)
+        recalls = max(t.get("recall", 1), 1)
+        day_recalls = max(d.get("recall", 1), 1)
+        return {
+            "today": self._today,
+            "today_retain": d.get("retain", 0), "today_recall": d.get("recall", 0),
+            "today_hit": d.get("hit", 0), "today_miss": d.get("miss", 0),
+            "today_hit_rate": round(d.get("hit", 0) / day_recalls, 3),
+            "today_avg_latency_ms": round(d.get("total_latency_ms", 0) / day_recalls, 1),
+            "total_retain": t.get("retain", 0), "total_recall": t.get("recall", 0),
+            "total_hit": t.get("hit", 0), "total_miss": t.get("miss", 0),
+            "total_hit_rate": round(t.get("hit", 0) / recalls, 3),
+            "total_avg_latency_ms": round(t.get("total_latency_ms", 0) / recalls, 1),
+            "total_memory_chars": total_mem, "total_recalled_chars": total_rec,
+            "estimated_tokens_saved": est_saved,
+            "active_days": len(self.data.get("daily", {})),
+        }
+
+    def print_summary(self):
+        s = self.summary()
+        saved_yuan = s["estimated_tokens_saved"] * 0.000078  # DeepSeek实测
+        print(f"\n{'='*52}\n  Mnemosyne 运行统计\n{'='*52}")
+        print(f"  今日 ({s['today']})")
+        print(f"    写入: {s['today_retain']} 条  检索: {s['today_recall']} 次")
+        print(f"    命中: {s['today_hit']}  未命中: {s['today_miss']}  命中率: {s['today_hit_rate']:.1%}")
+        print(f"    平均延迟: {s['today_avg_latency_ms']}ms")
+        print(f"  累计 ({s['active_days']} 天)")
+        print(f"    写入: {s['total_retain']} 条  检索: {s['total_recall']} 次")
+        print(f"    命中: {s['total_hit']}  未命中: {s['total_miss']}  命中率: {s['total_hit_rate']:.1%}")
+        print(f"    平均延迟: {s['total_avg_latency_ms']}ms")
+        print(f"    存储字符: {s['total_memory_chars']:,}  检索返回: {s['total_recalled_chars']:,}")
+        print(f"    估算Token节省: {s['estimated_tokens_saved']:,} (≈¥{saved_yuan:.4f} @DeepSeek)")
+        print(f"{'='*52}\n")
+
+
+# ═══════════════════════════════════════════════
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -86,6 +181,10 @@ EMBEDDING_DIM = 128
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _today_str():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def _utcnow_ts():
@@ -2367,7 +2466,7 @@ class MemoryBrain:
       - Learner: 自学习循环
     """
 
-    def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True):
+    def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True, enable_stats=True):
         self.base_dir = base_dir
         self.store = MemoryStore(base_dir)
         self.embed_engine = EmbeddingEngine() if enable_embeddings else None
@@ -2378,6 +2477,7 @@ class MemoryBrain:
         )
         self.enable_embeddings = enable_embeddings
         self.enable_graph = enable_graph
+        self.stats_tracker = StatsTracker(base_dir) if enable_stats else None
 
     def ensure_init(self):
         self.store.ensure_init()
@@ -2419,6 +2519,8 @@ class MemoryBrain:
                 record["meta"]["write_conflicts"] = conflicts
         # writes 
         self.store.append(record)
+        if self.stats_tracker:
+            self.stats_tracker.track_retain(len(content))
         return record
 
     def retain_batch(self, items):
@@ -2470,8 +2572,16 @@ class MemoryBrain:
     # ---- 记忆检索 ----
 
     def recall(self, query, k=5, **kwargs):
-        """检索记忆。"""
-        return self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        """检索记忆。自动记录命中率和延迟。"""
+        import time
+        t0 = time.time()
+        results = self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        if self.stats_tracker:
+            hit = len(results) > 0
+            recalled_chars = sum(len(r[1].get("content", "")) if len(r) > 1 else 0 for r in results)
+            latency_ms = (time.time() - t0) * 1000
+            self.stats_tracker.track_recall(hit, recalled_chars, latency_ms)
+        return results
 
     # ---- Memory Reflection（增强版：认知级反思） ----
 
@@ -2794,6 +2904,21 @@ class MemoryBrain:
         if not self.graph_store:
             return {"error": "图存储未启用"}
         return self.graph_store.get_neighbors(entity, depth)
+
+    # ---- 运行统计 ----
+
+    def stats(self):
+        """返回运行统计字典。需在构造时 enable_stats=True。"""
+        if not self.stats_tracker:
+            return {"error": "统计未启用，请用 MemoryBrain(base_dir=..., enable_stats=True)"}
+        return self.stats_tracker.summary()
+
+    def stats_print(self):
+        """打印运行统计到控制台。"""
+        if not self.stats_tracker:
+            print("统计未启用。")
+        else:
+            self.stats_tracker.print_summary()
 
     def graph_path(self, from_e, to_e, max_depth=3):
         if not self.graph_store:
