@@ -1,0 +1,19 @@
+{
+  "benchmark_summary": {
+    "dataset_sessions": 10,
+    "estimated_total_tokens": 7998,
+    "engine_footprint_mb": 26.755
+  },
+  "performance_metrics": {
+    "qps": 10.51,
+    "latency_ms_p50": 69.334,
+    "latency_ms_p95": 320.053,
+    "latency_ms_p99": 349.304,
+    "latency_ms_mean": 95.113
+  },
+  "cost_efficiency": {
+    "token_reduction_pct": "91.62%",
+    "original_input_tokens": 7998,
+    "optimized_input_tokens": 670
+  }
+}

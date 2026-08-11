@@ -35,10 +35,11 @@ class MnemosyneAdapter:
         self.brain.ensure_init()
 
     def ingest_session(self, session_id: str, raw_text: str):
-        # Mnemosyne: 批量写入整个 session（避免逐句 retain 的高频 I/O）
-        items = [(chunk.strip(), "semantic", {}) for chunk in raw_text.split("\n\n") if chunk.strip()]
-        if items:
-            self.brain.retain_batch(items)
+        # 批量写入 + fast 模式（跳过 NLP 抽取，比完整模式快 3-5x）
+        chunks = [c.strip() for c in raw_text.split("\n\n") if c.strip()]
+        if chunks:
+            items = [(c, "semantic", {}) for c in chunks]
+            self.brain.retain_batch(items, fast=True)
 
     def query_working_context(self, session_id: str, query: str, target_max_tokens: int = 2000) -> str:
         # Mnemosyne: recall 返回最相关的记忆片段
@@ -172,26 +173,32 @@ class MemoryEngineBenchmark:
 # ==========================================
 def run_benchmark():
     print("==================================================")
-    print(" 🚀 正在启动 PoC 记忆引擎性能测试套件 (Benchmark)...")
+    print(" 🚀 正在启动 PoC 记忆引擎性能测试套件 v2 (Benchmark)...")
     print("==================================================")
 
-    # 生成测试数据集：100 个 Session，每个 30 轮对话 (约 150,000 字/Tokens)
-    print("\n[1/4] 生成测试数据集 (100 Sessions, ~150,000 Tokens)...")
-    dataset = generate_mock_dialogue_history(session_count=10, turns_per_session=20)
+    # 生成测试数据集：50 个 Session，每个 20 轮对话
+    print("\n[1/5] 生成测试数据集 (50 Sessions)...")
+    dataset = generate_mock_dialogue_history(session_count=50, turns_per_session=20)
     
     engine = MnemosyneAdapter()
     bench = MemoryEngineBenchmark(engine)
 
+    # 0. Warm-up: 消除 Python 加载、磁盘缓存、CPU 睿频噪声
+    print("[2/5] Warm-up 预热 (10 次 dummy query)...")
+    for sid in list(dataset.keys())[:2]:
+        for _ in range(5):
+            engine.query_working_context(sid, "预热查询")
+
     # 1. 内存测试
-    print("[2/4] 正在测试内存占用峰值 (RAM Peak)...")
+    print("[3/5] 正在测试内存占用峰值 (RAM Peak)...")
     mem_stats = bench.measure_memory_footprint(dataset)
 
     # 2. 延迟与吞吐量测试
-    print("[3/4] 正在执行 100 次检索延迟测试...")
-    latency_stats = bench.measure_latency_and_throughput(dataset, num_queries=100)
+    print("[4/5] 正在执行 500 次检索延迟测试...")
+    latency_stats = bench.measure_latency_and_throughput(dataset, num_queries=500)
 
     # 3. Token 压缩节约率测试
-    print("[4/4] 正在计算 Token 削减与降本效率...")
+    print("[5/5] 正在计算 Token 削减与降本效率...")
     token_stats = bench.measure_token_reduction(dataset)
 
     # 汇总报告

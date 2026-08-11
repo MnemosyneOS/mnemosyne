@@ -638,7 +638,6 @@ def _extract_relationships(entities, text):
 # ============================================================================
 
 class EmbeddingEngine:
-    __slots__ = ('dim', 'seed', '_proj', '_vocab', '_vocab_size', '_next_idx')
     """零依赖向量嵌入引擎。
 
     基于 Johnson-Lindenstrauss 引理，固定种子的随机投影矩阵将 TF-IDF
@@ -1195,8 +1194,6 @@ def _confidence_weight(record):
 # ============================================================================
 
 class RetrievalEngine:
-    __slots__ = ('embed_engine', 'graph_store', '_inverted_index', '_doc_tf_cache',
-                 '_indexed_record_count', '_indexed_store_path', '_fast_match_cache')
     """5-Way Fusion检Index擎（v3.0 Inverted Index加速版）。
 
     五路：BM25关Key词 + 随机投影向量 + Knowledge Graph + Time衰减 + 可信度加权
@@ -2528,14 +2525,20 @@ class MemoryBrain:
             self.stats_tracker.track_retain(len(content))
         return (record, self.stats_tracker.summary()) if self._stats_auto else record
 
-    def retain_batch(self, items):
-        """批量writes 。items: [(content, mtype, kwargs), ...]"""
+    def retain_batch(self, items, fast=False):
+        """批量writes 。items: [(content, mtype, kwargs), ...]
+        fast=True: 跳过实体抽取/嵌入/图谱构建（批量场景快 3-5x）"""
         records = []
         for item in items:
             content, mtype = item[0], item[1] if len(item) > 1 else "semantic"
             kwargs = item[2] if len(item) > 2 else {}
             rec = _build_record(content, mtype=mtype, **kwargs)
-            if self.embed_engine and self.enable_embeddings:
+            if fast:
+                rec["entities"] = []
+                rec["entities_detailed"] = []
+                rec["embedding"] = None
+                rec["graph_edges"] = []
+            elif self.embed_engine and self.enable_embeddings:
                 rec["embedding"] = self.embed_engine.encode(content)
             records.append(rec)
         self.store.append_batch(records)

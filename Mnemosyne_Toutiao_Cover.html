@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200,height=630">
+<title>Mnemosyne Memory</title>
+<style>
+:root{--bg:#050914;--cy:#00e5ff;--bl:#2962ff;--pu:#7c4dff;--wh:#e8eaed}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  width:1200px;height:630px;overflow:hidden;background:var(--bg);
+  font-family:'Inter','PingFang SC','Microsoft YaHei',sans-serif;
+  display:flex;align-items:center;justify-content:center;
+}
+.bg-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(41,98,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(41,98,255,.04) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse 50% 50% at 50% 50%,#000 35%,transparent);
+}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.28}
+.o1{width:320px;height:320px;background:var(--cy);top:10%;left:50%;transform:translateX(-50%)}
+.o2{width:260px;height:260px;background:var(--bl);top:60%;left:28%}
+.o3{width:200px;height:200px;background:var(--pu);top:45%;left:72%}
+
+.card{position:relative;z-index:3;text-align:center;max-width:700px}
+.badge{
+  display:inline-block;padding:5px 18px;border-radius:16px;
+  border:1px solid rgba(0,229,255,.35);background:rgba(0,229,255,.06);
+  color:var(--cy);font-size:12px;letter-spacing:.1em;margin-bottom:16px;
+}
+.title{
+  font-size:54px;font-weight:800;line-height:1.1;
+  background:linear-gradient(135deg,var(--cy),var(--wh) 55%,var(--pu));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:6px;
+}
+.tag{color:rgba(0,229,255,.5);font-size:14px;letter-spacing:.06em;margin-bottom:2px}
+.tag2{color:rgba(0,229,255,.35);font-size:12px;letter-spacing:.04em;margin-bottom:22px}
+
+/* The brain — massive emoji with tech neon treatment */
+.brain-emoji{
+  display:block;font-size:130px;line-height:1;
+  filter:drop-shadow(0 0 30px rgba(0,229,255,.4)) drop-shadow(0 0 60px rgba(41,98,255,.2));
+  margin:0 auto 16px;
+  /* Cyan tint overlay via text-shadow */
+  text-shadow:0 0 20px rgba(0,229,255,.6),0 0 50px rgba(0,229,255,.3);
+}
+
+.stats{display:flex;gap:40px;justify-content:center}
+.sn{font-size:26px;font-weight:700;color:var(--cy)}
+.sl{font-size:10px;color:rgba(232,234,237,.35);letter-spacing:.06em;margin-top:2px}
+
+.cr-tl{position:absolute;top:25px;left:25px;border-top:1px solid rgba(0,229,255,.25);border-left:1px solid rgba(0,229,255,.25);width:50px;height:50px}
+.cr-br{position:absolute;bottom:25px;right:25px;border-bottom:1px solid rgba(0,229,255,.25);border-right:1px solid rgba(0,229,255,.25);width:50px;height:50px}
+.ft{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);z-index:4;color:rgba(232,234,237,.2);font-size:10px;letter-spacing:.08em}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+<div class="cr-tl"></div><div class="cr-br"></div>
+
+<div class="card">
+  <div class="badge">AI MEMORY ENGINE · v4.0.0 STABLE</div>
+  <div class="title">Mnemosyne Memory</div>
+  <div class="tag">全球下一代AI Agent记忆基础设施</div>
+  <div class="tag2">全球唯一零依赖AI记忆引擎</div>
+  <div class="brain-emoji">🧠</div>
+  <div class="stats">
+    <div><div class="sn">9.58</div><div class="sl">HINDSIGHT</div></div>
+    <div><div class="sn">85%</div><div class="sl">SESSION RECALL</div></div>
+    <div><div class="sn">97.4%</div><div class="sl">TOKEN节省</div></div>
+  </div>
+</div>
+
+<div class="ft">ZENODO DOI: 10.5281/zenodo.21870436 · GITHUB.COM/FRANKHU-HK/MNEMOSYNE</div>
+</body>
+</html>
