@@ -2478,6 +2478,7 @@ class MemoryBrain:
         self.enable_embeddings = enable_embeddings
         self.enable_graph = enable_graph
         self.stats_tracker = StatsTracker(base_dir) if enable_stats else None
+        self._stats_auto = False  # 默认关闭，需手动开启
 
     def ensure_init(self):
         self.store.ensure_init()
@@ -2521,7 +2522,7 @@ class MemoryBrain:
         self.store.append(record)
         if self.stats_tracker:
             self.stats_tracker.track_retain(len(content))
-        return record
+        return (record, self.stats_tracker.summary()) if self._stats_auto else record
 
     def retain_batch(self, items):
         """批量writes 。items: [(content, mtype, kwargs), ...]"""
@@ -2581,7 +2582,7 @@ class MemoryBrain:
             recalled_chars = sum(len(r[1].get("content", "")) if len(r) > 1 else 0 for r in results)
             latency_ms = (time.time() - t0) * 1000
             self.stats_tracker.track_recall(hit, recalled_chars, latency_ms)
-        return results
+        return (results, self.stats_tracker.summary()) if self._stats_auto else results
 
     # ---- Memory Reflection（增强版：认知级反思） ----
 
@@ -2908,7 +2909,7 @@ class MemoryBrain:
     # ---- 运行统计 ----
 
     def stats(self):
-        """返回运行统计字典。需在构造时 enable_stats=True。"""
+        """返回运行统计字典。"""
         if not self.stats_tracker:
             return {"error": "统计未启用，请用 MemoryBrain(base_dir=..., enable_stats=True)"}
         return self.stats_tracker.summary()
@@ -2919,6 +2920,12 @@ class MemoryBrain:
             print("统计未启用。")
         else:
             self.stats_tracker.print_summary()
+
+    def stats_auto(self, on=True):
+        """开启/关闭自动返回统计。开启后 retain()/recall() 返回值附带 stats 字典。
+        on=True → retain() 返回 (record, stats) 而非 record
+        on=True → recall() 返回 (results, stats) 而非 results"""
+        self._stats_auto = on
 
     def graph_path(self, from_e, to_e, max_depth=3):
         if not self.graph_store:
