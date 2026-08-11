@@ -1,19 +1,19 @@
 {
   "benchmark_summary": {
     "dataset_sessions": 50,
-    "estimated_total_tokens": 40424,
-    "engine_footprint_mb": 36.653
+    "estimated_total_tokens": 40245,
+    "engine_footprint_mb": 32.725
   },
   "performance_metrics": {
-    "qps": 4.27,
-    "latency_ms_p50": 247.168,
-    "latency_ms_p95": 308.746,
-    "latency_ms_p99": 326.778,
-    "latency_ms_mean": 234.201
+    "qps": 4.42,
+    "latency_ms_p50": 231.675,
+    "latency_ms_p95": 273.572,
+    "latency_ms_p99": 290.186,
+    "latency_ms_mean": 226.271
   },
   "cost_efficiency": {
-    "token_reduction_pct": "91.71%",
-    "original_input_tokens": 40424,
+    "token_reduction_pct": "91.68%",
+    "original_input_tokens": 40245,
     "optimized_input_tokens": 3350
   }
 }
