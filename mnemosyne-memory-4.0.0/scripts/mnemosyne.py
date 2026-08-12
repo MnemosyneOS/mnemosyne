@@ -2505,7 +2505,7 @@ class MemoryBrain:
         self.enable_graph = enable_graph
         self.stats_tracker = StatsTracker(base_dir) if enable_stats else None
         self._stats_auto = False
-        self._show_stats = True   # 默认在 App 输出下方自动显示统计
+        self._show_stats = False  # 默认关闭，需手动 stats_show(on=True) 开启
         self._input_price_per_million = 3.0  # 默认 DeepSeek-V4-Pro 输入原价 ¥3/百万Token
 
     def set_model_price(self, input_per_million):
