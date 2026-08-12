@@ -98,7 +98,8 @@ class StatsTracker:
             except Exception:
                 pass
         return {"daily": {}, "totals": {"retain": 0, "recall": 0, "hit": 0, "miss": 0,
-                "total_memory_chars": 0, "total_recalled_chars": 0, "total_latency_ms": 0}}
+                "total_memory_chars": 0, "total_recalled_chars": 0,
+                "total_potential_chars": 0, "total_latency_ms": 0}}
 
     def _save(self):
         d = os.path.dirname(self.path)
@@ -110,7 +111,8 @@ class StatsTracker:
         if self._today not in self.data["daily"]:
             self.data["daily"][self._today] = {
                 "retain": 0, "recall": 0, "hit": 0, "miss": 0,
-                "total_memory_chars": 0, "total_recalled_chars": 0, "total_latency_ms": 0}
+                "total_memory_chars": 0, "total_recalled_chars": 0,
+                "total_potential_chars": 0, "total_latency_ms": 0}
 
     def track_retain(self, content_len):
         self._ensure_day()
@@ -119,12 +121,17 @@ class StatsTracker:
         t["retain"] += 1; t["total_memory_chars"] += content_len
         self._save()
 
-    def track_recall(self, hit, recalled_chars, latency_ms):
+    def track_recall(self, hit, recalled_chars, latency_ms, potential_chars=0):
+        """potential_chars = 本轮如果不用Mnemosyne会送入多少字符"""
         self._ensure_day()
         d = self.data["daily"][self._today]; t = self.data["totals"]
         d["recall"] += 1; d["total_recalled_chars"] += recalled_chars
+        d.setdefault("total_potential_chars", 0)
+        d["total_potential_chars"] += potential_chars
         d["total_latency_ms"] += latency_ms
         t["recall"] += 1; t["total_recalled_chars"] += recalled_chars
+        t.setdefault("total_potential_chars", 0)
+        t["total_potential_chars"] += potential_chars
         t["total_latency_ms"] += latency_ms
         if hit: d["hit"] += 1; t["hit"] += 1
         else: d["miss"] += 1; t["miss"] += 1
@@ -134,7 +141,8 @@ class StatsTracker:
         t = self.data["totals"]; d = self.data["daily"].get(self._today, {})
         total_mem = t.get("total_memory_chars", 0)
         total_rec = t.get("total_recalled_chars", 0)
-        est_saved = max(0, (total_mem - total_rec) // 4)
+        total_potential = t.get("total_potential_chars", 0)
+        est_saved = max(0, (total_potential - total_rec) // 4)
         recalls = max(t.get("recall", 1), 1)
         day_recalls = max(d.get("recall", 1), 1)
         return {
@@ -148,13 +156,15 @@ class StatsTracker:
             "total_hit_rate": round(t.get("hit", 0) / recalls, 3),
             "total_avg_latency_ms": round(t.get("total_latency_ms", 0) / recalls, 1),
             "total_memory_chars": total_mem, "total_recalled_chars": total_rec,
+            "total_potential_chars": total_potential,
             "estimated_tokens_saved": est_saved,
             "active_days": len(self.data.get("daily", {})),
         }
 
-    def print_summary(self):
+    def print_summary(self, price_per_million=None):
         s = self.summary()
-        saved_yuan = s["estimated_tokens_saved"] * 0.000078  # DeepSeek实测
+        potential = s.get("total_potential_chars", s["total_memory_chars"])
+        saved_pct = s["estimated_tokens_saved"] / max(s.get("total_potential_chars", 1) // 4, 1) * 100
         print(f"\n{'='*52}\n  Mnemosyne 运行统计\n{'='*52}")
         print(f"  今日 ({s['today']})")
         print(f"    写入: {s['today_retain']} 条  检索: {s['today_recall']} 次")
@@ -164,8 +174,10 @@ class StatsTracker:
         print(f"    写入: {s['total_retain']} 条  检索: {s['total_recall']} 次")
         print(f"    命中: {s['total_hit']}  未命中: {s['total_miss']}  命中率: {s['total_hit_rate']:.1%}")
         print(f"    平均延迟: {s['total_avg_latency_ms']}ms")
-        print(f"    存储字符: {s['total_memory_chars']:,}  检索返回: {s['total_recalled_chars']:,}")
-        print(f"    估算Token节省: {s['estimated_tokens_saved']:,} (≈¥{saved_yuan:.4f} @DeepSeek)")
+        print(f"    记忆总量: {s['total_memory_chars']:,} 字符")
+        print(f"    不用Mnemosyne 累计需送入: {potential:,} 字符")
+        print(f"    用了Mnemosyne 实际送入: {s['total_recalled_chars']:,} 字符")
+        print(f"    累计拦截Token: {s['estimated_tokens_saved']:,} ({saved_pct:.1f}%)")
         print(f"{'='*52}\n")
 
 
@@ -1219,16 +1231,19 @@ class RetrievalEngine:
         self._doc_tf_cache = []         # 预computes 的 TF 向量（避免per  times检索重新分词）
         self._indexed_record_count = 0  # 上 timesIndex时的Record数
         self._indexed_store_path = None # 上 timesIndex的记忆库Path
+        self._cached_records = []       # 缓存过滤后的 records，避免 retrieve 二次全量扫描
 
     def _ensure_index(self, store):
-        """增量updates Inverted Index + TFCache（仅在Record数变化时重建）。"""
+        """增量updates Inverted Index + TFCache（仅在Record数变化时重建）。
+        同时缓存过滤后的 records，避免 retrieve() 二次全量扫描。"""
         records = [r for r in store.all_records()
                    if not r.get("_corrupt") and r.get("status", "active") != "deleted"]
         if len(records) == self._indexed_record_count and self._indexed_store_path == store.index_path:
-            return  # Index已是最新
-        # 重建Inverted Index + TFCache
+            return  # Index + records缓存均为最新
+        # 重建Inverted Index + TFCache + Records缓存
         self._inverted_index.clear()
         self._doc_tf_cache = []
+        self._cached_records = records  # ← 缓存过滤后 records，retrieve() 直接复用
         for idx, r in enumerate(records):
             tokens = _tokenize(r.get("content", ""))
             self._doc_tf_cache.append(_tf_vector(tokens))
@@ -1243,8 +1258,8 @@ class RetrievalEngine:
                  date_from=None, date_to=None, use_vector=True, use_graph=True,
                  multi_hop=False, boost_recency=0.6, candidate_n=500):
         """5-Way Fusion检索主入口。"""
-        records = [r for r in store.all_records()
-                   if not r.get("_corrupt") and r.get("status", "active") != "deleted"]
+        self._ensure_index(store)
+        records = self._cached_records  # ← 复用 _ensure_index 的缓存，消灭二次全量扫描
 
         if layer:
             records = [r for r in records if r.get("layer") == layer]
@@ -1264,8 +1279,7 @@ class RetrievalEngine:
         now = _utcnow_ts()
 
         # ---- Path1: BM25 关Key词（v3.0 Inverted Index+TFCache加速）----
-        self._ensure_index(store)
-        # v3.0: using 预computes 的 TF Cache，避免per  times检索重新分词
+        # _ensure_index 已在 retrieve 入口调用，此处直接用缓存
         doc_tfs = self._doc_tf_cache if self._doc_tf_cache else \
                   [_tf_vector(_tokenize(r.get("content", ""))) for r in records]
         avg_len = sum(sum(t.values()) for t in doc_tfs) / max(len(doc_tfs), 1)
@@ -2490,7 +2504,31 @@ class MemoryBrain:
         self.enable_embeddings = enable_embeddings
         self.enable_graph = enable_graph
         self.stats_tracker = StatsTracker(base_dir) if enable_stats else None
-        self._stats_auto = False  # 默认关闭，需手动开启
+        self._stats_auto = False
+        self._show_stats = True   # 默认在 App 输出下方自动显示统计
+        self._input_price_per_million = 3.0  # 默认 DeepSeek-V4-Pro 输入原价 ¥3/百万Token
+
+    def set_model_price(self, input_per_million):
+        """设置大模型输入单价（元/百万Token），默认 DeepSeek ¥3。
+        
+        常用参考：
+          GPT-4o       ¥70/百万    Claude 3.5   ¥20/百万
+          文心一言 4.0   ¥12/百万    Qwen-Max     ¥3.5/百万
+          通义千问 Turbo ¥0.8/百万
+        """
+        self._input_price_per_million = float(input_per_million)
+
+    def show_stats(self, on=True):
+        """开启后，每次 retain/recall 自动打印统计行到终端。
+        App 会在输出内容下方直接看到统计数据。"""
+        self._show_stats = on
+
+    def _stats_line(self, action, detail):
+        """生成一行紧凑统计。只显示 Token 数——价格取决于大模型缓存命中率，Mnemosyne 不猜测。"""
+        s = self.stats_tracker.summary() if self.stats_tracker else {}
+        saved = s.get("estimated_tokens_saved", 0)
+        print(f"[Mnemosyne] {action} | 写入{s.get('today_retain','?')} 检索{s.get('today_recall','?')} | "
+              f"命中率{s.get('today_hit_rate',0):.0%} | 拦截未送入LLM≈{saved}Token | {detail}")
 
     def ensure_init(self):
         self.store.ensure_init()
@@ -2534,6 +2572,8 @@ class MemoryBrain:
         self.store.append(record)
         if self.stats_tracker:
             self.stats_tracker.track_retain(len(content))
+        if self._show_stats and self.stats_tracker:
+            self._stats_line("写入", f"+{len(content)}字符")
         return (record, self.stats_tracker.summary()) if self._stats_auto else record
 
     def retain_batch(self, items, fast=False):
@@ -2595,12 +2635,82 @@ class MemoryBrain:
         import time
         t0 = time.time()
         results = self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        hit = len(results) > 0
+        recalled_chars = sum(len(r[1].get("content", "")) if len(r) > 1 else 0 for r in results)
+        latency_ms = (time.time() - t0) * 1000
+        potential_chars = sum(len(r.get("content", "")) for r in self.store.all_records()
+                              if not r.get("_corrupt") and r.get("status", "active") != "deleted")
         if self.stats_tracker:
-            hit = len(results) > 0
-            recalled_chars = sum(len(r[1].get("content", "")) if len(r) > 1 else 0 for r in results)
-            latency_ms = (time.time() - t0) * 1000
-            self.stats_tracker.track_recall(hit, recalled_chars, latency_ms)
+            self.stats_tracker.track_recall(hit, recalled_chars, latency_ms, potential_chars)
+        # 无条件嵌入统计——任何 App 都能看到
+        raw_tokens = potential_chars // 4
+        optimized_tokens = recalled_chars // 4
+        saved_tokens = max(0, raw_tokens - optimized_tokens)
+        compression = (saved_tokens / max(raw_tokens, 1)) * 100
+        md_stats = (
+            f"\n---\n"
+            f"📊 **Mnemosyne 数据透视**\n\n"
+            f"| 指标 | 数值 |\n"
+            f"|------|------|\n"
+            f"| 拦截前原始消耗 | {raw_tokens:,} Token |\n"
+            f"| 实际发送消耗 | {optimized_tokens:,} Token |\n"
+            f"| 本次节省 | {saved_tokens:,} Token |\n"
+            f"| 上下文压缩率 | {compression:.1f}% |\n"
+            f"---"
+        )
+        results.append((md_stats, {
+            "id": "mnemosyne-stats",
+            "content": md_stats,
+            "type": "system",
+            "layer": "working",
+            "tags": [],
+            "confidence": 1.0,
+            "_mnemosyne_stats": True,
+        }))
+        # 同时强制打印——确保在 App 终端显示
+        print(md_stats)
         return (results, self.stats_tracker.summary()) if self._stats_auto else results
+
+    def preview(self, query, k=5, **kwargs):
+        """预览本轮将送入大模型的 prompt 文本——不做任何调用，只展示。
+        
+        用途：让用户直接看到 Mnemosyne 过滤后实际送入 LLM 的内容，
+              自己验证节省了多少 Token，不依赖引擎的 stats 统计。
+        """
+        results = self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        lines = []
+        for item in results:
+            rec = item[1] if len(item) > 1 else item
+            content = rec.get("content", "") if isinstance(rec, dict) else str(rec)
+            lines.append(content)
+
+        full_text = "\n---\n".join(lines)
+        all_chars = sum(len(r.get("content", "")) for r in self.store.all_records()
+                        if not r.get("_corrupt") and r.get("status", "active") != "deleted")
+        preview_chars = len(full_text)
+        saved_chars = all_chars - preview_chars
+
+        # 估算 Token（~4 chars/token）
+        all_tokens = all_chars // 4
+        preview_tokens = preview_chars // 4
+        saved_tokens = saved_chars // 4
+
+        # 按 DeepSeek-V4-Pro 输入原价 ¥3/百万 Token 估算
+        cost_without = all_tokens * 3 / 1_000_000
+        cost_with = preview_tokens * 3 / 1_000_000
+
+        return {
+            "preview_text": full_text,
+            "preview_chars": preview_chars,
+            "all_memory_chars": all_chars,
+            "all_memory_tokens_est": all_tokens,
+            "preview_tokens_est": preview_tokens,
+            "saved_tokens_est": saved_tokens,
+            "saved_ratio": f"{saved_chars / max(all_chars, 1) * 100:.1f}%",
+            "cost_without_mnemosyne_est": f"¥{cost_without:.4f}",
+            "cost_with_mnemosyne_est": f"¥{cost_with:.4f}",
+            "cost_saved_this_round_est": f"¥{cost_without - cost_with:.4f}",
+        }
 
     # ---- Memory Reflection（增强版：认知级反思） ----
 
