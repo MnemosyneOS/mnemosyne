@@ -29,6 +29,12 @@ cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py your-project/
 python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('test'); b.ensure_init(); b.retain('hello'); print('✓ Mnemosyne OK')"
 ```
 
+**Query stats** (auto-displayed after each recall):
+```python
+brain.stats_print()
+# → Current/Today/Total 3-column · 9-dimensional Token monitoring table
+```
+
 ---
 
 ## 🚀 Quick Start
