@@ -2811,33 +2811,6 @@ fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
                                             recalled_text=recalled_text, potential_text=potential_text)
             if self._auto_display_stats:
                 self.stats_tracker.print_summary()
-        # 无条件嵌入统计——任何 App 都能看到
-        raw_tokens = potential_chars // 4
-        optimized_tokens = recalled_chars // 4
-        saved_tokens = max(0, raw_tokens - optimized_tokens)
-        compression = (saved_tokens / max(raw_tokens, 1)) * 100
-        md_stats = (
-            f"\n---\n"
-            f"📊 **Mnemosyne 数据透视**\n\n"
-            f"| 指标 | 数值 |\n"
-            f"|------|------|\n"
-            f"| 拦截前原始消耗 | {raw_tokens:,} Token |\n"
-            f"| 实际发送消耗 | {optimized_tokens:,} Token |\n"
-            f"| 本次节省 | {saved_tokens:,} Token |\n"
-            f"| 上下文压缩率 | {compression:.1f}% |\n"
-            f"---"
-        )
-        results.append((md_stats, {
-            "id": "mnemosyne-stats",
-            "content": md_stats,
-            "type": "system",
-            "layer": "working",
-            "tags": [],
-            "confidence": 1.0,
-            "_mnemosyne_stats": True,
-        }))
-        # 同时强制打印——确保在 App 终端显示
-        print(md_stats)
         return (results, self.stats_tracker.summary()) if self._stats_auto else results
 
     def preview(self, query, k=5, **kwargs):

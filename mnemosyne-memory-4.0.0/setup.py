@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 """Mnemosyne Memory — zero-dependency AI Agent Memory Engine.
-PyPI: mnemosyne-l1 (mnemosyne-memory is taken by mnemosyne-oss)
+PyPI: mnemosyne-os (mnemosyne-memory is taken by mnemosyne-oss)
 """
 from setuptools import setup, find_packages
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+def _read_long_desc():
+    for name in ("comparison.md", "README.md"):
+        p = os.path.join(HERE, name)
+        if os.path.exists(p):
+            try:
+                return open(p, encoding="utf-8").read()
+            except Exception:
+                pass
+    return "Zero-dependency AI Agent Memory Engine (L1 lexical cache)."
+
 setup(
-    name="mnemosyne-l1",
+    name="mnemosyne-os",
     version="5.1.0",
     description="Zero-dependency AI Agent Memory Engine — L1 Lexical Cache",
-    long_description=open(os.path.join(HERE, "comparison.md"), encoding="utf-8").read(),
+    long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
     author="胡景产品负责人 (Jingkun Hu)",
     author_email="<your-user>ngkun@qq.com",

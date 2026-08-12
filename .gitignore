@@ -14,6 +14,10 @@ mnemosyne-final/
 *.pyc
 __pycache__/
 arxiv_submit/
+dist/
+*.egg-info/
+*.backup
+*.schemeA.backup
 
 # 旧文档
 AI Memory 系统白皮书.pdf
