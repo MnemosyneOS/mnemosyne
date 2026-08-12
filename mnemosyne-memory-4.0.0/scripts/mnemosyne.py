@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v3.0.0 — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v4.0.0 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
 适用 Agent 框架：Hermes Agent · OpenClaw · LangChain · AutoGPT · CrewAI · 
                MetaGPT · Dify · Coze · OpenAI Assistants · 任何 CLI/Python Agent
 
-v3.0.0 核心Upgrade（5大追赶维度全面超越 Hindsight）：
+v4.0.0 核心升级（5大追赶维度全面超越 Hindsight）：
   ╔══════════════════════════════════════════════════════════════╗
   ║  1. 🌐 多语言supports  —— 中/英/日/韩/法/德/西/俄 30+语言分词      ║
   ║  2. ⚡ Inverted Index —— BM25检索 O(n)→O(log n)，11ms/recall       ║
