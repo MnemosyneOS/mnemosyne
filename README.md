@@ -32,6 +32,11 @@ python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('test'); b.ensure_in
 **Query stats** (auto-displayed after each recall):
 ```python
 brain.stats_print()
+```
+or directly in terminal:
+```bash
+python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('your_brain'); b.stats_print()"
+```
 # → Current/Today/Total 3-column · 9-dimensional Token monitoring table
 ```
 
