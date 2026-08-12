@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v4.0.0 Stable — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v5.0.0 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
 适用 Agent 框架：Hermes Agent · OpenClaw · LangChain · AutoGPT · CrewAI · 
                MetaGPT · Dify · Coze · OpenAI Assistants · 任何 CLI/Python Agent
 
-v4.0.0 核心升级（5大追赶维度全面超越 Hindsight）：
+v5.0.0 核心升级（5大追赶维度全面超越 Hindsight）：
   ╔══════════════════════════════════════════════════════════════╗
   ║  1. 🌐 多语言supports  —— 中/英/日/韩/法/德/西/俄 30+语言分词      ║
   ║  2. ⚡ Inverted Index —— BM25检索 O(n)→O(log n)，11ms/recall       ║
@@ -63,7 +63,26 @@ from datetime import datetime, timezone
 import heapq
 import functools
 
-VERSION = "4.0.0 Stable"
+import functools
+
+# === 跨平台文件锁（多进程写入保护）===
+import os as _os
+if hasattr(_os, "O_BINARY"):
+    import msvcrt as _msvcrt
+    def _file_lock(f, exclusive=True):
+        _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK if exclusive else _msvcrt.LK_NBLCK, 1)
+    def _file_unlock(f):
+        try: _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+        except: pass
+else:
+    import fcntl as _fcntl
+    def _file_lock(f, exclusive=True):
+        _fcntl.flock(f.fileno(), _fcntl.LOCK_EX if exclusive else _fcntl.LOCK_SH)
+    def _file_unlock(f):
+        _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
+
+
+VERSION = "5.0.0 Stable"
 MEMORY_TYPES = {
     "semantic", "episodic", "procedural", "reflective",
     "web", "preference", "todo", "identity",
@@ -83,7 +102,7 @@ DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 class StatsTracker:
     """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
     Auto-saves to stats.json in the brain's base directory."""
-    def __init__(self, base_dir, tokenizer_backend="tiktoken", tokenizer_model=None):
+    def __init__(self, base_dir, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
         self.base_dir = base_dir
         self.path = os.path.join(base_dir, "stats.json")
         self.data = self._load()
@@ -98,15 +117,15 @@ class StatsTracker:
         self._tokenizer = self._load_tokenizer(backend=tokenizer_backend, model_id=tokenizer_model)
 
     @staticmethod
-    def _load_tokenizer(backend="tiktoken", model_id=None):
-        """backend: 'tiktoken' (方案A/cl100k_base) 或 'transformers' (方案B/HuggingFace)"""
+    def _load_tokenizer(backend="transformers", model_id="deepseek-ai/DeepSeek-V2"):
+        """默认方案B: DeepSeek-V2原生分词器（1:1账单对齐）；回退方案A: tiktoken cl100k_base"""
         if backend == "transformers" and model_id:
             try:
                 from transformers import AutoTokenizer
                 return AutoTokenizer.from_pretrained(model_id)
             except Exception:
                 pass
-        # 方案A 默认: OpenAI tiktoken
+        # 回退: OpenAI tiktoken
         try:
             import tiktoken
             return tiktoken.get_encoding("cl100k_base")
@@ -1022,6 +1041,7 @@ class MemoryStore:
         for attempt in range(1, retries + 1):
             try:
                 with open(self.index_path, "a", encoding="utf-8") as f:
+                    _file_lock(f)
                     f.write(line)
                     if durable and hasattr(os, "fsync"):
                         f.flush()
@@ -1086,10 +1106,23 @@ class MemoryStore:
     def _invalidate_cache(self):
         self._cache = None
 
+    def repair(self):
+        """扫描并修复 JSONL 文件：移除损坏行，保留完好数据。返回 (removed, kept)。"""
+        removed = 0; kept = 0; good = []
+        for rec in self.iter_records():
+            if rec.get("_corrupt"):
+                removed += 1
+            else:
+                good.append(rec); kept += 1
+        if removed > 0:
+            self.rewrite(good)
+        return (removed, kept)
+
     def rewrite(self, records):
         self.ensure_init()
         tmp = self.index_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
+            _file_lock(f)
             for r in records:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
         os.replace(tmp, self.index_path)
@@ -2591,7 +2624,7 @@ class MemoryBrain:
     """
 
     def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True,
-                 enable_stats=True, tokenizer_backend="tiktoken", tokenizer_model=None):
+                 enable_stats=True, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
         self.base_dir = base_dir
         self.store = MemoryStore(base_dir)
         self.embed_engine = EmbeddingEngine() if enable_embeddings else None
@@ -3149,6 +3182,10 @@ class MemoryBrain:
         if not self.stats_tracker:
             return {"error": "统计未启用，请用 MemoryBrain(base_dir=..., enable_stats=True)"}
         return self.stats_tracker.summary()
+
+    def memory_repair(self):
+        """扫描并自动修复损坏的记忆数据。返回 (removed, kept)。"""
+        return self.store.repair()
 
     def stats_print(self):
         """打印运行统计到控制台。"""
