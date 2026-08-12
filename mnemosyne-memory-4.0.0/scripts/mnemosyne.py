@@ -200,22 +200,15 @@ class StatsTracker:
 
     def print_summary(self, price_per_million=None):
         s = self.summary()
-        potential = s.get("total_potential_chars", s["total_memory_chars"])
-        saved_pct = s["estimated_tokens_saved"] / max(s.get("total_potential_chars", 1) // 4, 1) * 100
-        print(f"\n{'='*52}\n  Mnemosyne 运行统计\n{'='*52}")
-        print(f"  今日 ({s['today']})")
-        print(f"    写入: {s['today_retain']} 条  检索: {s['today_recall']} 次")
-        print(f"    命中: {s['today_hit']}  未命中: {s['today_miss']}  命中率: {s['today_hit_rate']:.1%}")
-        print(f"    平均延迟: {s['today_avg_latency_ms']}ms")
-        print(f"  累计 ({s['active_days']} 天)")
-        print(f"    写入: {s['total_retain']} 条  检索: {s['total_recall']} 次")
-        print(f"    命中: {s['total_hit']}  未命中: {s['total_miss']}  命中率: {s['total_hit_rate']:.1%}")
-        print(f"    平均延迟: {s['total_avg_latency_ms']}ms")
-        print(f"    记忆总量: {s['total_memory_chars']:,} 字符")
-        print(f"    不用Mnemosyne 累计需送入: {potential:,} 字符")
-        print(f"    用了Mnemosyne 实际送入: {s['total_recalled_chars']:,} 字符")
-        print(f"    累计拦截Token: {s['estimated_tokens_saved']:,} ({saved_pct:.1f}%)")
-        print(f"{'='*52}\n")
+        print(f"\n📊 Mnemosyne 记忆引擎监控数据\n")
+        print(f"| 维度 | 当前对话 | 今日 | 累计 |")
+        print(f"|------|------|------|------|")
+        print(f"| 📝 写入 Token | {s['session_write_tokens']} | {s['today_write_tokens']} | {s['write_tokens']} |")
+        print(f"| 🔍 召回 Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
+        print(f"| 🤖 送入LLM Token | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
+        print(f"| 🛡️ 拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
+        print(f"| 📉 LLM送入比例 | {100-round(s['session_recall_tokens']/max(s['session_write_tokens'],1)*100,1):.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
+        print()
 
 
 # ═══════════════════════════════════════════════
