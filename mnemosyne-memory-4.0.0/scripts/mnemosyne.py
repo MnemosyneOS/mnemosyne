@@ -83,7 +83,7 @@ DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 class StatsTracker:
     """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
     Auto-saves to stats.json in the brain's base directory."""
-    def __init__(self, base_dir):
+    def __init__(self, base_dir, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.path = os.path.join(base_dir, "stats.json")
         self.data = self._load()
@@ -92,7 +92,36 @@ class StatsTracker:
         # 当前对话级（不持久化，每次构造重置）
         self._session = {"retain": 0, "recall": 0, "hit": 0, "miss": 0,
                          "total_memory_chars": 0, "total_recalled_chars": 0,
-                         "total_potential_chars": 0, "total_latency_ms": 0}
+                         "total_potential_chars": 0, "total_latency_ms": 0,
+                         "write_tokens": 0, "recall_tokens": 0}
+        # Tokenizer: 方案B优先 transformers，否则 方案A tiktoken
+        self._tokenizer = self._load_tokenizer(backend=tokenizer_backend, model_id=tokenizer_model)
+
+    @staticmethod
+    def _load_tokenizer(backend="tiktoken", model_id=None):
+        """backend: 'tiktoken' (方案A/cl100k_base) 或 'transformers' (方案B/HuggingFace)"""
+        if backend == "transformers" and model_id:
+            try:
+                from transformers import AutoTokenizer
+                return AutoTokenizer.from_pretrained(model_id)
+            except Exception:
+                pass
+        # 方案A 默认: OpenAI tiktoken
+        try:
+            import tiktoken
+            return tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            return None
+
+    @staticmethod
+    def _count_tokens(text, tokenizer):
+        """用 tiktoken 或回退 4 字符≈1 Token 计算 token 数。"""
+        if tokenizer and text:
+            try:
+                return len(tokenizer.encode(text))
+            except Exception:
+                pass
+        return max(1, len(text) // 4)
 
     def _load(self):
         if os.path.exists(self.path):
@@ -118,16 +147,21 @@ class StatsTracker:
                 "total_memory_chars": 0, "total_recalled_chars": 0,
                 "total_potential_chars": 0, "total_latency_ms": 0}
 
-    def track_retain(self, content_len):
+    def track_retain(self, content_len, content=None):
         self._ensure_day()
         d = self.data["daily"][self._today]; t = self.data["totals"]; s = self._session
         d["retain"] += 1; d["total_memory_chars"] += content_len
         t["retain"] += 1; t["total_memory_chars"] += content_len
         s["retain"] += 1; s["total_memory_chars"] += content_len
+        if content:
+            tk = self._count_tokens(content, self._tokenizer)
+            d.setdefault("write_tokens", 0); t.setdefault("write_tokens", 0)
+            d["write_tokens"] += tk; t["write_tokens"] += tk; s["write_tokens"] += tk
         self._save()
 
-    def track_recall(self, hit, recalled_chars, latency_ms, potential_chars=0):
-        """potential_chars = 本轮如果不用Mnemosyne会送入多少字符"""
+    def track_recall(self, hit, recalled_chars, latency_ms, potential_chars=0,
+                     recalled_text="", potential_text=""):
+        """recalled_text/potential_text 用于精确 token 计数（可选 tiktoken）。"""
         self._ensure_day()
         d = self.data["daily"][self._today]; t = self.data["totals"]; s = self._session
         d["recall"] += 1; d["total_recalled_chars"] += recalled_chars
@@ -144,6 +178,15 @@ class StatsTracker:
         s["total_latency_ms"] += latency_ms
         if hit: d["hit"] += 1; t["hit"] += 1; s["hit"] += 1
         else: d["miss"] += 1; t["miss"] += 1; s["miss"] += 1
+        # Token 精确计数
+        if recalled_text:
+            rt = self._count_tokens(recalled_text, self._tokenizer)
+            d.setdefault("recall_tokens", 0); t.setdefault("recall_tokens", 0)
+            d["recall_tokens"] += rt; t["recall_tokens"] += rt; s["recall_tokens"] += rt
+        if potential_text:
+            pt = self._count_tokens(potential_text, self._tokenizer)
+            d.setdefault("potential_tokens", 0); t.setdefault("potential_tokens", 0)
+            d["potential_tokens"] += pt; t["potential_tokens"] += pt
         self._save()
 
     def summary(self):
@@ -151,12 +194,22 @@ class StatsTracker:
         total_mem = t.get("total_memory_chars", 0)
         total_rec = t.get("total_recalled_chars", 0)
         total_potential = t.get("total_potential_chars", total_mem)
-        est_saved = max(0, (total_potential - total_rec) // 4)
         recalls = max(t.get("recall", 1), 1)
         day_recalls = max(d.get("recall", 1), 1)
         today_mem = d.get("total_memory_chars", 0)
         today_rec = d.get("total_recalled_chars", 0)
         today_potential = d.get("total_potential_chars", today_mem)
+        # Token 计数：优先 tiktoken，回退 4字符≈1Token
+        today_wt = d.get("write_tokens", today_mem // 4)
+        today_rt = d.get("recall_tokens", today_rec // 4)
+        today_pt = d.get("potential_tokens", today_potential // 4)
+        total_wt = t.get("write_tokens", total_mem // 4)
+        total_rt = t.get("recall_tokens", total_rec // 4)
+        total_pt = t.get("potential_tokens", total_potential // 4)
+        session_wt = self._session.get("write_tokens", self._session["total_memory_chars"] // 4)
+        session_rt = self._session.get("recall_tokens", self._session["total_recalled_chars"] // 4)
+        sess_potential = max(self._session.get("total_potential_chars", 0), self._session["total_memory_chars"])
+        est_saved = max(0, total_pt - total_rt)
         return {
             "today": self._today,
             "today_retain": d.get("retain", 0), "today_recall": d.get("recall", 0),
@@ -165,20 +218,24 @@ class StatsTracker:
             "today_avg_latency_ms": round(d.get("total_latency_ms", 0) / day_recalls, 1),
             # --- Token 全维度（今日） ---
             "today_write_chars": today_mem,
-            "today_write_tokens": today_mem // 4,
+            "today_write_tokens": today_wt,
             "today_recall_chars": today_rec,
-            "today_recall_tokens": today_rec // 4,
-            "today_sent_to_llm_tokens": today_rec // 4,
-            "today_potential_tokens": today_potential // 4,
-            "today_saved_tokens": max(0, (today_potential - today_rec) // 4),
-            "today_llm_feed_pct": round(today_rec / max(today_potential, 1) * 100, 1),
+            "today_recall_tokens": today_rt,
+            "today_sent_to_llm_tokens": today_rt,
+            "today_potential_tokens": today_pt,
+            "today_saved_tokens": max(0, today_pt - today_rt),
+            "today_llm_feed_pct": round(today_rt / max(today_pt, 1) * 100, 1),
             # --- Token 全维度（当前对话） ---
             "session_retain": self._session["retain"],
             "session_recall": self._session["recall"],
-            "session_write_tokens": self._session["total_memory_chars"] // 4,
-            "session_recall_tokens": self._session["total_recalled_chars"] // 4,
-            "session_sent_to_llm_tokens": self._session["total_recalled_chars"] // 4,
-            "session_saved_tokens": max(0, (self._session.get("total_potential_chars", 0) - self._session["total_recalled_chars"]) // 4),
+            "session_hit": self._session["hit"],
+            "session_miss": self._session["miss"],
+            "session_hit_rate": round(self._session["hit"] / max(self._session["recall"], 1), 3),
+            "session_write_tokens": self._session.get("write_tokens", self._session["total_memory_chars"] // 4),
+            "session_recall_tokens": self._session.get("recall_tokens", self._session["total_recalled_chars"] // 4),
+            "session_sent_to_llm_tokens": self._session.get("recall_tokens", self._session["total_recalled_chars"] // 4),
+            "session_saved_tokens": max(0, (self._session.get("total_potential_chars", self._session["total_memory_chars"]) // 4)),
+            "session_llm_feed_pct": round(self._session["total_recalled_chars"] / max(self._session.get("total_potential_chars", self._session["total_memory_chars"]), 1) * 100, 1),
             # --- 累计 ---
             "total_retain": t.get("retain", 0), "total_recall": t.get("recall", 0),
             "total_hit": t.get("hit", 0), "total_miss": t.get("miss", 0),
@@ -188,12 +245,12 @@ class StatsTracker:
             "total_potential_chars": total_potential,
             "estimated_tokens_saved": est_saved,
             # --- Token 全维度（累计） ---
-            "write_tokens": total_mem // 4,
-            "recall_tokens": total_rec // 4,
-            "sent_to_llm_tokens": total_rec // 4,
-            "potential_tokens": total_potential // 4,
+            "write_tokens": total_wt,
+            "recall_tokens": total_rt,
+            "sent_to_llm_tokens": total_rt,
+            "potential_tokens": total_pt,
             "saved_tokens": est_saved,
-            "llm_feed_pct": round(total_rec / max(total_potential, 1) * 100, 1),
+            "llm_feed_pct": round(total_rt / max(total_pt, 1) * 100, 1),
             # --- 元信息 ---
             "active_days": len(self.data.get("daily", {})),
         }
@@ -205,14 +262,17 @@ class StatsTracker:
         sess_potential = s.get('session_write_tokens', sess_w) + s.get('session_saved_tokens', 0)
         sess_potential = max(sess_potential, 1)
         sess_feed_pct = round(s['session_recall_tokens'] / sess_potential * 100, 1)
-        print(f"\n📊 Mnemosyne 记忆引擎监控数据\n")
+        print(f"\n📊 Mnemosyne Memory 记忆系统监控数据\n")
         print(f"| 维度 | 当前对话 | 今日 | 累计 |")
         print(f"|------|------|------|------|")
-        print(f"| 📝 写入 Token | {s['session_write_tokens']} | {s['today_write_tokens']} | {s['write_tokens']} |")
-        print(f"| 🔍 召回 Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
-        print(f"| 🤖 送入LLM Token | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
-        print(f"| 🛡️ 拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
-        print(f"| 📉 LLM送入比例 | {sess_feed_pct:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
+        print(f"| 📝写入Token | {s['session_write_tokens']} | {s['today_write_tokens']} | {s['write_tokens']} |")
+        print(f"| 🔍召回Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
+        print(f"| 🤖送入LLM | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
+        print(f"| 🛡️拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
+        print(f"| 🎯命中(次) | {s['session_hit']} | {s['today_hit']} | {s['total_hit']} |")
+        print(f"| ✅命中率 | {s['session_hit_rate']:.0%} | {s['today_hit_rate']:.0%} | {s['total_hit_rate']:.0%} |")
+        print(f"| 📈LLM送入比例 | {s['session_llm_feed_pct']:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
+        print(f"| 📦压缩率 | {100-s['session_llm_feed_pct']:.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
         print()
 
 
@@ -2527,7 +2587,8 @@ class MemoryBrain:
       - Learner: 自学习循环
     """
 
-    def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True, enable_stats=True):
+    def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True,
+                 enable_stats=True, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.store = MemoryStore(base_dir)
         self.embed_engine = EmbeddingEngine() if enable_embeddings else None
@@ -2538,10 +2599,13 @@ class MemoryBrain:
         )
         self.enable_embeddings = enable_embeddings
         self.enable_graph = enable_graph
-        self.stats_tracker = StatsTracker(base_dir) if enable_stats else None
+        self.stats_tracker = StatsTracker(base_dir,
+                                          tokenizer_backend=tokenizer_backend,
+                                          tokenizer_model=tokenizer_model) if enable_stats else None
         self._stats_auto = False
-        self._show_stats = False  # 默认关闭，需手动 stats_show(on=True) 开启
-        self._input_price_per_million = 3.0  # 默认 DeepSeek-V4-Pro 输入原价 ¥3/百万Token
+        self._show_stats = False
+        self._auto_display_stats = True  # 每次 recall() 后自动输出监控表
+        self._input_price_per_million = 3.0
 
     def set_model_price(self, input_per_million):
         """设置大模型输入单价（元/百万Token），默认 DeepSeek ¥3。
@@ -2606,7 +2670,7 @@ class MemoryBrain:
         # writes 
         self.store.append(record)
         if self.stats_tracker:
-            self.stats_tracker.track_retain(len(content))
+            self.stats_tracker.track_retain(len(content), content=content)
         if self._show_stats and self.stats_tracker:
             self._stats_line("写入", f"+{len(content)}字符")
         return (record, self.stats_tracker.summary()) if self._stats_auto else record
@@ -2675,8 +2739,14 @@ class MemoryBrain:
         latency_ms = (time.time() - t0) * 1000
         potential_chars = sum(len(r.get("content", "")) for r in self.store.all_records()
                               if not r.get("_corrupt") and r.get("status", "active") != "deleted")
+        recalled_text = " ".join(r[1].get("content", "") if len(r) > 1 else "" for r in results)
+        potential_text = " ".join(r.get("content", "") for r in self.store.all_records()[:50]
+                                  if not r.get("_corrupt") and r.get("status", "active") != "deleted")
         if self.stats_tracker:
-            self.stats_tracker.track_recall(hit, recalled_chars, latency_ms, potential_chars)
+            self.stats_tracker.track_recall(hit, recalled_chars, latency_ms, potential_chars,
+                                            recalled_text=recalled_text, potential_text=potential_text)
+            if self._auto_display_stats:
+                self.stats_tracker.print_summary()
         # 无条件嵌入统计——任何 App 都能看到
         raw_tokens = potential_chars // 4
         optimized_tokens = recalled_chars // 4
