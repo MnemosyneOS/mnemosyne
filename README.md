@@ -14,6 +14,37 @@
 
 ---
 
+## ⚡ Install (10 seconds)
+
+**For AI Agent users** — tell your AI:
+> Install @user_663a53c6/mnemosyne-memory from SkillHub
+
+**For developers** — copy one file:
+```bash
+cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py your-project/
+```
+
+**Verify**:
+```bash
+python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('test'); b.ensure_init(); b.retain('hello'); print('✓ Mnemosyne OK')"
+```
+
+---
+
+## 🚀 Quick Start
+
+```python
+from mnemosyne import MemoryBrain
+
+brain = MemoryBrain("my_brain")
+brain.ensure_init()              # first time only
+brain.retain("Alice joined Acme Corp in 2024")
+results = brain.recall("When did Alice join?", k=3)
+# → (0.891, {"content":"Alice joined Acme Corp in 2024",...})
+```
+
+---
+
 ## In One Sentence
 
 **Before calling any LLM, Mnemosyne pre-filters massive memory stores down to the Top-10 most relevant items — at zero compute cost for retrieval, saving 80%+ tokens with <10ms latency. But it's much more than token savings: it's the world's only single-file, zero-dependency, fully-local AI memory engine — with native support for 7 languages, 8+ Agent frameworks, knowledge-graph reasoning, multi-hop retrieval, automatic reflection, and memory consolidation. Copy one .py file, and your AI gains persistent long-term memory that never forgets.**
