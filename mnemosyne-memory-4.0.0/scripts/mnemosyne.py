@@ -194,8 +194,10 @@ class StatsTracker:
         total_mem = t.get("total_memory_chars", 0)
         total_rec = t.get("total_recalled_chars", 0)
         total_potential = t.get("total_potential_chars", total_mem)
-        recalls = max(t.get("recall", 1), 1)
-        day_recalls = max(d.get("recall", 1), 1)
+        recalls = t.get("recall", 0)
+        day_recalls = d.get("recall", 0)
+        if recalls == 0: recalls = 1  # 仅用于平均延迟等兜底
+        if day_recalls == 0: day_recalls = 1
         today_mem = d.get("total_memory_chars", 0)
         today_rec = d.get("total_recalled_chars", 0)
         today_potential = d.get("total_potential_chars", today_mem)
@@ -214,8 +216,8 @@ class StatsTracker:
             "today": self._today,
             "today_retain": d.get("retain", 0), "today_recall": d.get("recall", 0),
             "today_hit": d.get("hit", 0), "today_miss": d.get("miss", 0),
-            "today_hit_rate": round(d.get("hit", 0) / day_recalls, 3),
-            "today_avg_latency_ms": round(d.get("total_latency_ms", 0) / day_recalls, 1),
+            "today_hit_rate": round(d.get("hit", 0) / day_recalls, 3) if d.get("recall", 0) > 0 else 0.0,
+            "today_avg_latency_ms": round(d.get("total_latency_ms", 0) / day_recalls, 1) if d.get("recall", 0) > 0 else 0.0,
             # --- Token 全维度（今日） ---
             "today_write_chars": today_mem,
             "today_write_tokens": today_wt,
@@ -230,7 +232,7 @@ class StatsTracker:
             "session_recall": self._session["recall"],
             "session_hit": self._session["hit"],
             "session_miss": self._session["miss"],
-            "session_hit_rate": round(self._session["hit"] / max(self._session["recall"], 1), 3),
+            "session_hit_rate": round(self._session["hit"] / max(self._session["recall"], 1), 3) if self._session["recall"] > 0 else 0.0,
             "session_write_tokens": self._session.get("write_tokens", self._session["total_memory_chars"] // 4),
             "session_recall_tokens": self._session.get("recall_tokens", self._session["total_recalled_chars"] // 4),
             "session_sent_to_llm_tokens": self._session.get("recall_tokens", self._session["total_recalled_chars"] // 4),
@@ -239,7 +241,7 @@ class StatsTracker:
             # --- 累计 ---
             "total_retain": t.get("retain", 0), "total_recall": t.get("recall", 0),
             "total_hit": t.get("hit", 0), "total_miss": t.get("miss", 0),
-            "total_hit_rate": round(t.get("hit", 0) / recalls, 3),
+            "total_hit_rate": round(t.get("hit", 0) / recalls, 3) if t.get("recall", 0) > 0 else 0.0,
             "total_avg_latency_ms": round(t.get("total_latency_ms", 0) / recalls, 1),
             "total_memory_chars": total_mem, "total_recalled_chars": total_rec,
             "total_potential_chars": total_potential,
