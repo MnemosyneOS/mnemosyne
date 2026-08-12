@@ -200,6 +200,11 @@ class StatsTracker:
 
     def print_summary(self, price_per_million=None):
         s = self.summary()
+        # 当前对话的送入比例
+        sess_w = max(s['session_write_tokens'], 1)
+        sess_potential = s.get('session_write_tokens', sess_w) + s.get('session_saved_tokens', 0)
+        sess_potential = max(sess_potential, 1)
+        sess_feed_pct = round(s['session_recall_tokens'] / sess_potential * 100, 1)
         print(f"\n📊 Mnemosyne 记忆引擎监控数据\n")
         print(f"| 维度 | 当前对话 | 今日 | 累计 |")
         print(f"|------|------|------|------|")
@@ -207,7 +212,7 @@ class StatsTracker:
         print(f"| 🔍 召回 Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
         print(f"| 🤖 送入LLM Token | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
         print(f"| 🛡️ 拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
-        print(f"| 📉 LLM送入比例 | {100-round(s['session_recall_tokens']/max(s['session_write_tokens'],1)*100,1):.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
+        print(f"| 📉 LLM送入比例 | {sess_feed_pct:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
         print()
 
 
