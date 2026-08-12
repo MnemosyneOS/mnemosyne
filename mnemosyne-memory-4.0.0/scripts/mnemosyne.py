@@ -89,6 +89,10 @@ class StatsTracker:
         self.data = self._load()
         self._today = _today_str()
         self._ensure_day()
+        # 当前对话级（不持久化，每次构造重置）
+        self._session = {"retain": 0, "recall": 0, "hit": 0, "miss": 0,
+                         "total_memory_chars": 0, "total_recalled_chars": 0,
+                         "total_potential_chars": 0, "total_latency_ms": 0}
 
     def _load(self):
         if os.path.exists(self.path):
@@ -116,15 +120,16 @@ class StatsTracker:
 
     def track_retain(self, content_len):
         self._ensure_day()
-        d = self.data["daily"][self._today]; t = self.data["totals"]
+        d = self.data["daily"][self._today]; t = self.data["totals"]; s = self._session
         d["retain"] += 1; d["total_memory_chars"] += content_len
         t["retain"] += 1; t["total_memory_chars"] += content_len
+        s["retain"] += 1; s["total_memory_chars"] += content_len
         self._save()
 
     def track_recall(self, hit, recalled_chars, latency_ms, potential_chars=0):
         """potential_chars = 本轮如果不用Mnemosyne会送入多少字符"""
         self._ensure_day()
-        d = self.data["daily"][self._today]; t = self.data["totals"]
+        d = self.data["daily"][self._today]; t = self.data["totals"]; s = self._session
         d["recall"] += 1; d["total_recalled_chars"] += recalled_chars
         d.setdefault("total_potential_chars", 0)
         d["total_potential_chars"] += potential_chars
@@ -133,24 +138,48 @@ class StatsTracker:
         t.setdefault("total_potential_chars", 0)
         t["total_potential_chars"] += potential_chars
         t["total_latency_ms"] += latency_ms
-        if hit: d["hit"] += 1; t["hit"] += 1
-        else: d["miss"] += 1; t["miss"] += 1
+        s["recall"] += 1; s["total_recalled_chars"] += recalled_chars
+        s.setdefault("total_potential_chars", 0)
+        s["total_potential_chars"] += potential_chars
+        s["total_latency_ms"] += latency_ms
+        if hit: d["hit"] += 1; t["hit"] += 1; s["hit"] += 1
+        else: d["miss"] += 1; t["miss"] += 1; s["miss"] += 1
         self._save()
 
     def summary(self):
         t = self.data["totals"]; d = self.data["daily"].get(self._today, {})
         total_mem = t.get("total_memory_chars", 0)
         total_rec = t.get("total_recalled_chars", 0)
-        total_potential = t.get("total_potential_chars", 0)
+        total_potential = t.get("total_potential_chars", total_mem)
         est_saved = max(0, (total_potential - total_rec) // 4)
         recalls = max(t.get("recall", 1), 1)
         day_recalls = max(d.get("recall", 1), 1)
+        today_mem = d.get("total_memory_chars", 0)
+        today_rec = d.get("total_recalled_chars", 0)
+        today_potential = d.get("total_potential_chars", today_mem)
         return {
             "today": self._today,
             "today_retain": d.get("retain", 0), "today_recall": d.get("recall", 0),
             "today_hit": d.get("hit", 0), "today_miss": d.get("miss", 0),
             "today_hit_rate": round(d.get("hit", 0) / day_recalls, 3),
             "today_avg_latency_ms": round(d.get("total_latency_ms", 0) / day_recalls, 1),
+            # --- Token 全维度（今日） ---
+            "today_write_chars": today_mem,
+            "today_write_tokens": today_mem // 4,
+            "today_recall_chars": today_rec,
+            "today_recall_tokens": today_rec // 4,
+            "today_sent_to_llm_tokens": today_rec // 4,
+            "today_potential_tokens": today_potential // 4,
+            "today_saved_tokens": max(0, (today_potential - today_rec) // 4),
+            "today_llm_feed_pct": round(today_rec / max(today_potential, 1) * 100, 1),
+            # --- Token 全维度（当前对话） ---
+            "session_retain": self._session["retain"],
+            "session_recall": self._session["recall"],
+            "session_write_tokens": self._session["total_memory_chars"] // 4,
+            "session_recall_tokens": self._session["total_recalled_chars"] // 4,
+            "session_sent_to_llm_tokens": self._session["total_recalled_chars"] // 4,
+            "session_saved_tokens": max(0, (self._session.get("total_potential_chars", 0) - self._session["total_recalled_chars"]) // 4),
+            # --- 累计 ---
             "total_retain": t.get("retain", 0), "total_recall": t.get("recall", 0),
             "total_hit": t.get("hit", 0), "total_miss": t.get("miss", 0),
             "total_hit_rate": round(t.get("hit", 0) / recalls, 3),
@@ -158,6 +187,14 @@ class StatsTracker:
             "total_memory_chars": total_mem, "total_recalled_chars": total_rec,
             "total_potential_chars": total_potential,
             "estimated_tokens_saved": est_saved,
+            # --- Token 全维度（累计） ---
+            "write_tokens": total_mem // 4,
+            "recall_tokens": total_rec // 4,
+            "sent_to_llm_tokens": total_rec // 4,
+            "potential_tokens": total_potential // 4,
+            "saved_tokens": est_saved,
+            "llm_feed_pct": round(total_rec / max(total_potential, 1) * 100, 1),
+            # --- 元信息 ---
             "active_days": len(self.data.get("daily", {})),
         }
 
