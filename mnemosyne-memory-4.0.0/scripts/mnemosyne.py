@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v5.0.0 Stable — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v5.1.0 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
@@ -82,7 +82,7 @@ else:
         _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
 
 
-VERSION = "5.0.0 Stable"
+VERSION = "5.1.0 Stable"
 MEMORY_TYPES = {
     "semantic", "episodic", "procedural", "reflective",
     "web", "preference", "todo", "identity",
@@ -2672,13 +2672,17 @@ class MemoryBrain:
 
     # ---- 记忆writes （增强版自动抽取） ----
 
-    def retain(self, content, mtype="semantic", fast=False, **kwargs):
-        """writes 一 memory records，自动完成：实体抽取、关系提取、重要性评估、
-        事实Type推断、可信度评估、图边writes 、向量编码。
+    @staticmethod
+    def _normalize_for_hash(text):
+        """归一化文本用于 template_hash 计算——去空格/标点/大小写"""
+        import re
+        return re.sub(r'[\s，。！？、；：""''（）《》\[\]{}]', '', text).lower()[:200]
 
-        fast=True: skips 实体抽取/图边/向量编码/冲突检测（批量writes 时快10倍）。
-        被skips 的内容在首 times检索时由 _ensure_index() 惰性补全。
-        """
+    def retain(self, content, mtype="semantic", fast=False, project=None, **kwargs):
+        """写入一条记忆。project 可选项目名用于多项目隔离。
+fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
+时序版本追踪：相同 template_hash 自动递增 version。"""
+        import hashlib
         # BuildRecord
         if fast:
             # 快速Path：Build最小Record
@@ -2703,6 +2707,26 @@ class MemoryBrain:
             conflicts = self._detect_conflicts_at_write(record)
             if conflicts:
                 record["meta"]["write_conflicts"] = conflicts
+        
+        # --- project 隔离 ---
+        if project:
+            record["project"] = project
+        
+        # --- 时序版本追踪 ---
+        record["version"] = 1
+        record.setdefault("meta", {})
+        record["meta"]["template_hash"] = hashlib.sha256(
+            MemoryBrain._normalize_for_hash(content).encode("utf-8")
+        ).hexdigest()[:16]
+        for old in self.store.all_records():
+            if old.get("meta", {}).get("template_hash") == record["meta"]["template_hash"]:
+                if old.get("status", "active") != "deleted":
+                    old["superseded_by"] = record["id"]
+                    record["version"] = old.get("version", 1) + 1
+                    record["supersedes"] = old["id"]
+                    self.store.rewrite([r for r in self.store.all_records() if r["id"] != old["id"]] + [old])
+                break
+        
         # writes 
         self.store.append(record)
         if self.stats_tracker:
@@ -2765,11 +2789,15 @@ class MemoryBrain:
 
     # ---- 记忆检索 ----
 
-    def recall(self, query, k=5, **kwargs):
-        """检索记忆。自动记录命中率和延迟。"""
+    def recall(self, query, k=5, project=None, **kwargs):
+        """检索记忆。project: 可选，只检索该项目下的记忆。自动记录命中率和延迟。"""
         import time
         t0 = time.time()
         results = self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        # --- project 过滤 ---
+        if project:
+            results = [(s, r, x) for s, r, *x in [(r_[0], r_[1], r_[2] if len(r_) > 2 else None) for r_ in results] 
+                       if r.get("project") == project]
         hit = len(results) > 0
         recalled_chars = sum(len(r[1].get("content", "")) if len(r) > 1 else 0 for r in results)
         latency_ms = (time.time() - t0) * 1000
@@ -3186,6 +3214,59 @@ class MemoryBrain:
     def memory_repair(self):
         """扫描并自动修复损坏的记忆数据。返回 (removed, kept)。"""
         return self.store.repair()
+
+    def doctor(self):
+        """健康检查——扫描记忆库完整性、记录数、磁盘空间。
+返回 dict: {status, total_records, active_records, corrupt_records, disk_free_mb, recommendation}"""
+        import os
+        records = self.store.all_records()
+        active = [r for r in records if r.get("status", "active") != "deleted"]
+        corrupt = [r for r in records if r.get("_corrupt")]
+        try:
+            stat = os.statvfs(self.base_dir)
+            disk_mb = (stat.f_frsize * stat.f_bavail) // (1024 * 1024)
+        except Exception:
+            disk_mb = -1
+        return {
+            "status": "healthy" if not corrupt else "needs_repair",
+            "total_records": len(records),
+            "active_records": len(active),
+            "corrupt_records": len(corrupt),
+            "deleted_records": len(records) - len(active),
+            "brain_dir": self.base_dir,
+            "disk_free_mb": disk_mb,
+            "recommendation": "Run brain.memory_repair()" if corrupt else "No issues found"
+        }
+
+    def temporal_query(self, entity=None, limit=20):
+        """时序查询——返回按时间排序的记录版本链。
+entity: 可选实体名过滤; limit: 最大返回数。
+返回: [{id, content, version, supersedes, superseded_by, created_at}]"""
+        records = self.store.all_records()
+        if entity:
+            records = [r for r in records if entity.lower() in r.get("content", "").lower()]
+        # 按 created_at 升序，version 降序（最新版本在前）
+        records.sort(key=lambda r: (r.get("created_at", ""), -(r.get("version", 1))), reverse=True)
+        return [
+            {
+                "id": r["id"],
+                "content": r.get("content", "")[:200],
+                "version": r.get("version", 1),
+                "supersedes": r.get("supersedes"),
+                "superseded_by": r.get("superseded_by"),
+                "created_at": r.get("created_at", "")
+            }
+            for r in records[:limit]
+        ]
+
+    def list_projects(self):
+        """列出所有项目名"""
+        projects = set()
+        for r in self.store.all_records():
+            p = r.get("project")
+            if p:
+                projects.add(p)
+        return sorted(projects)
 
     def stats_print(self):
         """打印运行统计到控制台。"""
