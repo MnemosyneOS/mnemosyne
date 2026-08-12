@@ -269,6 +269,7 @@ class StatsTracker:
         print(f"| 🔍召回Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
         print(f"| 🤖送入LLM | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
         print(f"| 🛡️拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
+        print(f"| 🔢检索总次数 | {s['session_recall']} | {s['today_recall']} | {s['total_recall']} |")
         print(f"| 🎯命中(次) | {s['session_hit']} | {s['today_hit']} | {s['total_hit']} |")
         print(f"| ✅命中率 | {s['session_hit_rate']:.0%} | {s['today_hit_rate']:.0%} | {s['total_hit_rate']:.0%} |")
         print(f"| 📈LLM送入比例 | {s['session_llm_feed_pct']:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
