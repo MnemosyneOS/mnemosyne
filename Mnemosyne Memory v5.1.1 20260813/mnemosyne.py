@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v5.1.0 Stable — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v5.1.1 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
@@ -82,7 +82,7 @@ else:
         _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
 
 
-VERSION = "5.1.0 Stable"
+VERSION = "5.1.1 Stable"
 MEMORY_TYPES = {
     "semantic", "episodic", "procedural", "reflective",
     "web", "preference", "todo", "identity",
@@ -102,7 +102,7 @@ DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 class StatsTracker:
     """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
     Auto-saves to stats.json in the brain's base directory."""
-    def __init__(self, base_dir, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
+    def __init__(self, base_dir, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.path = os.path.join(base_dir, "stats.json")
         self.data = self._load()
@@ -117,8 +117,9 @@ class StatsTracker:
         self._tokenizer = self._load_tokenizer(backend=tokenizer_backend, model_id=tokenizer_model)
 
     @staticmethod
-    def _load_tokenizer(backend="transformers", model_id="deepseek-ai/DeepSeek-V2"):
-        """默认方案B: DeepSeek-V2原生分词器（1:1账单对齐）；回退方案A: tiktoken cl100k_base"""
+    def _load_tokenizer(backend="tiktoken", model_id=None):
+        """默认 tiktoken cl100k_base（行业标准，离线，零依赖可选）。
+backend="transformers" 仅显式传参时启用（需联网下载，本机账单对齐用）。"""
         if backend == "transformers" and model_id:
             try:
                 from transformers import AutoTokenizer
@@ -2624,7 +2625,7 @@ class MemoryBrain:
     """
 
     def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True,
-                 enable_stats=True, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
+                 enable_stats=True, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.store = MemoryStore(base_dir)
         self.embed_engine = EmbeddingEngine() if enable_embeddings else None
