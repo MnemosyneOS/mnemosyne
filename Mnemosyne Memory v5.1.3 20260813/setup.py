@@ -28,7 +28,6 @@ setup(
     url="https://github.com/FrankHu-HK/mnemosyne",
     license="MIT",
     py_modules=["mnemosyne", "mcp_server"],
-    package_dir={"": "scripts"},
     python_requires=">=3.8",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
