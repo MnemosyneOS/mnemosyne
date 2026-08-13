@@ -1,4 +1,4 @@
-# Mnemosyne Memory v5.1.3 Stable
+# Mnemosyne Memory v5.1.4 Stable
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -6,7 +6,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870436.svg)](https://doi.org/10.5281/zenodo.21870436)
 [![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870790.svg)](https://doi.org/10.5281/zenodo.21870790)
-[![Version](https://img.shields.io/badge/version-5.1.3-blue)]()
+[![Version](https://img.shields.io/badge/version-5.1.4-blue)]()
 [![Python](https://img.shields.io/badge/python-3.8%2B-green)]()
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-orange)]()

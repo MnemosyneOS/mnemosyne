@@ -19,7 +19,7 @@ def _read_long_desc():
 
 setup(
     name="mnemosyne-os",
-    version="5.1.3",
+    version="5.1.4",
     description="Zero-dependency AI Agent Memory Engine — L1 Lexical Cache",
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",

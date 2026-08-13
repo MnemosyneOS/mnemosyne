@@ -95,7 +95,7 @@ def handle_tools_call(name, arguments):
 def handle_request(req):
     method = req.get("method", ""); rid = req.get("id")
     if method == "initialize":
-        return {"jsonrpc":"2.0","id":rid,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"mnemosyne-memory","version":"5.1.3"},"capabilities":{"tools":{}}}}
+        return {"jsonrpc":"2.0","id":rid,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"mnemosyne-memory","version":"5.1.4"},"capabilities":{"tools":{}}}}
     elif method == "tools/list":
         return {"jsonrpc":"2.0","id":rid,"result":handle_tools_list()}
     elif method == "tools/call":
