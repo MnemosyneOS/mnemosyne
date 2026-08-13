@@ -1,6 +1,6 @@
 # Mnemosyne Memory vs mnemosyne-oss — 诚实技术对比
 
-> 最后更新：2026-08-12 · Mnemosyne v4.0.0 Stable
+> 最后更新：2026-08-12 · Mnemosyne v5.1.3 Stable
 
 两款同名项目，定位不同。选谁，取决于你的需求。
 

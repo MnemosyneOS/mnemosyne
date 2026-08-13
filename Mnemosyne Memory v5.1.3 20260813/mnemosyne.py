@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v5.1.0 Stable — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v5.1.3 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
@@ -59,7 +59,7 @@ import sys
 import tempfile
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import heapq
 import functools
 
@@ -81,8 +81,7 @@ else:
     def _file_unlock(f):
         _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
 
-
-VERSION = "5.1.0 Stable"
+VERSION = "5.1.3 Stable"
 MEMORY_TYPES = {
     "semantic", "episodic", "procedural", "reflective",
     "web", "preference", "todo", "identity",
@@ -95,14 +94,13 @@ SOURCE_TYPES = {"user", "system", "inference", "web_search", "file", "agent_gene
 VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "superseded"}
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
-
 # ═══════════════════════════════════════════════
 # StatsTracker — 自动统计 retain/recall/命中率/Token节省
 # ═══════════════════════════════════════════════
 class StatsTracker:
     """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
     Auto-saves to stats.json in the brain's base directory."""
-    def __init__(self, base_dir, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
+    def __init__(self, base_dir, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.path = os.path.join(base_dir, "stats.json")
         self.data = self._load()
@@ -117,8 +115,9 @@ class StatsTracker:
         self._tokenizer = self._load_tokenizer(backend=tokenizer_backend, model_id=tokenizer_model)
 
     @staticmethod
-    def _load_tokenizer(backend="transformers", model_id="deepseek-ai/DeepSeek-V2"):
-        """默认方案B: DeepSeek-V2原生分词器（1:1账单对齐）；回退方案A: tiktoken cl100k_base"""
+    def _load_tokenizer(backend="tiktoken", model_id=None):
+        """默认 tiktoken cl100k_base（行业标准，离线，零依赖可选）。
+backend="transformers" 仅显式传参时启用（需联网下载，本机账单对齐用）。"""
         if backend == "transformers" and model_id:
             try:
                 from transformers import AutoTokenizer
@@ -297,7 +296,6 @@ class StatsTracker:
         print(f"| 📦压缩率 | {100-s['session_llm_feed_pct']:.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
         print()
 
-
 # ═══════════════════════════════════════════════
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
@@ -310,21 +308,20 @@ EMBEDDING_DIM = 128
 # Part 1: 工具函数
 # ============================================================================
 
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+# 北京时间（UTC+8）——所有时间戳以中国时区显示
+_BEIJING_TZ = timezone(timedelta(hours=8))
 
+def _now_iso():
+    return datetime.now(_BEIJING_TZ).isoformat(timespec="seconds")
 
 def _today_str():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
+    return datetime.now(_BEIJING_TZ).strftime("%Y-%m-%d")
 
 def _utcnow_ts():
     return time.time()
 
-
 def _stable_id(content, salt=""):
     return hashlib.sha256((salt + "|" + (content or "")).encode("utf-8")).hexdigest()[:16]
-
 
 def _fail(msg, hint=None, fix=None, code=1):
     print(f"\u274c {msg}")
@@ -334,11 +331,9 @@ def _fail(msg, hint=None, fix=None, code=1):
         print(f"\U0001f527 解决办法：{fix}")
     return code
 
-
 def _ok(msg):
     print(f"\u2705 {msg}")
     return 0
-
 
 def _softmax(scores, temp=1.0):
     """Softmax归一化，temp<1 增强区分度。"""
@@ -348,7 +343,6 @@ def _softmax(scores, temp=1.0):
     exps = [math.exp((s - mx) / max(temp, 1e-8)) for s in scores]
     total = sum(exps)
     return [e / max(total, 1e-8) for e in exps]
-
 
 # ============================================================================
 # Part 2: 分词与实体抽取（多语言增强版 + Turn Recall Optimize）
@@ -481,7 +475,6 @@ def expand_query_prf(query, top_session_turns_text, top_k=3):
     top_words = [w for w, _ in counts.most_common(top_k)]
     return query + " " + " ".join(top_words)
 
-
 # Step 6: Index/Output解耦 + 上下文窗口拼接
 def format_retrieval_output(top_turn_indices, session_raw_turns):
     """
@@ -504,7 +497,6 @@ def format_retrieval_output(top_turn_indices, session_raw_turns):
             "text": expanded
         })
     return formatted
-
 
 # Step 7: 会话内两阶段局域精排 (In-Session Reranking)
 def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10):
@@ -564,8 +556,6 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
     scored_turns.sort(key=lambda x: x[1], reverse=True)
     return [t[0] for t in scored_turns[:top_k_turns]]
 
-
-
 # Unicode 字符范围
 #           拉丁/西里尔→词级切分 | 数字/Date→模式matches 
 
@@ -576,7 +566,6 @@ _RE_KATAKANA = re.compile(r"[\u30a0-\u30ff\u31f0-\u31ff]+")                    #
 _RE_HANGUL = re.compile(r"[\uac00-\ud7af]+")                                    # 韩文音节序列
 _RE_LATIN = re.compile(r"[a-z\u00e0-\u024f\u1e00-\u1eff][a-z\u00e0-\u024f\u1e00-\u1eff0-9_]*", re.IGNORECASE)  # 拉丁/扩展拉丁词
 _RE_CYRILLIC = re.compile(r"[\u0400-\u04ff]+")                                  # 西里尔字母序列
-
 
 @functools.lru_cache(maxsize=10000)
 def _tokenize(text):
@@ -637,10 +626,8 @@ def _tokenize(text):
 
     return tokens
 
-
 def _tf_vector(tokens):
     return collections.Counter(tokens)
-
 
 # 多语言实体identifies 模式
 _ENTITY_PATTERNS = [
@@ -711,7 +698,6 @@ _ENTITY_STOP_WORDS = {
     "все", "ещё", "уже", "или", "если", "только", "даже", "нет", "может",
 }
 
-
 def _extract_entities(text):
     """增强实体抽取：多模式+关系推断+停用词filters 。returns  {entity, type, positions}。"""
     entities = []
@@ -741,11 +727,9 @@ def _extract_entities(text):
 
     return entities[:30]
 
-
 def _extract_entity_names(text):
     """兼容1.x接口：returns 实体Name列Table。"""
     return [e["entity"] for e in _extract_entities(text)]
-
 
 def _extract_relationships(entities, text):
     """从实体共现推断关系（同句内相邻实体建立连边）。"""
@@ -762,7 +746,6 @@ def _extract_relationships(entities, text):
                     "distance": dist,
                 })
     return rels
-
 
 # ============================================================================
 # Part 3: Embedding Engine（随机投影向量searches  · 零依赖）
@@ -840,7 +823,6 @@ class EmbeddingEngine:
         dot = sum(a * b for a, b in zip(vec_a, vec_b))
         return max(0.0, dot)  # 钳制非负
 
-
 # ============================================================================
 # Part 4: 数据模型（双Time + 可信度 + 事实/观点分离）
 # ============================================================================
@@ -910,7 +892,6 @@ def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
     }
     return record
 
-
 def _default_layer(mtype):
     return {
         "semantic": "semantic", "episodic": "episodic",
@@ -920,7 +901,6 @@ def _default_layer(mtype):
         "belief": "reflective", "observation": "semantic",
         "lesson": "procedural", "strategy": "reflective",
     }.get(mtype, "semantic")
-
 
 def _infer_fact_type(mtype, content):
     """based on Type和内容推断事实Type。"""
@@ -937,7 +917,6 @@ def _infer_fact_type(mtype, content):
         return "opinion"
     return "fact"
 
-
 def _infer_source_type(mtype, source):
     if source and isinstance(source, dict):
         kind = source.get("kind", "")
@@ -951,7 +930,6 @@ def _infer_source_type(mtype, source):
         return "agent_generated"
     return "user"
 
-
 def _default_confidence(source_type):
     """不同来源的默认可信度。"""
     return {
@@ -959,7 +937,6 @@ def _default_confidence(source_type):
         "system": 0.90, "inference": 0.50, "agent_generated": 0.45,
         "external": 0.60,
     }.get(source_type, 0.70)
-
 
 def _auto_importance(content, mtype, tags):
     """自动重要性评分（规则式）。"""
@@ -982,7 +959,6 @@ def _auto_importance(content, mtype, tags):
         score = min(score + 1, 5)
     return score
 
-
 def _extract_event_time(content, record_created_at):
     """从内容中提取EventTime（启发式）。"""
     # Date模式：YYYY-MM-DD 或 YYYY年MM月DD日
@@ -994,7 +970,6 @@ def _extract_event_time(content, record_created_at):
         except ValueError:
             pass
     return record_created_at
-
 
 # ============================================================================
 # Part 5: 存储层（JSONL + 图Index）
@@ -1151,7 +1126,6 @@ class MemoryStore:
             self.rewrite(records)
         return found
 
-
 def _upgrade_record(rec):
     """将 v1.x RecordUpgrade到 v2.0 格式。"""
     if rec.get("_corrupt"):
@@ -1175,7 +1149,6 @@ def _upgrade_record(rec):
         if k not in rec:
             rec[k] = v
     return rec
-
 
 class MemoryGraphStore:
     """记忆Knowledge Graph（实体-关系边存储）。
@@ -1282,7 +1255,6 @@ class MemoryGraphStore:
             result[ent] = self.get_neighbors(ent, max_depth=depth)
         return result
 
-
 # ============================================================================
 # Part 6: Retrieval Layer（5-Way Fusion：BM25 + 向量 + 图 + Time + 可信度）
 # ============================================================================
@@ -1295,7 +1267,6 @@ def _idf(doc_tf_list):
             df[tok] += 1
     return {tok: math.log((n + 1) / (freq + 0.5) + 1) for tok, freq in df.items()}
 
-
 def _bm25_score(query_tf, doc_tf, idf, avg_len, k1=1.5, b=0.75):
     doc_len = sum(doc_tf.values())
     score = 0.0
@@ -1307,7 +1278,6 @@ def _bm25_score(query_tf, doc_tf, idf, avg_len, k1=1.5, b=0.75):
         score += idf.get(tok, 0) * qf * (tf * (k1 + 1)) / denom
     return score
 
-
 def _cosine(vec_a, vec_b):
     dot = sum(vec_a.get(t, 0) * vec_b.get(t, 0) for t in set(vec_a) | set(vec_b))
     na = math.sqrt(sum(v * v for v in vec_a.values()))
@@ -1315,7 +1285,6 @@ def _cosine(vec_a, vec_b):
     if na == 0 or nb == 0:
         return 0.0
     return dot / (na * nb)
-
 
 def _temporal_score(created_iso, now_ts, half_life_days=90):
     """computes Time衰减分数。"""
@@ -1325,7 +1294,6 @@ def _temporal_score(created_iso, now_ts, half_life_days=90):
         created_ts = now_ts
     age_days = max(0, (now_ts - created_ts) / 86400.0)
     return math.exp(-age_days * math.log(2) / half_life_days)
-
 
 def _confidence_weight(record):
     """based on 可信度调整权重。"""
@@ -1341,7 +1309,6 @@ def _confidence_weight(record):
     elif verify == "superseded":
         multiplier = 0.3
     return conf * multiplier
-
 
 # ============================================================================
 # 5-Way Fusion检Index擎
@@ -1644,7 +1611,6 @@ class RetrievalEngine:
         combined.sort(key=lambda x: x[0], reverse=True)
         return combined[:k]
 
-
 def _in_date_range(r, date_from, date_to):
     ts = r.get("created_at", "")
     if date_from and ts < date_from:
@@ -1653,13 +1619,11 @@ def _in_date_range(r, date_from, date_to):
         return False
     return True
 
-
 # ============================================================================
 # Part 7: Cognitive Resolver（Cognitive Resolver v3.1）
 # ============================================================================
 # 四规则引擎模块，在检索Result和答案之间做认知加工。
 # 不依赖 LLM，纯规则 + 检索上下文推理。
-
 
 class CognitiveResolver:
     """Cognitive Resolver：receives 检索Result，Output结构化答案。
@@ -2606,7 +2570,6 @@ class CognitiveResolver:
                 results.append((1.0, {'content': content}))
         return results
 
-
 # ============================================================================
 # Part 8: Memory Brain（认知中枢）
 # ============================================================================
@@ -2624,7 +2587,7 @@ class MemoryBrain:
     """
 
     def __init__(self, base_dir=DEFAULT_DIR, enable_embeddings=True, enable_graph=True,
-                 enable_stats=True, tokenizer_backend="transformers", tokenizer_model="deepseek-ai/DeepSeek-V2"):
+                 enable_stats=True, tokenizer_backend="tiktoken", tokenizer_model=None):
         self.base_dir = base_dir
         self.store = MemoryStore(base_dir)
         self.embed_engine = EmbeddingEngine() if enable_embeddings else None
@@ -3275,7 +3238,6 @@ entity: 可选实体名过滤; limit: 最大返回数。
     def should_research(self, query, max_age_days=7):
         return _should_research(self.store, query, max_age_days=max_age_days)
 
-
 # ============================================================================
 # Part 8: 维护操作（增强版）
 # ============================================================================
@@ -3285,7 +3247,6 @@ def _parse_ts(iso_str):
         return datetime.fromisoformat(iso_str.replace("Z", "+00:00")).timestamp()
     except Exception:
         return 0
-
 
 def _dedup(store, dry_run=False, embed_engine=None):
     records = store.all_records()
@@ -3323,7 +3284,6 @@ def _dedup(store, dry_run=False, embed_engine=None):
         store.rewrite(out)
     return {"merged": merged, "similar_pairs": similar_pairs[:20], "dry_run": dry_run}
 
-
 def _forget(store, memory_id):
     records = store.all_records()
     found = False
@@ -3335,7 +3295,6 @@ def _forget(store, memory_id):
     if found:
         store.rewrite(records)
     return found
-
 
 def _expire_old(store):
     records = store.all_records()
@@ -3353,7 +3312,6 @@ def _expire_old(store):
     if changed:
         store.rewrite(records)
     return changed
-
 
 def _repair(store, dry_run=False):
     store.ensure_init()
@@ -3390,7 +3348,6 @@ def _repair(store, dry_run=False):
     return {"ok": True, "corrupt": len(corrupt_lines), "kept": len(valid_records),
             "backup": backup_path, "lines": corrupt_lines[:50], "dry_run": False}
 
-
 # ============================================================================
 # Part 9: searches 记忆操作
 # ============================================================================
@@ -3419,7 +3376,6 @@ def _capture_search(store, query, results_text, urls=None, title=None):
     store.append(record)
     return {"updated": False, "id": record["id"], "capture_count": 1}
 
-
 def _should_research(store, query, max_age_days=7):
     records = [r for r in store.all_records()
                if r.get("type") == "web" and r.get("status") != "deleted"]
@@ -3439,7 +3395,6 @@ def _should_research(store, query, max_age_days=7):
                 "urls": r.get("source", {}).get("urls", []) if r.get("source") else [],
             }
     return {"found": False}
-
 
 # ============================================================================
 # Part 10: exports /imports 
@@ -3472,7 +3427,6 @@ def _export(store, fmt="json", out_path=None):
         return out_path
     return text
 
-
 def _import_file(store, path):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -3486,7 +3440,6 @@ def _import_file(store, path):
         store.append(m)
         count += 1
     return count
-
 
 # ============================================================================
 # Part 11: Hindsight 对标评测（内置 Benchmark）
@@ -3674,7 +3627,6 @@ def _hindsights_bench(brain, test_count=200):
     results["hindsight_average"] = round(h_avg, 2)
     return results
 
-
 # ============================================================================
 # Part 12: 基准Test
 # ============================================================================
@@ -3720,7 +3672,6 @@ def _benchmark(brain, count=2000):
         "latency_ms": {q: round(ms, 1) for q, ms in latencies.items()},
     }
 
-
 # ============================================================================
 # Part 13: 演示
 # ============================================================================
@@ -3751,7 +3702,6 @@ def _demo(brain):
 
     print("-" * 50)
     print("  \u2705 演示via ：v2.0 引擎可用。")
-
 
 # ============================================================================
 # Part 14: CLI
@@ -3847,7 +3797,6 @@ def _build_parser():
     bm.add_argument("--count", type=int, default=2000)
 
     return p
-
 
 def main(argv=None):
     args = _build_parser().parse_args(argv)
@@ -4021,7 +3970,6 @@ def main(argv=None):
     else:
         _build_parser().print_help()
         return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

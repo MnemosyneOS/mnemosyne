@@ -1,4 +1,0 @@
-include comparison.md
-include scripts/mnemosyne.py
-include scripts/mcp_server.py
-include README.md

@@ -1,4 +1,4 @@
-# Mnemosyne Memory v4.0.0 Stable
+# Mnemosyne Memory v5.1.3 Stable
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -6,7 +6,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870436.svg)](https://doi.org/10.5281/zenodo.21870436)
 [![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870790.svg)](https://doi.org/10.5281/zenodo.21870790)
-[![Version](https://img.shields.io/badge/version-4.0.0-blue)]()
+[![Version](https://img.shields.io/badge/version-5.1.3-blue)]()
 [![Python](https://img.shields.io/badge/python-3.8%2B-green)]()
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-orange)]()
@@ -21,7 +21,7 @@
 
 **For developers** — copy one file:
 ```bash
-cp mnemosyne-memory-5.1.0/scripts/mnemosyne.py your-project/
+cp mnemosyne.py your-project/
 ```
 
 **Verify**:
@@ -33,10 +33,10 @@ python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('test'); b.ensure_in
 ```python
 brain.stats_print()
 ```
-or directly in terminal:
+
+Or directly in terminal:
 ```bash
 python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('your_brain'); b.stats_print()"
-```
 # → Current/Today/Total 3-column · 9-dimensional Token monitoring table
 ```
 
@@ -75,6 +75,10 @@ results = brain.recall("When did Alice join?", k=3)
 | ⚡ **Millisecond Retrieval** | Inverted index + 5-way fusion, pure CPU <10ms |
 | 💰 **80%+ Token Savings** | L1 pre-retrieval filters to Top-10, drastically cutting LLM cost |
 | 🧪 **Verified Benchmarks** | Hindsight 9.58/10 · Session Recall 85.0% · Zenodo-published paper |
+| 🕐 **Temporal Query** | `temporal_query()` — query memory by time, version chain & timeline |
+| 🏥 **Health Check** | `doctor()` self-check + `memory_repair()` auto-recovery |
+| 📂 **Multi-Project Isolation** | `project=` param on retain/recall + `list_projects()` |
+| 🔌 **MCP Server** | 8-tool MCP server — standard protocol for any MCP client |
 
 ---
 
@@ -87,6 +91,32 @@ results = brain.recall("When did Alice join?", k=3)
 | **Token Savings** | **80%+** | L1 coarse-filter → feed only Top-10 to LLM |
 | **Retrieval Latency** | **<10ms** | Inverted index + 5-way fusion, pure CPU |
 | **Write Speed** | **~12ms/item** | Fast Write mode, millions-scale capable |
+
+---
+
+## 🚀 Advanced Features
+
+```python
+# Multi-project isolation — same engine, isolated memory per project
+brain.retain("Acme uses Kafka", project="acme")
+brain.recall("message queue?", project="acme")   # only sees acme memories
+brain.list_projects()                            # -> ["acme", "default", ...]
+
+# Temporal query — reconstruct what happened when
+brain.temporal_query(entity="deployment")        # -> version chain sorted by time
+
+# Health check & self-repair
+brain.doctor()          # scan integrity, record count, disk usage
+brain.memory_repair()   # auto-recover from corruption
+
+# Batch write — 15x faster
+brain.retain_batch(["a", "b", "c"])
+```
+
+**MCP Server** (8 tools: `retain`, `recall`, `stats`, `graph_query`, `retain_batch`, `doctor`, `temporal_query`, `list_projects`):
+```bash
+python mcp_server.py   # stdio MCP server, drop into any MCP client
+```
 
 ---
 
@@ -166,10 +196,8 @@ git clone https://github.com/FrankHu-HK/mnemosyne.git
 
 ## 📖 Documentation
 
-- [Quick Start](./docs/quickstart.md)
-- [API Reference](./docs/api.md)
-- [Agent Integration Guide](./docs/integrations.md)
-- [Benchmark Report](./docs/benchmark.md)
+- [English README](README.md) · [中文 README](README_CN.md)
+- [Competitive Comparison](comparison.md)
 - [Paper (Zenodo)](https://doi.org/10.5281/zenodo.21870436)
 - [Code (Zenodo)](https://doi.org/10.5281/zenodo.21870790)
 

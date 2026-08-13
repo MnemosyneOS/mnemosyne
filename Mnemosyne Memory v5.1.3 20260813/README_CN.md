@@ -1,4 +1,4 @@
-# Mnemosyne Memory v4.0.0 Stable
+# Mnemosyne Memory v5.1.3 Stable
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -6,7 +6,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870436.svg)](https://doi.org/10.5281/zenodo.21870436)
 [![Code DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21870790.svg)](https://doi.org/10.5281/zenodo.21870790)
-[![Version](https://img.shields.io/badge/version-4.0.0-blue)]()
+[![Version](https://img.shields.io/badge/version-5.1.3-blue)]()
 [![Python](https://img.shields.io/badge/python-3.8%2B-green)]()
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-orange)]()
@@ -33,6 +33,10 @@
 | ⚡ 毫秒级检索 | 倒排索引 + 五路融合，纯 CPU <10ms |
 | 💰 省 80%+ Token | L1 预检索筛 Top-10，大幅降低 LLM 成本 |
 | 🧪 权威测评 | Hindsight 9.58/10 · Session Recall 85.0% |
+| 🕐 时序查询 | `temporal_query()` 按时间查询记忆，还原事件版本链 |
+| 🏥 健康检查 | `doctor()` 自检 + `memory_repair()` 自动修复 |
+| 📂 多项目隔离 | `retain`/`recall` 支持 `project=` 参数 + `list_projects()` |
+| 🔌 MCP Server | 8 工具 MCP 服务，任意 MCP 客户端即插即用 |
 
 ---
 
@@ -45,6 +49,32 @@
 | **Token 节省** | **80%+** | L1粗筛后仅送 Top-10 给 LLM |
 | **检索速度** | **<10ms** | 倒排索引 + 五路融合，纯 CPU |
 | **写入速度** | **~12ms/条** | Fast Write模式，支持百万级 |
+
+---
+
+## 🚀 高级功能
+
+```python
+# 多项目隔离 — 同一引擎，各项目记忆互不干扰
+brain.retain("Acme 使用 Kafka", project="acme")
+brain.recall("消息队列?", project="acme")   # 只看 acme 项目的记忆
+brain.list_projects()                       # -> ["acme", "default", ...]
+
+# 时序查询 — 还原"什么时候发生了什么"
+brain.temporal_query(entity="部署")         # -> 按时间排序的版本链
+
+# 健康检查与自修复
+brain.doctor()          # 扫描完整性、记录数、磁盘占用
+brain.memory_repair()   # 自动从损坏中恢复
+
+# 批量写入 — 15 倍加速
+brain.retain_batch(["a", "b", "c"])
+```
+
+**MCP Server**（8 工具：`retain`、`recall`、`stats`、`graph_query`、`retain_batch`、`doctor`、`temporal_query`、`list_projects`）：
+```bash
+python mcp_server.py   # stdio MCP 服务，接入任意 MCP 客户端
+```
 
 ---
 
