@@ -19,6 +19,13 @@ dist/
 *.backup
 *.schemeA.backup
 
+# 报告产物（HTML/截图/压缩包/个人邮件不提交）
+*.html
+*.png
+*.jpg
+*.zip
+arXiv_Endorsement_Email*.md
+
 # 旧文档
 AI Memory 系统白皮书.pdf
 AI Memory 系统白皮书（*.txt

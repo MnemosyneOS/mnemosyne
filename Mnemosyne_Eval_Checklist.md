@@ -30,7 +30,7 @@
 - [x] Paper: Mnemosyne_CN.pdf / Mnemosyne_EN.pdf
 - [x] Paper source: Mnemosyne_CN.tex / Mnemosyne_EN.tex
 - [x] Paper Word: Mnemosyne_CN.docx / Mnemosyne_EN.docx
-- [x] Engine: mnemosyne-memory-4.0.0/scripts/mnemosyne.py
+- [x] Engine: mnemosyne-memory-5.1.0/scripts/mnemosyne.py
 - [x] README: README.md (English default) / README_CN.md (Chinese)
 - [x] Eval docs: Dev Record / Product Intro / Benchmark Guide / Checklist (CN+EN)
 

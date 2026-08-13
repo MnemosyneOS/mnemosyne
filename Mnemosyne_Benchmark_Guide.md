@@ -42,7 +42,7 @@ Two core metrics:
 
 ```bash
 git clone https://github.com/FrankHu-HK/mnemosyne.git
-cd mnemosyne/mnemosyne-memory-4.0.0/scripts
+cd mnemosyne/mnemosyne-memory-5.1.0/scripts
 python mnemosyne.py hindsights-bench   # Run Hindsight 14-dim self-eval
 python mnemosyne.py benchmark --count 5000  # Run retrieval latency benchmark
 ```

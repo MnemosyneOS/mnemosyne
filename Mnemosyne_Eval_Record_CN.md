@@ -1,4 +1,4 @@
-# Mnemosyne Memory v4.0.0 Stable — 开发与测评全记录
+# Mnemosyne Memory v4.0.0 Stable — 开发与测评报告
 
 > 写给其他 AI / 开发者阅读，寻求新的解决方案与第三方复评。
 > 📄 论文 DOI: `10.5281/zenodo.21870436` ｜ 💻 代码 DOI: `10.5281/zenodo.21870790`

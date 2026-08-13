@@ -175,7 +175,7 @@ ad-hoc-verified: _show_stats=False, no auto-print noise
 帮我安装 Mnemosyne Memory：
 
 1. 下载这个文件到当前项目目录，保存为 mnemosyne.py：
-https://raw.githubusercontent.com/FrankHu-HK/mnemosyne/main/mnemosyne-memory-4.0.0/scripts/mnemosyne.py
+https://raw.githubusercontent.com/FrankHu-HK/mnemosyne/main/mnemosyne-memory-5.1.0/scripts/mnemosyne.py
 
 2. 运行验证：
 python -c "from mnemosyne import MemoryBrain; b=MemoryBrain('test'); b.ensure_init(); b.retain('ok'); print('Mnemosyne OK')"

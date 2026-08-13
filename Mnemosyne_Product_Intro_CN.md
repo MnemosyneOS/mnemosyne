@@ -51,7 +51,7 @@
 
 ```bash
 git clone https://github.com/FrankHu-HK/mnemosyne.git
-cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py 你的项目/
+cp mnemosyne-memory-5.1.0/scripts/mnemosyne.py 你的项目/
 ```
 
 ---

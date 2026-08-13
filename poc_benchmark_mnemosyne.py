@@ -24,7 +24,7 @@ from typing import List, Dict, Any
 # 1. 接入 Mnemosyne Memory Engine
 # ==========================================
 import sys, os, tempfile, shutil
-sys.path.insert(0, r"C:\Users\<your-user>\Desktop\Mnemosyne\mnemosyne-memory-4.0.0\scripts")
+sys.path.insert(0, r"C:\Users\<your-user>\Desktop\Mnemosyne\mnemosyne-memory-5.1.0\scripts")
 from mnemosyne import MemoryBrain
 
 class MnemosyneAdapter:

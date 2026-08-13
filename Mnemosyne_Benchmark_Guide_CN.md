@@ -42,7 +42,7 @@ GoodAI 发布的 Agent 记忆系统评测框架，被 Mem0、Letta、Zep 等主�
 
 ```bash
 git clone https://github.com/FrankHu-HK/mnemosyne.git
-cd mnemosyne/mnemosyne-memory-4.0.0/scripts
+cd mnemosyne/mnemosyne-memory-5.1.0/scripts
 python mnemosyne.py hindsights-bench   # 跑 Hindsight 14维自评
 python mnemosyne.py benchmark --count 5000  # 跑检索延迟基准
 ```

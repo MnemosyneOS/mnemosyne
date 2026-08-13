@@ -51,7 +51,7 @@ Before calling any LLM, Mnemosyne pre-filters massive memory stores down to the 
 
 ```bash
 git clone https://github.com/FrankHu-HK/mnemosyne.git
-cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py your_project/
+cp mnemosyne-memory-5.1.0/scripts/mnemosyne.py your_project/
 ```
 
 **No pip install. No Docker. No database.**

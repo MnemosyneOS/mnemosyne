@@ -21,7 +21,7 @@
 
 **For developers** — copy one file:
 ```bash
-cp mnemosyne-memory-4.0.0/scripts/mnemosyne.py your-project/
+cp mnemosyne-memory-5.1.0/scripts/mnemosyne.py your-project/
 ```
 
 **Verify**:
