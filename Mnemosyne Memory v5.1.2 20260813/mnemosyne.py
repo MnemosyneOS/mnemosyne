@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne Memory Engine v5.1.1 Stable — 摩涅莫绪涅·认知记忆操作系统
+Mnemosyne Memory Engine v5.1.2 Stable — 摩涅莫绪涅·认知记忆操作系统
 =============================================================
 全球顶级 AI Agent 记忆引擎。零依赖、跨平台、多语言、框架无关。
 
@@ -82,7 +82,7 @@ else:
         _fcntl.flock(f.fileno(), _fcntl.LOCK_UN)
 
 
-VERSION = "5.1.1 Stable"
+VERSION = "5.1.2 Stable"
 MEMORY_TYPES = {
     "semantic", "episodic", "procedural", "reflective",
     "web", "preference", "todo", "identity",
