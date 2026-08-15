@@ -74,6 +74,7 @@ brain.retain_batch(["a", "b", "c"])
 **MCP Server**（8 工具：`retain`、`recall`、`stats`、`graph_query`、`retain_batch`、`doctor`、`temporal_query`、`list_projects`）：
 ```bash
 python mcp_server.py   # stdio MCP 服务，接入任意 MCP 客户端
+python mcp_server.py --brain-dir /path/to/memory   # 指定记忆库目录（多项目隔离）
 ```
 
 ---
@@ -146,9 +147,19 @@ cp mnemosyne.py your_project/scripts/
 
 # 方式2：clone 仓库
 git clone https://github.com/FrankHu-HK/mnemosyne.git
+
+# 方式3：Docker 镜像（Docker Hub 官方发布，GitHub Actions 自动构建）
+docker pull mnemosynoos/mnemosyne:5.1.4
 ```
 
-**不需要 pip install。不需要 Docker。不需要数据库。**
+**不需要 pip install。不需要数据库。** 纯 Python 零依赖直接运行；同时提供官方 Docker 镜像（MCP Server 开箱即用）。
+
+**Docker 运行 MCP Server**（记忆持久化到数据卷 `mnemosyne-data`）：
+```bash
+docker run -i --rm -v mnemosyne-data:/data/mnemosyne mnemosynoos/mnemosyne
+```
+
+> 💡 提示：`mcp_server.py` 支持 `--brain-dir` 指定记忆库目录，多项目/多环境隔离请务必显式指定，避免记忆错位。
 
 ---
 

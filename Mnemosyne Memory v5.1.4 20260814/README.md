@@ -188,9 +188,19 @@ cp mnemosyne.py your_project/scripts/
 
 # Option 2: Clone repository
 git clone https://github.com/FrankHu-HK/mnemosyne.git
+
+# Option 3: Docker image (official, auto-built by GitHub Actions)
+docker pull mnemosynoos/mnemosyne:5.1.4
 ```
 
-**No pip install. No Docker. No database.**
+**No pip install. No database.** Pure-Python zero-dependency runtime; official Docker image also available (MCP Server ready to use).
+
+**Run MCP Server with Docker** (memory persisted to the `mnemosyne-data` volume):
+```bash
+docker run -i --rm -v mnemosyne-data:/data/mnemosyne mnemosynoos/mnemosyne
+```
+
+> 💡 Tip: `mcp_server.py` accepts `--brain-dir` to pin the memory directory — always set it explicitly for multi-project / multi-environment isolation to avoid memory misplacement.
 
 ---
 

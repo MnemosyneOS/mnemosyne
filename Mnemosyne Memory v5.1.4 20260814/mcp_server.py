@@ -11,8 +11,10 @@ from mnemosyne import MemoryBrain
 DEFAULT_BRAIN = os.path.expanduser("~/.mnemosyne")
 brain = None
 
-def _ensure_brain(brain_dir=DEFAULT_BRAIN):
+def _ensure_brain(brain_dir=None):
     global brain
+    if brain_dir is None:
+        brain_dir = DEFAULT_BRAIN
     if brain is None:
         brain = MemoryBrain(brain_dir)
         brain.ensure_init()
@@ -112,7 +114,7 @@ def main():
     p.add_argument("--brain-dir", default=DEFAULT_BRAIN, help="记忆库目录")
     args = p.parse_args()
     DEFAULT_BRAIN = args.brain_dir
-    _ensure_brain()
+    _ensure_brain(args.brain_dir)
     for line in sys.stdin:
         line = line.strip()
         if not line: continue
