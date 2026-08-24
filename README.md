@@ -23,42 +23,42 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.0** — a zero-dependency (零依赖), local-first (本地优先) AI memory system (AI 记忆系统) with multi-tier forgetting (多层次遗忘), a hash-chain ledger (哈希链账本), a plugin SDK (插件 SDK), a local web dashboard (本地 Web 管理界面), and MCP (Model Context Protocol / 模型上下文协议) support.
+**Mnemosyne OS 7.0.0** — a zero-dependency , local-first  AI memory system  with multi-tier forgetting , a hash-chain ledger , a plugin SDK , a local web dashboard , and MCP  support.
 
-> The only AI memory engine whose **core requires zero third-party dependencies** (仅依赖 Python 标准库 3.8+) — no vector database (向量库), no LLM (大语言模型) runtime, no cloud lock-in. Runs on a laptop, a server, or serverless infra (无服务器架构).
+> The only AI memory engine whose **core requires zero third-party dependencies**  — no vector database , no LLM  runtime, no cloud lock-in. Runs on a laptop, a server, or serverless infra .
 
-Use it as a **Python (Python 库) library**, a **CLI (命令行)**, an **HTTP API (API 接口)**, an **MCP server (MCP 服务器)**, or embed it via the **MCP (模型上下文协议)** stdio transport.
+Use it as a **Python  library**, a **CLI **, an **HTTP API **, an **MCP server **, or embed it via the **MCP ** stdio transport.
 
 <table>
-<tr><td><b>Zero-dependency core (零依赖核心)</b></td><td>Runs on the Python standard library alone. No numpy, no torch, no vector DB, no LLM required to store and recall memories.</td></tr>
-<tr><td><b>Multi-tier memory (多层次记忆)</b></td><td>Hot / warm / cold tiers with economic forgetting (遗忘经济学) — migrate low-value memories, never silently delete them.</td></tr>
-<tr><td><b>Hash-chain ledger (哈希链账本)</b></td><td>SHA-256 chained ledger — <code>verify_chain()</code> detects tampering and locates the exact corrupted record.</td></tr>
-<tr><td><b>Plugin SDK (插件 SDK)</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + official plugins (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP server (MCP 服务器)</b></td><td>13 tools over stdio JSON-RPC, with token auth (令牌鉴权) and multi-tenant namespaces (多租户命名空间隔离).</td></tr>
-<tr><td><b>Web dashboard (Web 管理界面)</b></td><td>Tech-aesthetic local dark dashboard (本地科技感暗色面板), no external CDN — served from <code>web_server.py</code>.</td></tr>
-<tr><td><b>Async API (异步 API)</b></td><td><code>AsyncMemoryBrain</code> asyncio wrapper for high-throughput ingestion.</td></tr>
-<tr><td><b>Chinese-optimized (中文优化)</b></td><td>Bigram tokenization (二分词) + FTS5 + built-in synonym dictionary (内置同义词词典).</td></tr>
-<tr><td><b>Security notary (安全检查)</b></td><td>Detects credentials, invisible Unicode, and HTML injection; field-level redaction (字段级脱敏) before write.</td></tr>
+<tr><td><b>Zero-dependency core </b></td><td>Runs on the Python standard library alone. No numpy, no torch, no vector DB, no LLM required to store and recall memories.</td></tr>
+<tr><td><b>Multi-tier memory </b></td><td>Hot / warm / cold tiers with economic forgetting  — migrate low-value memories, never silently delete them.</td></tr>
+<tr><td><b>Hash-chain ledger </b></td><td>SHA-256 chained ledger — <code>verify_chain()</code> detects tampering and locates the exact corrupted record.</td></tr>
+<tr><td><b>Plugin SDK </b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + official plugins (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
+<tr><td><b>MCP server </b></td><td>13 tools over stdio JSON-RPC, with token auth  and multi-tenant namespaces .</td></tr>
+<tr><td><b>Web dashboard </b></td><td>Tech-aesthetic local dark dashboard , no external CDN — served from <code>web_server.py</code>.</td></tr>
+<tr><td><b>Async API </b></td><td><code>AsyncMemoryBrain</code> asyncio wrapper for high-throughput ingestion.</td></tr>
+<tr><td><b>Chinese-optimized </b></td><td>Bigram tokenization  + FTS5 + built-in synonym dictionary .</td></tr>
+<tr><td><b>Security notary </b></td><td>Detects credentials, invisible Unicode, and HTML injection; field-level redaction  before write.</td></tr>
 </table>
 
 ---
 
-## Quick Install (快速安装)
+## Quick Install 
 
-### From PyPI (PyPI 安装)
+### From PyPI 
 
 ```bash
 pip install mnemosyne-os
 ```
 
-### Zero-dependency core (零依赖核心 — no pip install required)
+### Zero-dependency core 
 
 ```bash
 # Core runs on the Python standard library alone
 python -c "from mnemosyne import MemoryBrain; print('Ready!')"
 ```
 
-### Development install (开发模式安装)
+### Development install 
 
 ```bash
 git clone https://github.com/FrankHu-HK/mnemosyne.git
@@ -68,9 +68,9 @@ pip install -e .
 
 ---
 
-## Getting Started (快速开始)
+## Getting Started 
 
-### CLI (命令行)
+### CLI 
 
 ```bash
 # Initialize the memory database
@@ -107,7 +107,7 @@ python mnemosyne.py --dir ./mem migrate --jsonl ./mem/index.jsonl
 python -m mnemosyne.webui.web_server --port 9090
 ```
 
-### Python API (Python 接口)
+### Python API 
 
 ```python
 from mnemosyne import MemoryBrain
@@ -134,7 +134,7 @@ hits = brain.search_conversations("Apple", session_id="session-1")
 snapshot = brain.build_context_prompt(query="Apple", max_chars=2000)
 ```
 
-### Async API (异步接口)
+### Async API 
 
 ```python
 import asyncio
@@ -150,46 +150,46 @@ async def main():
 asyncio.run(main())
 ```
 
-### MCP Server (MCP 服务器)
+### MCP Server 
 
-Run the MCP server over stdio JSON-RPC (标准 JSON-RPC 传输):
+Run the MCP server over stdio JSON-RPC :
 
 ```bash
 export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-The MCP server exposes **13 tools (13 个工具)**:
+The MCP server exposes **13 tools **:
 
 | Tool | Description |
 | --- | --- |
-| `retain` | Write a memory (写入记忆) |
-| `recall` | Retrieve memories (检索记忆) |
-| `retain_batch` | Batch write, ~15× speedup (批量写入) |
-| `stats` | Runtime statistics — writes / recalls / token savings (运行统计) |
-| `graph_query` | Knowledge graph query (知识图谱查询) |
-| `temporal_query` | Temporal version-chain query (时序查询) |
-| `list_projects` | List isolated projects (列出项目) |
-| `doctor` | Health check — integrity, record count, disk (健康检查) |
-| `audit` | Audit-trail query (审计追踪) |
-| `confidence_history` | Confidence trajectory query (置信度历史) |
-| `memory/export-v1` | Export via Memory Exchange Protocol (记忆交换协议导出) |
-| `memory/import-v1` | Import via Memory Exchange Protocol (记忆交换协议导入) |
-| `memory/claim` | Claim memories from an external export (认领外部记忆) |
+| `retain` | Write a memory  |
+| `recall` | Retrieve memories  |
+| `retain_batch` | Batch write, ~15× speedup  |
+| `stats` | Runtime statistics — writes / recalls / token savings  |
+| `graph_query` | Knowledge graph query  |
+| `temporal_query` | Temporal version-chain query  |
+| `list_projects` | List isolated projects  |
+| `doctor` | Health check — integrity, record count, disk  |
+| `audit` | Audit-trail query  |
+| `confidence_history` | Confidence trajectory query  |
+| `memory/export-v1` | Export via Memory Exchange Protocol  |
+| `memory/import-v1` | Import via Memory Exchange Protocol  |
+| `memory/claim` | Claim memories from an external export  |
 
 Connect any MCP host (Claude Desktop, Hermes Agent, etc.) by pointing it at the stdio command above.
 
-### HTTP API (API 接口 / Web 管理界面)
+### HTTP API 
 
 ```bash
 python -m mnemosyne.webui.web_server --port 9090
 ```
 
-Then open `http://127.0.0.1:9090` — a local dark dashboard (本地暗色面板) with memory browsing, graph view, stats, and a REST (表述性状态传递) endpoint. The default account `admin / mnemosyne` is created on first run; change the password after login.
+Then open `http://127.0.0.1:9090` — a local dark dashboard  with memory browsing, graph view, stats, and a REST  endpoint. The default account `admin / mnemosyne` is created on first run; change the password after login.
 
 ---
 
-## Plugins (插件)
+## Plugins 
 
 ```python
 # Crypto plugin (requires cryptography; degrades gracefully otherwise)
@@ -204,7 +204,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 
 ---
 
-## Project Structure (项目结构)
+## Project Structure 
 
 ```
 Mnemosyne7.0.0/
@@ -225,14 +225,14 @@ Mnemosyne7.0.0/
 └── docs/                     # Documentation (architecture, modules, plugins, API, deployment)
 ```
 
-## Testing (测试)
+## Testing 
 
 ```bash
 python -m unittest discover -s tests -v
 python -m unittest tests.test_plugins -v
 ```
 
-## Documentation (文档)
+## Documentation 
 
 - `README_CN.md` — 中文说明 (Chinese README)
 - `docs/` — Full docs: architecture, data model, module docs, plugin docs, API / CLI / MCP references, deployment, integration
@@ -241,7 +241,7 @@ python -m unittest tests.test_plugins -v
 - `CHANGELOG.md` — Version history
 - Reports: `quality_report.md` (retrieval quality), `benchmark_report.md` (performance), `security_report.md` (security)
 
-## License (许可证)
+## License 
 
 MIT License — see [LICENSE](LICENSE).
 
