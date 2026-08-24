@@ -17,6 +17,7 @@ import functools
 
 __all__ = ["AsyncMemoryBrain"]
 
+
 class AsyncMemoryBrain:
     """Async wrapper around MemoryBrain.
 
@@ -142,6 +143,7 @@ class AsyncMemoryBrain:
         """Close the underlying brain."""
         if hasattr(self._brain, "close"):
             self._brain.close()
+
 
 # ---- Convenience: async context manager ----
 class AsyncMemoryBrainContext:

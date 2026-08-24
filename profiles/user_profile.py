@@ -19,9 +19,11 @@ from datetime import datetime, timezone, timedelta
 
 __all__ = ["UserProfile"]
 
+
 def _now_iso():
     tz = timezone(timedelta(hours=8))
     return datetime.now(tz).isoformat(timespec="seconds")
+
 
 class UserProfile:
     """Manages explicit user profiles with highest retrieval priority.

@@ -16,6 +16,7 @@ EMBEDDING_DIM = 128
 PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
+
 def _intersect_sorted(a, b):
     """两个升序 posting（list/array）的交集（归并，O(len(a)+len(b))）。"""
     out = []
@@ -32,9 +33,11 @@ def _intersect_sorted(a, b):
             j += 1
     return out
 
+
 def _intern(table, token):
     """token 字符串驻留：相同 token 只保留一份字符串对象。"""
     return table.setdefault(token, token)
+
 
 # 检索融合所需的记录字段（轻量记录缓存只保留这些键，省 ~40% 记录内存）
 _RECORD_KEYS = (
@@ -54,6 +57,7 @@ _LIGHT_COLUMNS = (
     "session_id", "embedding", "topic_tag", "template_hash",
 )
 
+
 def _slim_record(r):
     """构造轻量记录（仅保留检索融合所需字段；消费方 .get() 语义一致）。"""
     slim = {}
@@ -62,6 +66,7 @@ def _slim_record(r):
             slim[k] = r[k]
     slim.setdefault("meta", {})
     return slim
+
 
 class RetrievalEngine:
     """5-Way Fusion检Index擎（v3.0 Inverted Index加速版）。
@@ -738,6 +743,7 @@ class RetrievalEngine:
         combined.sort(key=lambda x: x[0], reverse=True)
         return combined[:k]
 
+
 def _in_date_range(r, date_from, date_to):
     ts = r.get("created_at", "")
     if date_from and ts < date_from:
@@ -745,6 +751,7 @@ def _in_date_range(r, date_from, date_to):
     if date_to and ts > date_to:
         return False
     return True
+
 
 # ============================================================================
 # Query Expansion & N-gram Similarity (v7.0.0 Module 1)
@@ -796,6 +803,7 @@ for _group in _SYNONYM_GROUPS:
     for _term in _group:
         _SYNONYM_LOOKUP.setdefault(_term, set()).update(_group)
 
+
 def _expand_query_terms(query):
     """Expand a query string into a set of additional search terms using synonyms.
     
@@ -810,6 +818,7 @@ def _expand_query_terms(query):
                     if alt not in expanded:
                         expanded.append(alt)
     return expanded
+
 
 def _bigram_similarity(text1, text2):
     """Compute character bigram similarity between two strings (0-1).
@@ -831,6 +840,7 @@ def _bigram_similarity(text1, text2):
     intersection = len(b1 & b2)
     union = len(b1 | b2)
     return intersection / union if union > 0 else 0.0
+
 
 def _compute_pair_similarity(record_a, record_b):
     """Compute similarity between two records using multiple signals.
@@ -872,6 +882,7 @@ def _compute_pair_similarity(record_a, record_b):
     similarity = 0.5 * bigram_sim + 0.3 * token_sim + 0.2 * syn_sim
     return min(similarity, 1.0)
 
+
 def _ngram_boost(query, record, max_grams=50):
     """Compute character n-gram (bigram + trigram) similarity boost.
     
@@ -899,9 +910,11 @@ def _ngram_boost(query, record, max_grams=50):
     
     return 0.6 * bi_overlap + 0.4 * tri_overlap
 
+
 # ============================================================================
 # Part 7: Cognitive Resolver（Cognitive Resolver v3.1）
 # ============================================================================
 # 四规则引擎模块，在检索Result和答案之间做认知加工。
 # 不依赖 LLM，纯规则 + 检索上下文推理。
+
 

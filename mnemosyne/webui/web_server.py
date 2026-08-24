@@ -75,12 +75,15 @@ _KNOWN_AGENTS = [
     "Coze", "n8n", "自定义 / 其他",
 ]
 
+
 def _now_iso():
     tz = timezone(timedelta(hours=8))
     return datetime.now(tz).isoformat(timespec="seconds")
 
+
 def _now_ts():
     return int(time.time())
+
 
 # ---------------------------------------------------------------------------
 # 认证与用户凭据（PBKDF2-HMAC-SHA256 + 盐，绝不明文）
@@ -91,6 +94,7 @@ def _hash_password(password, salt_hex=None):
     dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"),
                              bytes.fromhex(salt), 120_000)
     return salt, dk.hex()
+
 
 def _ensure_users_file():
     """首次运行创建 web_config/users.json 与内置 admin 账号。"""
@@ -108,12 +112,15 @@ def _ensure_users_file():
         return data
     return _load_json(USERS_FILE) or {"users": []}
 
+
 def _load_users():
     return (_ensure_users_file() or {}).get("users", [])
+
 
 def _save_users(users):
     os.makedirs(WEB_CONFIG_DIR, exist_ok=True)
     _write_json_atomic(USERS_FILE, {"users": users})
+
 
 def _verify_user(username, password):
     for u in _load_users():
@@ -124,9 +131,11 @@ def _verify_user(username, password):
     _hash_password(password)
     return False, None
 
+
 def _auth_enabled():
     val = os.environ.get("MNEMOSYNE_WEB_AUTH", "1")
     return val not in ("0", "off", "no", "false", "False")
+
 
 # ---------------------------------------------------------------------------
 # 通用 JSON 读写 / 原子写入
@@ -139,11 +148,13 @@ def _load_json(path):
     except Exception:
         return None
 
+
 def _write_json_atomic(path, data):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
+
 
 # ---------------------------------------------------------------------------
 # Brain 生命周期
@@ -164,8 +175,10 @@ def _get_brain():
         _get_brain._brain.ensure_init()
     return _get_brain._brain
 
+
 def _set_brain(brain):
     _get_brain._brain = brain
+
 
 def _reset_brain():
     brain = getattr(_get_brain, "_brain", None)
@@ -175,6 +188,7 @@ def _reset_brain():
         except Exception:
             pass
     _get_brain._brain = None
+
 
 # ---------------------------------------------------------------------------
 # 响应发送
@@ -191,6 +205,7 @@ def _send_json(handler, data, status=200, cookie=None):
     handler.end_headers()
     handler.wfile.write(body)
 
+
 def _send_bytes(handler, data, status=200, content_type="application/octet-stream",
                 filename=None, extra_headers=None):
     if isinstance(data, str):
@@ -206,6 +221,7 @@ def _send_bytes(handler, data, status=200, content_type="application/octet-strea
     handler.end_headers()
     handler.wfile.write(data)
 
+
 def _get_body(handler):
     length = int(handler.headers.get("Content-Length", 0) or 0)
     if length == 0:
@@ -215,6 +231,7 @@ def _get_body(handler):
         return json.loads(raw.decode("utf-8"))
     except Exception:
         return {}
+
 
 def _parse_multipart(handler):
     """极简 multipart/form-data 解析（零依赖）。返回 [{name, filename, data(bytes)}]。"""
@@ -252,6 +269,7 @@ def _parse_multipart(handler):
         out.append({"name": name, "filename": filename, "data": body})
     return out
 
+
 # ---------------------------------------------------------------------------
 # API 处理函数（保留原有函数名，兼容既有测试）
 # ---------------------------------------------------------------------------
@@ -280,6 +298,7 @@ def _format_memory(record):
         "last_accessed_at": record.get("last_accessed_at"),
         "project": record.get("project"),
     }
+
 
 def api_stats(brain, query_params):
     """GET /api/stats — 增强版仪表盘统计（支持 ?agent= 智能体过滤）。"""
@@ -352,6 +371,7 @@ def api_stats(brain, query_params):
         "agent_project": project,
     }
 
+
 def api_memories(brain, query_params, body=None):
     """GET /api/memories — 记忆列表（含检索，支持 ?agent= / ?project= 过滤）。"""
     action = query_params.get("action", ["list"])[0]
@@ -388,6 +408,7 @@ def api_memories(brain, query_params, body=None):
     return {"memories": memories, "count": len(memories), "total": len(records),
             "agent_project": project}
 
+
 def api_memories_post(brain, body):
     """POST /api/memories — 新增记忆（请求体可含 agent / project 字段）。"""
     content = (body or {}).get("content", "")
@@ -406,6 +427,7 @@ def api_memories_post(brain, body):
         project=project,
     )
     return {"id": mid, "message": "Memory added", "project": project}, 201
+
 
 def api_memory_by_id(brain, memory_id, method, body=None):
     if method == "GET":
@@ -432,6 +454,7 @@ def api_memory_by_id(brain, memory_id, method, body=None):
         return {"message": "Memory deleted"}, 200
     return {"error": "Method not allowed"}, 405
 
+
 def api_consolidate(brain, body):
     report = brain.consolidate(
         min_similarity=(body or {}).get("min_similarity", 0.75),
@@ -441,6 +464,7 @@ def api_consolidate(brain, body):
     )
     report_dict = report.to_dict() if hasattr(report, "to_dict") else {}
     return {"report": report_dict}, 200
+
 
 def api_demote(brain, body):
     """POST /api/demote — 单条降级。"""
@@ -459,12 +483,14 @@ def api_demote(brain, body):
         brain._check_capacity()
     return {"message": "Memory demoted", "old_tier": current_tier, "new_tier": new_tier}, 200
 
+
 def api_demote_cycle(brain, body):
     """POST /api/demote-cycle — 遗忘经济学：批量降级并返回报告。"""
     budget = int((body or {}).get("budget_bytes", 0) or 0)
     report = brain.demote_cycle(budget_bytes=budget)
     d = report.to_dict() if hasattr(report, "to_dict") else {}
     return {"report": d, "message": "降级周期完成"}, 200
+
 
 def api_budget_recall(brain, body):
     """POST /api/budget-recall — 记忆预算器：预算约束检索 + cost_report。"""
@@ -486,6 +512,7 @@ def api_budget_recall(brain, body):
             "tokens": len(record.get("content", "")) // 4,
         })
     return {"results": out, "cost_report": cost_report}, 200
+
 
 def api_notary(brain, query_params):
     """GET /api/notary — 记忆公证所：confidence + 注入检测 flags（支持 ?agent=）。"""
@@ -512,6 +539,7 @@ def api_notary(brain, query_params):
     suspicious = [i for i in items if i["suspicious"]]
     return {"items": items, "count": len(items), "suspicious_count": len(suspicious)}, 200
 
+
 def api_audit(brain, query_params):
     """GET /api/audit — 审计日志时间线（支持 ?agent= 按记忆归属过滤）。"""
     memory_id = query_params.get("memory_id", [None])[0]
@@ -532,6 +560,7 @@ def api_audit(brain, query_params):
         return {"entries": entries, "count": len(entries)}
     return {"entries": [], "count": 0}
 
+
 def api_ledger_entries(brain, query_params):
     """GET /api/ledger/entries — 账本最近条目。"""
     limit = int(query_params.get("limit", ["50"])[0])
@@ -540,6 +569,7 @@ def api_ledger_entries(brain, query_params):
         total = brain.ledger.count() if hasattr(brain.ledger, "count") else len(entries)
         return {"entries": entries, "count": len(entries), "total": total}, 200
     return {"entries": [], "count": 0, "total": 0}, 200
+
 
 def api_ledger_verify(brain, query_params):
     if not brain.ledger:
@@ -558,6 +588,7 @@ def api_ledger_verify(brain, query_params):
         }, 200
     except Exception as e:
         return {"valid": False, "error": str(e)}, 500
+
 
 def api_sessions(brain, query_params):
     """GET /api/sessions — 会话历史（列表 / 检索 / 单会话轮次）。
@@ -591,6 +622,7 @@ def api_sessions(brain, query_params):
     except Exception:
         return {"sessions": [], "count": 0}
 
+
 def api_sessions_turns(brain, query_params):
     """GET /api/sessions/turns — 最近会话轮次（实时刷新）。"""
     limit = int(query_params.get("limit", ["50"])[0])
@@ -609,6 +641,7 @@ def api_sessions_turns(brain, query_params):
     except Exception:
         return {"turns": [], "count": 0}, 200
 
+
 def api_session_turn_post(brain, body):
     """POST /api/session/turn — 追加一条会话轮次。"""
     session_id = (body or {}).get("session_id") or "web-session"
@@ -618,6 +651,7 @@ def api_session_turn_post(brain, body):
         return {"error": "content is required"}, 400
     ts = brain.add_conversation_turn(session_id, role, content)
     return {"message": "turn added", "ts": ts}, 200
+
 
 def api_graph(brain, query_params):
     """GET /api/graph — 实体关系图（支持 ?agent= 过滤）。"""
@@ -650,6 +684,7 @@ def api_graph(brain, query_params):
         return {"nodes": nodes, "edges": edges}, 200
     except Exception:
         return {"nodes": [], "edges": []}, 200
+
 
 def api_graph_timeline(brain, query_params):
     """GET /api/graph/timeline — 径向时间图数据（支持 ?agent=）。
@@ -775,6 +810,7 @@ def api_graph_timeline(brain, query_params):
     dates = sorted({n["date"] for n in nodes if n["date"]})
     return {"nodes": nodes, "edges": edges, "dates": dates, "total": len(nodes)}, 200
 
+
 def api_tree(brain, query_params):
     """GET /api/tree — 知识树（实体 → 关联记忆，可展开；支持 ?agent=）。"""
     limit = int(query_params.get("limit", ["80"])[0])
@@ -803,6 +839,7 @@ def api_tree(brain, query_params):
         })
     return {"tree": tree, "count": len(tree), "total_memories": len(records)}, 200
 
+
 def api_profile(brain, method, body=None, query_params=None):
     """GET/PUT /api/profile — 底层用户画像（兼容原有接口）。"""
     profile_id = "default" if query_params is None else query_params.get("id", ["default"])[0]
@@ -816,6 +853,7 @@ def api_profile(brain, method, body=None, query_params=None):
         return {"message": "Profile updated"}, 200
     return {"error": "Method not allowed"}, 405
 
+
 # ---------------------------------------------------------------------------
 # 用户画像自定义管理（web_config/profiles.json，并同步到 brain 以注入快照）
 # ---------------------------------------------------------------------------
@@ -828,9 +866,11 @@ def _load_profiles():
         return {"profiles": data}
     return {"profiles": []}
 
+
 def _save_profiles(data):
     os.makedirs(WEB_CONFIG_DIR, exist_ok=True)
     _write_json_atomic(PROFILES_FILE, data)
+
 
 def _sync_profiles_to_brain(brain, profiles):
     """将画像同步到 brain.profile_manager，使快照注入（build_context_prompt）能读到。"""
@@ -849,6 +889,7 @@ def _sync_profiles_to_brain(brain, profiles):
     except Exception:
         pass
 
+
 # ---------------------------------------------------------------------------
 # 智能体（agent）记忆隔离 —— 基于 MemoryBrain 的 project 字段
 # ---------------------------------------------------------------------------
@@ -861,6 +902,7 @@ def _slugify(text):
     s = re.sub(r"[^a-zA-Z0-9_-]+", "_", s).strip("_").lower()
     return s or ("agent_" + uuid.uuid4().hex[:8])
 
+
 def _load_agents():
     data = _load_json(AGENTS_FILE)
     if isinstance(data, dict) and "agents" in data:
@@ -869,9 +911,11 @@ def _load_agents():
         return {"agents": data}
     return {"agents": []}
 
+
 def _save_agents(data):
     os.makedirs(WEB_CONFIG_DIR, exist_ok=True)
     _write_json_atomic(AGENTS_FILE, data)
+
 
 def _load_sources():
     data = _load_json(SOURCES_FILE)
@@ -881,9 +925,11 @@ def _load_sources():
         return {"sources": data}
     return {"sources": []}
 
+
 def _save_sources(data):
     os.makedirs(WEB_CONFIG_DIR, exist_ok=True)
     _write_json_atomic(SOURCES_FILE, data)
+
 
 def _resolve_project(agent_value):
     """把外部传入的 agent 标识解析为底层 project 值。
@@ -902,6 +948,7 @@ def _resolve_project(agent_value):
             return a.get("project")
     return "agent:" + _slugify(v)
 
+
 def _agent_from_query(query_params):
     """从 query 参数中提取智能体标识（agent 或 project）。"""
     if query_params is None:
@@ -911,17 +958,20 @@ def _agent_from_query(query_params):
         v = query_params.get("project", [None])[0]
     return v
 
+
 def _filter_records_by_project(records, project):
     """按 project 过滤记录（None 表示不过滤）。"""
     if not project:
         return records
     return [r for r in records if (r.get("project") or "") == project]
 
+
 def _agent_memory_ids(brain, project):
     """返回某 project 下所有记忆 id 集合（用于账本/审计关联过滤）。"""
     if not project:
         return None
     return {r.get("id") for r in _filter_records_by_project(brain.store.all_records(), project)}
+
 
 def api_profiles(brain, method, body=None, profile_id=None, action=None):
     data = _load_profiles()
@@ -975,6 +1025,7 @@ def api_profiles(brain, method, body=None, profile_id=None, action=None):
 
     return {"error": "Method not allowed"}, 405
 
+
 # ---------------------------------------------------------------------------
 # 多租户
 # ---------------------------------------------------------------------------
@@ -1011,12 +1062,14 @@ def api_namespaces(brain, query_params):
         out.append({"name": n, "count": count, "current": n == current})
     return {"namespaces": out, "current": current}, 200
 
+
 def _sanitize_namespace(ns):
     """规范化命名空间名（防止路径穿越，仅允许字母/数字/下划线/点/连字符）。"""
     s = (ns or "").strip()
     s = re.sub(r"[^\w\-\.]", "_", s)
     s = s.strip("._")
     return s[:64]
+
 
 def _load_persisted_namespace():
     """读取持久化的命名空间（web_config/namespace.json），供重启后仍生效。"""
@@ -1025,10 +1078,12 @@ def _load_persisted_namespace():
         return _sanitize_namespace(data.get("namespace"))
     return None
 
+
 def _persist_namespace(ns):
     os.makedirs(WEB_CONFIG_DIR, exist_ok=True)
     _write_json_atomic(NAMESPACE_FILE, {"namespace": _sanitize_namespace(ns),
                                         "updated_at": _now_iso()})
+
 
 def api_namespace_switch(brain, body):
     ns = _sanitize_namespace((body or {}).get("namespace"))
@@ -1039,6 +1094,7 @@ def api_namespace_switch(brain, body):
     _reset_brain()
     newbrain = _get_brain()
     return {"namespace": getattr(newbrain, "namespace", ns), "message": "命名空间已切换"}, 200
+
 
 def api_namespace_rename(brain, body):
     """POST /api/namespace/rename — 重命名当前命名空间。
@@ -1064,6 +1120,7 @@ def api_namespace_rename(brain, body):
     return {"message": "命名空间已重命名", "namespace": new_name,
             "old_namespace": current,
             "cloned_records": res.get("cloned_records", 0)}, 200
+
 
 # ---------------------------------------------------------------------------
 # 智能体（agent）管理 —— 每个智能体对应一个 project，实现记忆完全隔离
@@ -1106,6 +1163,7 @@ def _agent_counts(brain):
             "updated_at": a.get("updated_at"),
         })
     return out, sum(counts.values())
+
 
 def api_agents(brain, method, body=None, agent_id=None, query_params=None):
     """GET/POST/PUT/DELETE /api/agents —— 智能体配置 CRUD（含记忆计数）。"""
@@ -1157,6 +1215,7 @@ def api_agents(brain, method, body=None, agent_id=None, query_params=None):
 
     return {"error": "Method not allowed"}, 405
 
+
 # ---------------------------------------------------------------------------
 # 外部数据源（任务3）—— Web 端主动抓取外部智能体记忆
 # ---------------------------------------------------------------------------
@@ -1191,6 +1250,7 @@ def _sync_source_fetch(brain, source):
         text = resp.read().decode("utf-8", "replace")
     written = _retain_from_text(brain, text, agent_proj)
     return {"written": written, "source": source.get("name")}
+
 
 def _retain_from_text(brain, text, agent_proj):
     """把抓取到的文本（JSON 列表 / JSONL 行 / 纯文本）写入记忆，返回条数。"""
@@ -1231,6 +1291,7 @@ def _retain_from_text(brain, text, agent_proj):
         brain.retain(text[:2000], mtype="note", project=agent_proj)
         written = 1
     return written
+
 
 def api_sources(brain, method, body=None, source_id=None, action=None):
     """GET/POST/PUT/DELETE /api/sources 与 POST /api/sources/sync —— 外部数据源配置。"""
@@ -1298,6 +1359,7 @@ def api_sources(brain, method, body=None, source_id=None, action=None):
 
     return {"error": "Method not allowed"}, 405
 
+
 def _background_sync_loop(brain):
     """后台定时同步外部数据源（默认 60s 间隔，失败静默重试）。"""
     while True:
@@ -1320,6 +1382,7 @@ def _background_sync_loop(brain):
         except Exception:
             pass
 
+
 # ---------------------------------------------------------------------------
 # 记忆交换协议：导出 / 导入
 # ---------------------------------------------------------------------------
@@ -1330,6 +1393,7 @@ def _make_tmp_dir(parent):
     d = os.path.join(parent, ".web_tmp_" + uuid.uuid4().hex[:12])
     os.makedirs(d, exist_ok=True)
     return d
+
 
 def api_export(brain, query_params):
     """GET /api/export?namespace=X — 导出 ZIP（memories.jsonl + manifest.json）。"""
@@ -1348,6 +1412,7 @@ def api_export(brain, query_params):
         return {"error": str(e)}, 500
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
 
 def api_import(brain, body_bytes, filename):
     """POST /api/import — 导入 JSONL 或 ZIP（含 manifest）。"""
@@ -1368,6 +1433,7 @@ def api_import(brain, body_bytes, filename):
         return {"error": str(e), "imported": 0}, 500
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
 
 # ---------------------------------------------------------------------------
 # 知识库上传（.txt / .md 等文本文件 → brain.retain）
@@ -1393,6 +1459,7 @@ def _chunk_text(text, size=800):
             chunks.append(chunk)
         start = end
     return chunks
+
 
 def api_knowledge_upload(brain, part):
     """POST /api/knowledge/upload — 解析文本并按块写入记忆。"""
@@ -1440,6 +1507,7 @@ def api_knowledge_upload(brain, part):
             continue
     return {"written": written, "chunks": len(chunks), "filename": filename}, 200
 
+
 # ---------------------------------------------------------------------------
 # Agent 对接偏好 / 配置导入导出
 # ---------------------------------------------------------------------------
@@ -1456,6 +1524,7 @@ def api_agent_config(brain, method, body=None):
         return {"agent_config": cfg, "message": "Agent 偏好已保存（自动配置将在后续版本提供）"}, 200
     return {"error": "Method not allowed"}, 405
 
+
 def api_config_export(brain, query_params):
     """GET /api/config/export — 导出 Web 端配置（画像 + Agent 偏好 + 模式）。"""
     profiles = _load_profiles()
@@ -1467,6 +1536,7 @@ def api_config_export(brain, query_params):
         "agent_config": agent,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2), "web_config.json"
+
 
 def api_config_import(brain, body):
     """POST /api/config/import — 导入 Web 端配置（JSON）。"""
@@ -1481,12 +1551,14 @@ def api_config_import(brain, body):
         return {"message": "配置已导入", "profiles": len(profiles)}, 200
     return {"error": "无效的配置文件"}, 400
 
+
 # ---------------------------------------------------------------------------
 # 热力图 / 长期画像
 # ---------------------------------------------------------------------------
 
 def _date_only(iso):
     return (iso or "")[:10]
+
 
 def api_heatmap(brain, query_params):
     """GET /api/heatmap — 日历热力图（每日新增量 / 调用量；支持 ?agent=）。"""
@@ -1532,6 +1604,7 @@ def api_heatmap(brain, query_params):
         "total_accessed": sum(accessed.values()),
     }, 200
 
+
 def api_insights(brain, query_params):
     """GET /api/insights — 长期画像文字描述（基于现有记忆数据；支持 ?agent=）。"""
     project = _resolve_project(_agent_from_query(query_params))
@@ -1576,6 +1649,7 @@ def api_insights(brain, query_params):
         "total_memories": len(records),
     }, 200
 
+
 def api_snapshot(brain, query_params):
     """GET /api/snapshot — 快照注入预览（验证默认画像是否进入上下文）。"""
     max_chars = int(query_params.get("max_chars", ["2000"])[0])
@@ -1585,11 +1659,13 @@ def api_snapshot(brain, query_params):
         content = "[快照构建失败] " + str(e)
     return {"snapshot": content or "[快照为空]"}, 200
 
+
 # ---------------------------------------------------------------------------
 # 前端 HTML（供测试直接调用；实际由静态文件服务）
 # ---------------------------------------------------------------------------
 
 _index_cache = {"mtime": 0, "content": ""}
+
 
 def get_frontend_html():
     """返回前端 HTML（读取 static/index.html，带 mtime 缓存）。"""
@@ -1603,6 +1679,7 @@ def get_frontend_html():
             _index_cache["content"] = f.read()
         _index_cache["mtime"] = mtime
     return _index_cache["content"]
+
 
 # ---------------------------------------------------------------------------
 # HTTP 请求处理器
@@ -1624,6 +1701,7 @@ _CONTENT_TYPES = {
     ".woff": "font/woff",
     ".ttf": "font/ttf",
 }
+
 
 class MnemosyneWebHandler(BaseHTTPRequestHandler):
     """HTTP 请求处理器：静态资源 + 会话认证 + REST API。"""
@@ -2032,11 +2110,13 @@ class MnemosyneWebHandler(BaseHTTPRequestHandler):
         except Exception as e:
             return _send_json(self, {"error": str(e)}, 500)
 
+
 def _send_tuple(handler, data):
     if isinstance(data, tuple) and len(data) == 2:
         _send_json(handler, data[0], data[1])
     else:
         _send_json(handler, data)
+
 
 # ---------------------------------------------------------------------------
 # 服务器启动
@@ -2094,6 +2174,7 @@ def run_server(port=9090, host="0.0.0.0", base_dir=None, namespace="default", au
     except KeyboardInterrupt:
         print("\nShutting down...")
         server.shutdown()
+
 
 if __name__ == "__main__":
     import argparse

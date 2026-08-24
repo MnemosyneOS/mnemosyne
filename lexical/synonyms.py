@@ -58,6 +58,7 @@ SYNONYMS: dict[str, list[str]] = {
     "的": [""],  # removing "的"
 }
 
+
 def expand_query(query: str, max_depth: int = 2) -> list[str]:
     """Expand a query into a list of synonymous variants.
 
@@ -73,6 +74,7 @@ def expand_query(query: str, max_depth: int = 2) -> list[str]:
                     if syn:  # skip empty synonyms (like "" for "的")
                         expanded.append(query.replace(canonical, syn))
     return expanded
+
 
 def expand_token(token: str) -> set[str]:
     """Expand a single token into a set including its synonyms."""

@@ -20,9 +20,11 @@ logger = logging.getLogger("mnemosyne.session_store")
 
 __all__ = ["SessionStore"]
 
+
 def _now_iso():
     tz = timezone(timedelta(hours=8))
     return datetime.now(tz).isoformat(timespec="seconds")
+
 
 class SessionStore:
     """Stores and searches conversation history.

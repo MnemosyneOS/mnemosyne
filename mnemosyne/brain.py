@@ -37,6 +37,7 @@ FACT_TYPES = {"fact", "opinion", "belief", "observation", "inference", "hypothes
 SOURCE_TYPES = {"user", "system", "inference", "web_search", "file", "agent_generated", "external"}
 VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "superseded"}
 
+
 class MemoryBrain:
     """Memory Brain —— 协调所有认知模块的统一入口。
 
@@ -1758,6 +1759,7 @@ entity: 可选实体名过滤; limit: 最大返回数。
                             cold_migrated=cold_migrated,
                             budget_bytes=budget_bytes, current_bytes=0)
 
+
 # ============================================================================
 # Part 8: 维护操作（增强版）
 # ============================================================================
@@ -1767,6 +1769,7 @@ def _parse_ts(iso_str):
         return datetime.fromisoformat(iso_str.replace("Z", "+00:00")).timestamp()
     except Exception:
         return 0
+
 
 def _dedup(store, dry_run=False, embed_engine=None):
     records = store.all_records()
@@ -1804,6 +1807,7 @@ def _dedup(store, dry_run=False, embed_engine=None):
         store.rewrite(out)
     return {"merged": merged, "similar_pairs": similar_pairs[:20], "dry_run": dry_run}
 
+
 def _forget(store, memory_id):
     records = store.all_records()
     found = False
@@ -1815,6 +1819,7 @@ def _forget(store, memory_id):
     if found:
         store.rewrite(records)
     return found
+
 
 def _expire_old(store):
     records = store.all_records()
@@ -1832,6 +1837,7 @@ def _expire_old(store):
     if changed:
         store.rewrite(records)
     return changed
+
 
 def _repair(store, dry_run=False):
     store.ensure_init()
@@ -1868,6 +1874,7 @@ def _repair(store, dry_run=False):
     return {"ok": True, "corrupt": len(corrupt_lines), "kept": len(valid_records),
             "backup": backup_path, "lines": corrupt_lines[:50], "dry_run": False}
 
+
 # ============================================================================
 # Part 9: searches 记忆操作
 # ============================================================================
@@ -1896,6 +1903,7 @@ def _capture_search(store, query, results_text, urls=None, title=None):
     store.append(record)
     return {"updated": False, "id": record["id"], "capture_count": 1}
 
+
 def _should_research(store, query, max_age_days=7):
     records = [r for r in store.all_records()
                if r.get("type") == "web" and r.get("status") != "deleted"]
@@ -1915,6 +1923,7 @@ def _should_research(store, query, max_age_days=7):
                 "urls": r.get("source", {}).get("urls", []) if r.get("source") else [],
             }
     return {"found": False}
+
 
 # ============================================================================
 # Part 10: exports /imports 
@@ -1947,6 +1956,7 @@ def _export(store, fmt="json", out_path=None):
         return out_path
     return text
 
+
 def _import_file(store, path):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -1960,6 +1970,7 @@ def _import_file(store, path):
         store.append(m)
         count += 1
     return count
+
 
 # ============================================================================
 # Part 11: Hindsight 对标评测（内置 Benchmark）
@@ -2084,6 +2095,7 @@ def _hindsights_bench(brain, test_count=200):
           f"自学习策略数: {results.get('self_learn_strategies')}")
     return results
 
+
 # ============================================================================
 # Part 12: 基准Test
 # ============================================================================
@@ -2126,6 +2138,7 @@ def _benchmark(brain, count=2000):
         "latency_ms": {q: round(ms, 1) for q, ms in latencies.items()},
     }
 
+
 # ============================================================================
 # Part 13: 演示
 # ============================================================================
@@ -2157,6 +2170,7 @@ def _demo(brain):
 
     print("-" * 50)
     print("  \u2705 演示via ：v7.0.0 引擎可用。")
+
 
 # ============================================================================
 # Part 14: CLI

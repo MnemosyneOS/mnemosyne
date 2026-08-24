@@ -19,6 +19,7 @@ import json
 
 __all__ = ["SnapshotBuilder", "MemorySnapshot"]
 
+
 class MemorySnapshot:
     """An immutable snapshot of memory context at a point in time."""
 
@@ -86,6 +87,7 @@ class MemorySnapshot:
             "hash": self._hash,
             "char_count": len(self._content),
         }
+
 
 class SnapshotBuilder:
     """Builds frozen context snapshots from a MemoryBrain or compatible object.

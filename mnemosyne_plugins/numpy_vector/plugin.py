@@ -33,6 +33,7 @@ from storage.plugin_sdk import VectorBackendPlugin
 
 __all__ = ["NumpyVectorBackend", "register", "get_plugin_class"]
 
+
 class NumpyVectorBackend(VectorBackendPlugin):
     """Vector storage + cosine similarity retrieval backed by numpy.
 
@@ -109,6 +110,7 @@ class NumpyVectorBackend(VectorBackendPlugin):
                 self._model = None  # 未缓存，回退哈希编码
         except Exception:
             self._model = None  # fall back to hash-based encoding
+
 
     def encode(self, text):
         """Encode text into a dense vector.
@@ -209,9 +211,11 @@ class NumpyVectorBackend(VectorBackendPlugin):
         """No-op: vectors are populated via :meth:`add` during retain."""
         pass
 
+
 def register(brain):
     """Plugin entry point — returns a NumpyVectorBackend instance."""
     return NumpyVectorBackend(brain)
+
 
 def get_plugin_class():
     return NumpyVectorBackend

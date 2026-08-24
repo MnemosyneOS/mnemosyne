@@ -84,6 +84,7 @@ def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
     }
     return record
 
+
 def _default_layer(mtype):
     return {
         "semantic": "semantic", "episodic": "episodic",
@@ -93,6 +94,7 @@ def _default_layer(mtype):
         "belief": "reflective", "observation": "semantic",
         "lesson": "procedural", "strategy": "reflective",
     }.get(mtype, "semantic")
+
 
 def _infer_fact_type(mtype, content):
     """based on Type和内容推断事实Type。"""
@@ -109,6 +111,7 @@ def _infer_fact_type(mtype, content):
         return "opinion"
     return "fact"
 
+
 def _infer_source_type(mtype, source):
     if source and isinstance(source, dict):
         kind = source.get("kind", "")
@@ -122,6 +125,7 @@ def _infer_source_type(mtype, source):
         return "agent_generated"
     return "user"
 
+
 def _default_confidence(source_type):
     """不同来源的默认可信度。"""
     return {
@@ -129,6 +133,7 @@ def _default_confidence(source_type):
         "system": 0.90, "inference": 0.50, "agent_generated": 0.45,
         "external": 0.60,
     }.get(source_type, 0.70)
+
 
 def _auto_importance(content, mtype, tags):
     """自动重要性评分（规则式）。"""
@@ -151,6 +156,7 @@ def _auto_importance(content, mtype, tags):
         score = min(score + 1, 5)
     return score
 
+
 def _extract_event_time(content, record_created_at):
     """从内容中提取EventTime（启发式）。"""
     # Date模式：YYYY-MM-DD 或 YYYY年MM月DD日
@@ -163,9 +169,11 @@ def _extract_event_time(content, record_created_at):
             pass
     return record_created_at
 
+
 # ============================================================================
 # 报告数据类（v7.0.0 门面层返回值）
 # ============================================================================
+
 
 @dataclasses.dataclass
 class ConsolidationReport:
@@ -188,6 +196,7 @@ class ConsolidationReport:
             "groups": self.groups,
         }
 
+
 @dataclasses.dataclass
 class DemoteReport:
     """降级（遗忘经济学）报告。"""
@@ -205,4 +214,5 @@ class DemoteReport:
             "budget_bytes": self.budget_bytes,
             "current_bytes": self.current_bytes,
         }
+
 

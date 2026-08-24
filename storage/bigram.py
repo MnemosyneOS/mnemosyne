@@ -6,15 +6,18 @@ mnemosyne module via lazy import to avoid circular dependency issues
 import mnemosyne at module load time).
 """
 
+
 def _get_mnemosyne():
     """Lazily import mnemosyne to break circular imports."""
     import mnemosyne
     return mnemosyne
 
+
 def _tokenize(text):
     """Multi-language tokenizer (delegates to mnemosyne._tokenize)."""
     m = _get_mnemosyne()
     return m._tokenize(text)
+
 
 def _tf_vector(tokens):
     """Build a term-frequency Counter (delegates to mnemosyne._tf_vector)."""

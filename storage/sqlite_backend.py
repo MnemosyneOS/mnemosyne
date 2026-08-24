@@ -35,19 +35,24 @@ INDEX_NAME = "index.jsonl"
 META_NAME = "meta.json"
 VERSION = "7.0.0"
 
+
 def _m():
     """Lazy-import the mnemosyne module for helper functions."""
     import mnemosyne as _mnemosyne_mod
     return _mnemosyne_mod
 
+
 def _now_iso():
     return _m()._now_iso()
+
 
 def _stable_id(content, salt=""):
     return _m()._stable_id(content, salt)
 
+
 def _upgrade_record(rec):
     return _m()._upgrade_record(rec)
+
 
 # ---------------------------------------------------------------------------
 # Column list for the memories table
@@ -73,6 +78,7 @@ _MEMORIES_COLUMNS = [
     "flags", "notary_evidence",
 ]
 
+
 def _ft_content(text):
     """Produce an FTS5-storable string for *text*.
 
@@ -83,6 +89,7 @@ def _ft_content(text):
     """
     tokens = _tokenize(text or "")
     return " ".join(tokens)
+
 
 def _record_to_row(record):
     """Convert a memory record dict to a tuple matching _MEMORIES_COLUMNS."""
@@ -148,6 +155,7 @@ def _record_to_row(record):
             val = record.get(col)
         row.append(val)
     return tuple(row)
+
 
 def _row_to_record(row, keys=None):
     """Convert a sqlite3.Row back to a full memory record dict.
@@ -222,6 +230,7 @@ def _row_to_record(row, keys=None):
     }
 
     return d
+
 
 class SqliteBackend:
     """sqlite3 + FTS5 storage backend, interface-compatible with MemoryStore.
@@ -1842,6 +1851,7 @@ class SqliteBackend:
             conn.rollback()
             raise
         return len(records)
+
 
 def conn_execute_with_retry(conn, sql, params, max_retries=3):
     """Execute SQL with retry on 'database is locked' errors."""

@@ -31,6 +31,7 @@ from storage.plugin_sdk import CryptoPlugin
 
 __all__ = ["CryptoPluginFernet", "register", "get_plugin_class"]
 
+
 class CryptoPluginFernet(CryptoPlugin):
     """Fernet-based symmetric encryption for memory fields."""
 
@@ -100,9 +101,11 @@ class CryptoPluginFernet(CryptoPlugin):
         except Exception:
             return encrypted_value  # return as-is if decryption fails
 
+
 def register(brain):
     """Plugin entry point — returns a CryptoPluginFernet instance."""
     return CryptoPluginFernet(brain)
+
 
 def get_plugin_class():
     return CryptoPluginFernet

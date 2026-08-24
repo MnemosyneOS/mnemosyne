@@ -21,11 +21,13 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import mcp_server
 
+
 def call(req):
     """把 JSON-RPC 请求发给 mcp_server 并打印响应。"""
     resp = mcp_server.handle_request(req)
     print(json.dumps(resp, ensure_ascii=False, indent=2))
     return resp
+
 
 def main() -> None:
     tmp = tempfile.mkdtemp(prefix="mnemosyne_mcp_")
@@ -55,6 +57,7 @@ def main() -> None:
 
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     main()

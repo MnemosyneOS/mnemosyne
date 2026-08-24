@@ -33,6 +33,7 @@ except Exception:
 
 __all__ = ["MemoryLedger", "LedgerReceipt"]
 
+
 def _compute_hash(prev_hash, payload_hash):
     """Compute the chain hash for this entry.
 
@@ -44,6 +45,7 @@ def _compute_hash(prev_hash, payload_hash):
     h.update(payload_hash.encode("utf-8"))
     return h.hexdigest()
 
+
 def _compute_payload_hash(payload):
     """Compute a stable SHA-256 hash of the normalised payload JSON.
 
@@ -53,6 +55,7 @@ def _compute_payload_hash(payload):
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False,
                      separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
 
 class LedgerReceipt:
     """A lightweight, JSON-serialisable receipt for a ledger append.
@@ -92,6 +95,7 @@ class LedgerReceipt:
             f"LedgerReceipt(seq={self.seq}, action={self.action!r}, "
             f"memory_id={self.memory_id!r}, hash={self.hash[:12]}…)"
         )
+
 
 class MemoryLedger:
     """Append-only hash-chain ledger backed by a SQLite database.

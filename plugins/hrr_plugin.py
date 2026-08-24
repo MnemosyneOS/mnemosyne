@@ -27,6 +27,7 @@ except ImportError:
 
 __all__ = ["SimpleHRR", "HRRPlugin"]
 
+
 def _stable_hash(seed_text, length):
     """Generate a deterministic random vector from a text seed.
 
@@ -53,6 +54,7 @@ def _stable_hash(seed_text, length):
         if norm > 0:
             values = [v / norm for v in values]
         return values
+
 
 class SimpleHRR:
     """Simplified HRR with encode, bind, bundle, and probe operations.
@@ -186,6 +188,7 @@ class SimpleHRR:
         """Clear all stored memories."""
         self.memory = {}
         self._am = None
+
 
 class HRRPlugin:
     """HRR plugin wrapper for MemoryBrain integration.

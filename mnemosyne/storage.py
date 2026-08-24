@@ -35,6 +35,7 @@ else:
         except OSError as exc:
             logger.debug("文件解锁失败：%s", exc)
 
+
 # ============================================================================
 # Part 5: 存储层（JSONL + 图Index）
 # ============================================================================
@@ -250,6 +251,7 @@ class MemoryStore:
     def demote(self, memory_id):
         """降级到 L3 冷层：软删。"""
         return self.update_by_id(memory_id, {"status": "deleted", "deleted_at": _now_iso()})
+
 
     # ---- v7.0.0: Audit log ----
     

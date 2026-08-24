@@ -24,6 +24,7 @@ from storage.plugin_sdk import RerankerPlugin
 
 __all__ = ["HeuristicReranker", "register", "get_plugin_class"]
 
+
 class HeuristicReranker(RerankerPlugin):
     """Heuristic reranker: ``score = confidence * freshness * access_freq``."""
 
@@ -121,9 +122,11 @@ class HeuristicReranker(RerankerPlugin):
         scored.sort(key=lambda x: x[0], reverse=True)
         return scored
 
+
 def register(brain):
     """Plugin entry point — returns a HeuristicReranker instance."""
     return HeuristicReranker(brain)
+
 
 def get_plugin_class():
     return HeuristicReranker

@@ -21,6 +21,7 @@ from datetime import datetime
 
 __all__ = ["find_contradictions", "ContradictionDetector"]
 
+
 # Keywords that signal opposing sentiment / factual direction
 CONTRADICTION_KEYWORDS = {
     "成立": ["倒闭", "关闭", "解散", "不存在", "从未", "没有"],
@@ -37,6 +38,7 @@ CONTRADICTION_KEYWORDS = {
     "美国加利福尼亚": ["中国", "北京"],
     "苹果": ["倒闭", "关闭", "失败"],
 }
+
 
 class ContradictionDetector:
     """Detect contradictions in memory records using semantic heuristics."""
@@ -191,6 +193,7 @@ class ContradictionDetector:
 
         return contradictions
 
+
 def find_contradictions(brain, entity=None, min_similarity=0.3):
     """Find contradictions in the brain's memory store.
 
@@ -209,6 +212,7 @@ def find_contradictions(brain, entity=None, min_similarity=0.3):
     """
     detector = ContradictionDetector(brain)
     return detector.detect(entity=entity, min_similarity=min_similarity)
+
 
 def _cli():
     """CLI entry point: python -m security.contradiction <brain_dir> [entity]"""
@@ -243,6 +247,7 @@ def _cli():
     else:
         print("✅ No contradictions found.")
     brain.close()
+
 
 if __name__ == "__main__":
     _cli()

@@ -25,6 +25,7 @@ FACT_TYPES = {"fact", "opinion", "belief", "observation", "inference", "hypothes
 SOURCE_TYPES = {"user", "system", "inference", "web_search", "file", "agent_generated", "external"}
 VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "superseded"}
 
+
 def _build_parser():
     p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.0")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
@@ -137,6 +138,7 @@ def _build_parser():
                     help="JSONL 文件路径（默认 <--dir>/index.jsonl）")
 
     return p
+
 
 def main(argv=None):
     # Windows 控制台编码兼容：保留控制台编码，但无法编码的字符（如 ✓/✔）
@@ -402,6 +404,7 @@ def main(argv=None):
     else:
         _build_parser().print_help()
         return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

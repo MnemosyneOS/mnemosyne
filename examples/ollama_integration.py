@@ -33,6 +33,7 @@ for _stream in (sys.stdout, sys.stderr):
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
 
+
 def ollama_available() -> bool:
     """探测本地 Ollama 是否可用（GET /api/tags）。"""
     try:
@@ -40,6 +41,7 @@ def ollama_available() -> bool:
             return resp.status == 200
     except Exception:
         return False
+
 
 def ollama_generate(prompt: str) -> str:
     """调用 Ollama /api/generate 生成回复，返回文本。"""
@@ -52,6 +54,7 @@ def ollama_generate(prompt: str) -> str:
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     return data.get("response", "").strip()
+
 
 def main() -> None:
     tmp = tempfile.mkdtemp(prefix="mnemosyne_ollama_")
@@ -92,6 +95,7 @@ def main() -> None:
     brain.close()
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     main()

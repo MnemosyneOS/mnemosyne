@@ -9,6 +9,7 @@ EMBEDDING_DIM = 128
 PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
+
 class MnemosyneMemory:
     """框架无关的 Agent 记忆适配器——提供 LangChain/CrewAI 兼容的 load/save 接口。
 

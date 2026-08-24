@@ -20,6 +20,7 @@ if _WORKING_DIR not in sys.path:
 
 from mnemosyne import MemoryBrain, _injection_score
 
+
 def test_credential_redaction():
     """Test that credential patterns are detected and flagged."""
     results = []
@@ -47,6 +48,7 @@ def test_credential_redaction():
         })
     return results
 
+
 def test_invisible_unicode():
     """Test that invisible Unicode characters are detected."""
     results = []
@@ -68,6 +70,7 @@ def test_invisible_unicode():
         })
     return results
 
+
 def test_hidden_html_comments():
     """Test that hidden HTML comments with directives are detected."""
     results = []
@@ -87,6 +90,7 @@ def test_hidden_html_comments():
             "passed": passed,
         })
     return results
+
 
 def test_encryption():
     """Test that the crypto plugin encrypts memory content."""
@@ -113,6 +117,7 @@ def test_encryption():
             "details": "cryptography library not installed",
         })
     return results
+
 
 def test_mcp_unauthorized_access():
     """Test that MCP unauthorized access is denied (token authentication)."""
@@ -153,6 +158,7 @@ def test_mcp_unauthorized_access():
             "details": str(e),
         })
     return results
+
 
 def generate_report(cred_results, unicode_results, html_results,
                     encryption_results, mcp_results):
@@ -253,6 +259,7 @@ prevention, and optional Fernet encryption. The security posture is
 """
     return report
 
+
 def main():
     print("Running security tests...\n")
 
@@ -290,6 +297,7 @@ def main():
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
     print(f"\nReport saved to: {report_path}")
+
 
 if __name__ == "__main__":
     main()

@@ -21,6 +21,7 @@ EMBEDDING_DIM = 128
 PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
+
 # === Cross-platform file lock ===
 import os as _os
 if hasattr(_os, "O_BINARY"):
@@ -40,6 +41,7 @@ else:
         except OSError as exc:
             logger.debug("文件解锁失败：%s", exc)
 
+
 # ============================================================================
 # Part 1: 工具函数
 # ============================================================================
@@ -50,20 +52,25 @@ _BEIJING_TZ = timezone(timedelta(hours=8))
 # 时间戳字符串驻留：同一秒内大量写入时共享同一字符串对象（内存优化）
 _TS_CACHE = {}
 
+
 def _now_iso():
     ts = datetime.now(_BEIJING_TZ).isoformat(timespec="seconds")
     if len(_TS_CACHE) > 10000:
         _TS_CACHE.clear()  # 防长期进程无限增长
     return _TS_CACHE.setdefault(ts, ts)
 
+
 def _today_str():
     return datetime.now(_BEIJING_TZ).strftime("%Y-%m-%d")
+
 
 def _utcnow_ts():
     return time.time()
 
+
 _ID_SEQ = 0
 _ID_SEQ_LOCK = threading.Lock()
+
 
 def _unique_salt():
     """生成进程内唯一盐（time_ns + 单调递增计数器），保证每次调用唯一。
@@ -76,8 +83,10 @@ def _unique_salt():
         _ID_SEQ += 1
         return f"{time.time_ns()}-{_ID_SEQ}"
 
+
 def _stable_id(content, salt=""):
     return hashlib.sha256((salt + "|" + (content or "")).encode("utf-8")).hexdigest()[:16]
+
 
 def _fail(msg, hint=None, fix=None, code=1):
     print(f"\u274c {msg}")
@@ -87,9 +96,11 @@ def _fail(msg, hint=None, fix=None, code=1):
         print(f"\U0001f527 解决办法：{fix}")
     return code
 
+
 def _ok(msg):
     print(f"\u2705 {msg}")
     return 0
+
 
 def _softmax(scores, temp=1.0):
     """Softmax归一化，temp<1 增强区分度。"""
@@ -99,6 +110,7 @@ def _softmax(scores, temp=1.0):
     exps = [math.exp((s - mx) / max(temp, 1e-8)) for s in scores]
     total = sum(exps)
     return [e / max(total, 1e-8) for e in exps]
+
 
 # ============================================================================
 # Part 2: 分词与实体抽取（多语言增强版 + Turn Recall Optimize）
@@ -231,6 +243,7 @@ def expand_query_prf(query, top_session_turns_text, top_k=3):
     top_words = [w for w, _ in counts.most_common(top_k)]
     return query + " " + " ".join(top_words)
 
+
 # Step 6: Index/Output解耦 + 上下文窗口拼接
 def format_retrieval_output(top_turn_indices, session_raw_turns):
     """
@@ -253,6 +266,7 @@ def format_retrieval_output(top_turn_indices, session_raw_turns):
             "text": expanded
         })
     return formatted
+
 
 # Step 7: 会话内两阶段局域精排 (In-Session Reranking)
 def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10):
@@ -312,6 +326,8 @@ def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10)
     scored_turns.sort(key=lambda x: x[1], reverse=True)
     return [t[0] for t in scored_turns[:top_k_turns]]
 
+
+
 # Unicode 字符范围
 #           拉丁/西里尔→词级切分 | 数字/Date→模式matches 
 
@@ -323,6 +339,7 @@ _RE_HANGUL = re.compile(r"[\uac00-\ud7af]+")                                    
 _RE_LATIN = re.compile(r"[a-z\u00e0-\u024f\u1e00-\u1eff][a-z\u00e0-\u024f\u1e00-\u1eff0-9_]*", re.IGNORECASE)  # 拉丁/扩展拉丁词
 _RE_CYRILLIC = re.compile(r"[\u0400-\u04ff]+")                                  # 西里尔字母序列
 
+
 # ============ token 级压缩（方向2，对标 LLMLingua，零 LLM 确定性）============
 _CN_PARTICLES = frozenset("嗯啊哦呃哈嘛呢吧呀啦唉哟呵嘿哎呦噢哦诶")
 _CN_FUNCTION = frozenset("的了着过是在和与及或但而就把被向由等")
@@ -331,6 +348,7 @@ for with by as that this it its and or but not no if then than so such from into
 under again more most other some only own same too very just can will would should
 could may might must""".split())
 _CN_REDUNDANT = ("非常", "真的", "其实", "就是", "然后", "那个", "这个", "但是", "因为", "所以")
+
 
 def compress_text(text, level=2):
     """确定性 token 级压缩（零 LLM、可复现、纯标准库）。
@@ -366,6 +384,7 @@ def compress_text(text, level=2):
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"[，。；：、!！?？]{2,}", lambda m: m.group(0)[0], text)
     return text
+
 
 @functools.lru_cache(maxsize=512)
 def _tokenize(text):
@@ -429,8 +448,10 @@ def _tokenize(text):
 
     return tokens
 
+
 def _tf_vector(tokens):
     return collections.Counter(tokens)
+
 
 # 多语言实体identifies 模式
 _ENTITY_PATTERNS = [
@@ -501,6 +522,7 @@ _ENTITY_STOP_WORDS = {
     "все", "ещё", "уже", "или", "если", "только", "даже", "нет", "может",
 }
 
+
 def _extract_entities(text):
     """增强实体抽取：多模式+关系推断+停用词filters 。returns  {entity, type, positions}。"""
     entities = []
@@ -530,6 +552,7 @@ def _extract_entities(text):
 
     return entities[:30]
 
+
 def _extract_entity_names(text):
     """兼容1.x接口：returns 实体Name列Table。
 
@@ -554,6 +577,7 @@ def _extract_entity_names(text):
             seen.add(w)
     return names[:30]
 
+
 # 关系动词规则（关系名, 动词列表, 强度）
 _RELATION_VERBS = [
     ("responsible_for", ["负责"], 0.6),
@@ -568,6 +592,7 @@ _RELATION_VERBS = [
 # 助词/语气词（宾语提取时跳过）
 _RELATION_PARTICLES = "了着过呢吧吗啊呀嘛的地得"
 
+
 def _subject_before(clause, v_start):
     """取动词前紧邻的实体词（词字符连续段，覆盖中文与拉丁/数字）。"""
     i = v_start
@@ -581,6 +606,7 @@ def _subject_before(clause, v_start):
         j -= 1
     return clause[j + 1:end].strip()
 
+
 def _object_after(clause, v_end):
     """取动词后紧邻的实体词（跳过助词与空格）。"""
     i = v_end
@@ -593,6 +619,7 @@ def _object_after(clause, v_end):
     while j < n and clause[j].isalnum():
         j += 1
     return clause[i:j].strip()
+
 
 def _extract_relationships(entities, text):
     """从文本提取动词引导的关系三元组（零依赖规则法）。
@@ -630,11 +657,13 @@ def _extract_relationships(entities, text):
                     start = v_end
     return rels
 
+
 # ============================================================================
 # 语义辅助（零依赖）：同义归一化 / 内容签名 / 配对相似度 / 注入评分
 # ============================================================================
 
 _DEGREE_FILLERS = ["非常", "特别", "十分", "尤其", "挺", "蛮", "很", "真", "超", "极"]
+
 
 @functools.lru_cache(maxsize=1)
 def _synonym_canonical_map():
@@ -675,6 +704,7 @@ def _synonym_canonical_map():
     reverse = {node: find(node) for node in list(parent.keys())}
     return reverse
 
+
 @functools.lru_cache(maxsize=8192)
 def _normalize_template_hash(text):
     """同义归一并去除程度副词/停用词，得到可比较的模板串。
@@ -700,6 +730,7 @@ def _normalize_template_hash(text):
         norm = norm.replace(_w, "")
     return norm
 
+
 def _content_signature(text):
     """粗粒度内容签名：用于聚类，相似内容共享同一签名桶。
 
@@ -721,6 +752,7 @@ def _content_signature(text):
     # 字符多重集排序 → 词序无关的稳定签名
     return "".join(sorted(norm))
 
+
 def _cosine_sim(a, b):
     """稀疏向量余弦相似度（a/b 为 dict: token->weight）。"""
     if not a or not b:
@@ -734,6 +766,7 @@ def _cosine_sim(a, b):
     if na == 0 or nb == 0:
         return 0.0
     return dot / (na * nb)
+
 
 def _compute_pair_similarity(r1, r2, enc, embed_engine=None, store=None):
     """两条记忆的配对相似度（向量 + 同义归一化 + 可选嵌入 取最大）。"""
@@ -755,6 +788,7 @@ def _compute_pair_similarity(r1, r2, enc, embed_engine=None, store=None):
             pass
     return max(sims) if sims else 0.0
 
+
 # 敏感凭据/注入特征（与 notary.py 的注入检测互补，聚焦凭据与隐写）
 _CREDENTIAL_PATTERNS = [
     (r"\bAKIA[0-9A-Z]{8,}\b", "credential:aws_access_key"),
@@ -770,6 +804,7 @@ _CREDENTIAL_PATTERNS = [
     (r"[A-Za-z0-9+/]{40,}={0,2}", "credential:base64_secret"),
 ]
 _INVISIBLE_CHARS = "\u200b\u200c\u200d\u2060\ufeff\u202e\u202d"
+
 
 def _injection_score(content):
     """对内容做注入/敏感信息评分，返回 (score, reasons)。
@@ -796,6 +831,7 @@ def _injection_score(content):
         score += 0.5
         reasons.append("instruction_keywords")
     return min(score, 1.0), reasons
+
 
 # 字段级脱敏正则（v7.0.0 阶段4）：密码/邮箱/卡号/API key/token/私钥等敏感值
 # 在写入前替换为掩码，确保敏感字段不以明文落盘。零依赖，纯标准库正则。
@@ -838,6 +874,7 @@ _REDACT_RULES = [
      lambda m: "[私钥已脱敏]"),
 ]
 
+
 def _redact_sensitive_fields(content):
     """字段级脱敏：将密码/邮箱/卡号/API key/token/私钥等敏感值替换为掩码。
 
@@ -863,6 +900,7 @@ def _redact_sensitive_fields(content):
     summary = [{"type": t, "count": c}
                for t, c in collections.Counter(seen).items()]
     return text, summary
+
 
 def _memory_value(record):
     """记忆价值函数（遗忘经济学）：重要性/访问次数/可信度/新鲜度/命中率加权。
@@ -891,9 +929,11 @@ def _memory_value(record):
     return (importance * 2.0) + (access * 0.05) + (confidence * 3.0) \
         + (recency * 2.0) + hit_rate
 
+
 # ============================================================================
 # Part 2.5: BloomFilter（量级扩展粗筛 · 纯标准库）
 # ============================================================================
+
 
 class BloomFilter:
     """纯标准库布隆过滤器——量级扩展的粗筛基础设施。
@@ -930,6 +970,7 @@ class BloomFilter:
                 return False
         return True
 
+
 class BaseVectorBackend:
     """向量库后端抽象接口（分层协同 L2）。
 
@@ -943,6 +984,7 @@ Mnemosyne 保持零依赖：向量库作为可选 extras，核心不依赖。"""
     def search(self, query_vector, top_k=5):
         """检索最相似的 top_k 个，返回 [(memory_id, score), ...]。"""
         raise NotImplementedError
+
 
 # ============================================================================
 # Part 3: Embedding Engine（随机投影向量searches  · 零依赖）
@@ -1018,9 +1060,12 @@ class EmbeddingEngine:
         dot = sum(a * b for a, b in zip(vec_a, vec_b))
         return max(0.0, dot)  # 钳制非负
 
+
 # ============================================================================
 # Part 4: 数据模型（双Time + 可信度 + 事实/观点分离）
 # ============================================================================
+
+
 
 class StatsTracker:
     """Tracks per-day retain/recall counts, hit rate, latency, and estimated token savings.
@@ -1229,6 +1274,7 @@ class StatsTracker:
         print(f"| 📦压缩率 | {100-s['session_llm_feed_pct']:.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
         print()
 
+
 # ═══════════════════════════════════════════════
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
@@ -1238,4 +1284,5 @@ META_NAME = "meta.json"
 EMBEDDING_DIM = 128
 # 随机投影矩阵固定桶数：token 经 hash 映射到 [0, PROJ_BUCKETS)，矩阵固定大小、只生成一次
 PROJ_BUCKETS = 2048
+
 

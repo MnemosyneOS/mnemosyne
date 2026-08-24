@@ -13,6 +13,7 @@ EMBEDDING_DIM = 128
 PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
+
 def _upgrade_record(rec):
     """将 v1.x RecordUpgrade到 v2.0 格式。"""
     if rec.get("_corrupt"):
@@ -36,6 +37,7 @@ def _upgrade_record(rec):
         if k not in rec:
             rec[k] = v
     return rec
+
 
 class MemoryGraphStore:
     """记忆Knowledge Graph（实体-关系边存储）。
@@ -146,6 +148,7 @@ class MemoryGraphStore:
         """清理资源（图存储为纯文件 IO，无需要关闭的连接；保留接口兼容）。"""
         return None
 
+
 # ============================================================================
 # Part 6: Retrieval Layer（5-Way Fusion：BM25 + 向量 + 图 + Time + 可信度）
 # ============================================================================
@@ -158,6 +161,7 @@ def _idf(doc_tf_list):
             df[tok] += 1
     return {tok: math.log((n + 1) / (freq + 0.5) + 1) for tok, freq in df.items()}
 
+
 def _bm25_score(query_tf, doc_tf, idf, avg_len, k1=1.5, b=0.75):
     doc_len = sum(doc_tf.values())
     score = 0.0
@@ -169,6 +173,7 @@ def _bm25_score(query_tf, doc_tf, idf, avg_len, k1=1.5, b=0.75):
         score += idf.get(tok, 0) * qf * (tf * (k1 + 1)) / denom
     return score
 
+
 def _cosine(vec_a, vec_b):
     dot = sum(vec_a.get(t, 0) * vec_b.get(t, 0) for t in set(vec_a) | set(vec_b))
     na = math.sqrt(sum(v * v for v in vec_a.values()))
@@ -176,6 +181,7 @@ def _cosine(vec_a, vec_b):
     if na == 0 or nb == 0:
         return 0.0
     return dot / (na * nb)
+
 
 def _temporal_score(created_iso, now_ts, half_life_days=90):
     """computes Time衰减分数。"""
@@ -185,6 +191,7 @@ def _temporal_score(created_iso, now_ts, half_life_days=90):
         created_ts = now_ts
     age_days = max(0, (now_ts - created_ts) / 86400.0)
     return math.exp(-age_days * math.log(2) / half_life_days)
+
 
 def _confidence_weight(record):
     """based on 可信度调整权重。"""
@@ -200,6 +207,7 @@ def _confidence_weight(record):
     elif verify == "superseded":
         multiplier = 0.3
     return conf * multiplier
+
 
 # ============================================================================
 # 5-Way Fusion检Index擎

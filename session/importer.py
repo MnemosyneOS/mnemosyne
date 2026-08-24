@@ -23,6 +23,7 @@ import hashlib
 
 __all__ = ["import_conversation", "ConversationImporter"]
 
+
 def _summarize(text, max_sentences=3):
     """Simple extractive summarizer: returns the first N sentences.
 
@@ -38,6 +39,7 @@ def _summarize(text, max_sentences=3):
         return text[:200]
     return "。".join(sentences[:max_sentences]) + ("。" if sentences else "")
 
+
 def _extract_entities(text):
     """Extract potential entity names from text (simple keyword approach)."""
     entities = []
@@ -50,6 +52,7 @@ def _extract_entities(text):
     cap_words = re.findall(r'[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*', text)
     entities.extend(cap_words)
     return entities
+
 
 class ConversationImporter:
     """Imports conversation turns into a memory store.
@@ -166,6 +169,7 @@ class ConversationImporter:
             "relationships": relationships,
         }
 
+
 def import_conversation(brain, conversation, session_id=None):
     """Import a conversation (list of turn dicts) into the brain.
 
@@ -184,6 +188,7 @@ def import_conversation(brain, conversation, session_id=None):
     """
     importer = ConversationImporter(brain)
     return importer.import_conversation(conversation, session_id)
+
 
 def _cli():
     """CLI entry point: python -m session.importer <brain_dir> --file conversation.json"""
@@ -219,6 +224,7 @@ def _cli():
     print(f"   Summaries: {len(result['summary_ids'])}")
     print(f"   Relationships: {len(result['relationships'])}")
     brain.close()
+
 
 if __name__ == "__main__":
     _cli()

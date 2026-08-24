@@ -22,6 +22,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mnemosyne import MnemosyneMemory
 
+
 def demo_native_adapter() -> None:
     """不依赖 langchain，直接演示适配器的 load/save 接口。"""
     tmp = tempfile.mkdtemp(prefix="mnemosyne_langchain_")
@@ -41,6 +42,7 @@ def demo_native_adapter() -> None:
     memory.brain.close()  # MnemosyneMemory 无 close()，关闭其内部 brain
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
+
 
 def demo_with_langchain() -> None:
     """若安装了 langchain，演示挂载到 ConversationChain；否则提示。"""
@@ -65,6 +67,7 @@ def demo_with_langchain() -> None:
     memory.brain.close()  # MnemosyneMemory 无 close()，关闭其内部 brain
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     demo_native_adapter()

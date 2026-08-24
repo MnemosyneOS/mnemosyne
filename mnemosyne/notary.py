@@ -44,6 +44,7 @@ _IMPERATIVE_START = [
     r"^请(显示|展示|透露)\b",
 ]
 
+
 class MemoryNotary:
     """Pre-write trust pipeline for memory records.
     
@@ -323,6 +324,7 @@ class MemoryNotary:
     def _extract_dates(text):
         """Extract YYYY-MM-DD dates from text."""
         return re.findall(r'(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)', text)
+
 
 def register(brain):
     """Plugin entry point."""

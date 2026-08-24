@@ -30,9 +30,11 @@ _brain_dir = None
 _default_namespace = "default"
 _auth_token = None
 
+
 def _get_expected_token():
     """Return the configured MCP token, or None if auth is disabled."""
     return os.environ.get("MNEMOSYNE_MCP_TOKEN") or _auth_token
+
 
 def _request_token(req):
     """Extract the client-supplied auth token from a JSON-RPC request."""
@@ -54,6 +56,7 @@ def _request_token(req):
         if val:
             return val
     return None
+
 
 def _authorized(req):
     """Return True if the request is authorized (or auth is disabled)."""

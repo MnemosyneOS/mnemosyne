@@ -17,6 +17,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mnemosyne import MemoryBrain
 
+
 def main() -> None:
     # 使用临时目录作为记忆库
     tmp = tempfile.mkdtemp(prefix="mnemosyne_embedded_")
@@ -50,6 +51,7 @@ def main() -> None:
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     print("完成。")
+
 
 if __name__ == "__main__":
     main()

@@ -48,6 +48,7 @@ __all__ = [
     "load_plugin",
 ]
 
+
 class PluginInfo:
     """Metadata about a loaded plugin."""
 
@@ -67,6 +68,7 @@ class PluginInfo:
             "enabled": self.enabled,
             "error": self.error,
         }
+
 
 class VectorBackendPlugin:
     """Abstract interface for alternative vector backends.
@@ -97,6 +99,7 @@ class VectorBackendPlugin:
     def load(self, brain):
         pass
 
+
 class CryptoPlugin:
     """Abstract interface for field-level encryption.
 
@@ -120,6 +123,7 @@ class CryptoPlugin:
     def get_key(self):
         raise NotImplementedError
 
+
 class RerankerPlugin:
     """Abstract interface for result re-ranking.
 
@@ -136,6 +140,7 @@ class RerankerPlugin:
 
     def rerank(self, query, results, **kwargs):
         raise NotImplementedError
+
 
 def load_plugin(file_path, brain=None):
     """Load a single plugin module from *file_path*.
@@ -166,6 +171,7 @@ def load_plugin(file_path, brain=None):
         return PluginInfo(name, file_path, cls, instance), instance
     except Exception as exc:
         return PluginInfo(name, file_path, None, None), None
+
 
 def load_plugins(plugins_dir, brain=None, pattern="*.py"):
     """Auto-discover and load all plugins in *plugins_dir*.
