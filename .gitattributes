@@ -1,7 +1,0 @@
-# Force LF line endings (prevent CRLF from breaking platform markdown rendering)
-* text=auto eol=lf
-*.md text eol=lf
-*.py text eol=lf
-*.toml text eol=lf
-*.yaml text eol=lf
-*.in text eol=lf
