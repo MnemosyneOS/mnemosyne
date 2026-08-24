@@ -26,6 +26,10 @@ dist/
 *.zip
 arXiv_Endorsement_Email*.md
 
+# 仓库资源目录（README banner 等必须入库）
+!assets/
+!assets/**
+
 # 旧文档
 AI Memory 系统白皮书.pdf
 AI Memory 系统白皮书（*.txt
