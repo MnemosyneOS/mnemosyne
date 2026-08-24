@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mnemosyne Memory — zero-dependency AI Agent Memory Engine.
+"""Mnemosyne OS — zero-dependency AI Agent Memory Engine.
 PyPI: mnemosyne-os (mnemosyne-memory is taken by mnemosyne-oss)
 """
 from setuptools import setup, find_packages
@@ -15,11 +15,11 @@ def _read_long_desc():
                 return open(p, encoding="utf-8").read()
             except Exception:
                 pass
-    return "Zero-dependency AI Agent Memory Engine (L1 lexical cache)."
+    return "Zero-dependency AI Agent Memory Engine."
 
 setup(
     name="mnemosyne-os",
-    version="5.1.4",
+    version="7.0.0",
     description="Zero-dependency AI Agent Memory Engine — L1 Lexical Cache",
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
@@ -27,8 +27,30 @@ setup(
     author_email="<your-user>ngkun@qq.com",
     url="https://github.com/FrankHu-HK/mnemosyne",
     license="MIT",
-    py_modules=["mnemosyne", "mcp_server"],
+    packages=find_packages(exclude=("tests", "tests.*", "benchmarks", "quality_eval")),
     python_requires=">=3.8",
+    install_requires=[],
+    extras_require={
+        "numpy": ["numpy"],
+        "transformers": ["transformers"],
+        "tiktoken": ["tiktoken"],
+    },
+    include_package_data=True,
+    package_data={
+        "mnemosyne.webui": [
+            "static/index.html", "static/logo.jpg",
+            "static/css/app.css", "static/js/app.js",
+            "web_config/agents.json", "web_config/api.md",
+            "web_config/external_sources.json", "web_config/namespace.json",
+            "web_config/profiles.json",
+        ],
+    },
+    entry_points={
+        "console_scripts": [
+            "mnemosyne=mnemosyne.cli:main",
+            "mnemosyne-web=mnemosyne.webui.web_server:run_server",
+        ],
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

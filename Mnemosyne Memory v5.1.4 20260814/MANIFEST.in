@@ -1,5 +1,0 @@
-include comparison.md
-include mnemosyne.py
-include mcp_server.py
-include README.md
-include README_CN.md
