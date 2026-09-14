@@ -2165,7 +2165,7 @@ def _export(store, fmt="json", out_path=None):
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         suffix = ".json"
     else:
-        lines = ["# Mnemosyne v7.0.0 记忆库exports ", "", f"exports Time：{_now_iso()}    共 {len(records)} 条", ""]
+        lines = ["# Mnemosyne v7.0.1 记忆库exports ", "", f"exports Time：{_now_iso()}    共 {len(records)} 条", ""]
         for r in records:
             lines.append(f"## [{r.get('type')}] [{r.get('fact_type', 'fact')}] {r.get('created_at', '')}")
             lines.append("")
@@ -2208,7 +2208,7 @@ def _hindsights_bench(brain, test_count=200):
     仅输出本机实测指标（延迟、数量），不做任何打分自评。
     """
     print("=" * 64)
-    print("  Mnemosyne v7.0.0 — 流水线自测（实测指标，不打分）")
+    print("  Mnemosyne v7.0.1 — 流水线自测（实测指标，不打分）")
     print("=" * 64)
     brain.ensure_init()
 
@@ -2327,7 +2327,7 @@ def _hindsights_bench(brain, test_count=200):
 # ============================================================================
 
 def _benchmark(brain, count=2000):
-    print("\U0001f9ea Mnemosyne v7.0.0 性能基准Test")
+    print("\U0001f9ea Mnemosyne v7.0.1 性能基准Test")
     print("=" * 56)
     brain.ensure_init()
 
@@ -2370,7 +2370,7 @@ def _benchmark(brain, count=2000):
 # ============================================================================
 
 def _demo(brain):
-    print("\U0001f9ea Mnemosyne v7.0.0 演示模式")
+    print("\U0001f9ea Mnemosyne v7.0.1 演示模式")
     print("=" * 50)
     brain.ensure_init()
 
@@ -2395,7 +2395,7 @@ def _demo(brain):
               f"(score={score:.3f}, {reasons})")
 
     print("-" * 50)
-    print("  \u2705 演示via ：v7.0.0 引擎可用。")
+    print("  \u2705 演示via ：v7.0.1 引擎可用。")
 
 
 # ============================================================================
