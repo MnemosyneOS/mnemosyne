@@ -20,7 +20,7 @@ from .utils import (EmbeddingEngine, StatsTracker, _extract_relationships, _now_
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.0"
+VERSION = "7.0.1"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -104,6 +104,14 @@ class MemoryBrain:
         self.vector_backend_plugin = None
         self.crypto_plugin = None
         self.reranker_plugin = None
+        # v7.0.0-qdrant: 插件启用来源。CLI（cli.py:172）、MCP Server
+        # （webui/mcp_server.py:84）与 WebUI 构建 MemoryBrain 时均未传 plugins，
+        # 故在此统一支持环境变量 MNEMOSYNE_PLUGINS（逗号分隔，如
+        # "qdrant_backend"），避免逐个改动各入口。未设置时 plugins 保持 None，
+        # 行为与上游 7.0.0 完全一致。
+        if plugins is None:
+            _env_plugins = os.environ.get("MNEMOSYNE_PLUGINS", "")
+            plugins = [p.strip() for p in _env_plugins.split(",") if p.strip()] or None
         if plugins:
             self._load_plugins(plugins)
 
@@ -167,7 +175,7 @@ class MemoryBrain:
                     continue
                 self._plugins[name] = inst
                 # 绑定官方插件快捷属性
-                if name == "numpy_vector":
+                if name in ("numpy_vector", "qdrant_backend"):
                     self.vector_backend_plugin = inst
                     # 将向量插件接入检索向量路径：替代默认随机投影 EmbeddingEngine，
                     # 使 retain()/recall() 实际使用插件编码（模型或哈希回退）。
@@ -223,43 +231,200 @@ class MemoryBrain:
 
     # ---- v7.0.0: forget with evict ----
 
-    def forget(self, memory_id: str, evict: bool = False) -> bool:
-        """Soft-delete a memory (evict=True removes it entirely). Returns True on success."""
-        found = self.store.find_by_id(memory_id) is not None
-        if not found:
+    def forget(self, memory_id: str, evict: bool = False,
+               reason: str = "user_forget") -> bool:
+        """遗忘一条记忆。默认软遗忘：confidence 归零 + status=deleted。
+
+        软遗忘（evict=False，默认）满足"把指定记忆置信度降为 0"，同时把
+        status 置为 deleted，让检索层（sqlite FTS 的 status 过滤 + retrieval
+        的 status 过滤）彻底不再召回它。审计链与可信度轨迹全部保留，
+        因此该操作**可回溯、可复位**，不是不可逆破坏。
+        硬删除（evict=True）才会物理移除记忆行及其实体/边。
+
+        v7.0.0-MCP 修复：
+          - 原实现只改 status（走 all_records()+rewrite() 全库重写），既没有把
+            confidence 归零，也没有写 confidence_history，且在全量重写上代价高。
+            现在改为 update_by_id 单行更新（sqlite 后端 O(1)）。
+          - 原实现不失效检索缓存：sqlite 走 WAL，UPDATE 未必立刻改主库 mtime，
+            而检索缓存以 mtime+size 为失效判据 —— 结果是"已遗忘"的记忆仍留在
+            _cached_records 里继续被召回。现在显式置空指纹。
+        """
+        rec = self.store.find_by_id(memory_id)
+        if rec is None:
             return False
+        prev_conf = rec.get("confidence")
+        preview = (rec.get("content") or "")[:50]
         if evict:
-            # Hard delete
-            records = [r for r in self.store.all_records() if r.get("id") != memory_id]
-            self.store.rewrite(records)
-            self.store.audit_log({
-                "ts": _now_iso(),
-                "actor": self.actor,
-                "action": "forget_evict",
-                "target_id": memory_id,
-                "details": {},
-            })
+            if hasattr(self.store, "delete"):
+                self.store.delete(memory_id)
+            else:
+                self.store.rewrite([r for r in self.store.all_records()
+                                    if r.get("id") != memory_id])
         else:
-            # Soft delete
-            for r in self.store.all_records():
-                if r.get("id") == memory_id:
-                    r["status"] = "deleted"
-                    self.store.rewrite(self.store.all_records())
-                    break
+            self.store.update_by_id(memory_id, {
+                "confidence": 0.0,
+                "status": "deleted",
+                "deleted_at": _now_iso(),
+            })
+        try:
             self.store.audit_log({
                 "ts": _now_iso(),
                 "actor": self.actor,
-                "action": "forget",
+                "action": "forget_evict" if evict else "forget",
                 "target_id": memory_id,
-                "details": {},
+                "details": {"reason": reason, "evict": bool(evict),
+                            "confidence_before": prev_conf,
+                            "confidence_after": 0.0,
+                            "content_preview": preview},
             })
+        except Exception as exc:
+            logger.debug("可选功能降级，忽略异常：%s", exc)
+        try:
+            self.store.add_confidence_history(memory_id, {
+                "ts": _now_iso(),
+                "confidence": 0.0,
+                "reason": reason,
+                "delta": -(float(prev_conf)
+                           if isinstance(prev_conf, (int, float)) else 0.0),
+                "flags": [],
+            })
+        except Exception as exc:
+            logger.debug("可选功能降级，忽略异常：%s", exc)
         if self.ledger is not None:
             try:
                 self.ledger.append("forget", memory_id=memory_id,
-                                   data_summary={"evict": bool(evict)})
+                                   data_summary={"evict": bool(evict),
+                                                 "reason": reason})
             except Exception as exc:
                 logger.debug("可选功能降级，忽略异常：%s", exc)
+        # 更新 template 索引里的 status（否则同内容再次 retain 会被判为旧版本未删）
+        if self._template_index:
+            for _h, _ent in list(self._template_index.items()):
+                if _ent and _ent[0] == memory_id:
+                    self._template_index[_h] = (_ent[0], _ent[1],
+                                                "deleted", _ent[3])
+        self._invalidate_retrieval_index()
         return True
+
+    # ---- v7.0.0-MCP: 记忆生命周期（召回缓存失效 / 更新-更正 / 按语义遗忘） ----
+
+    def _invalidate_retrieval_index(self):
+        """强制下一次 recall 重建检索索引。
+
+        为什么必须显式做：检索缓存的失效判据是 store 文件指纹（mtime+size，
+        见 retrieval._store_fingerprint），而 sqlite 后端跑在 WAL 模式下，
+        UPDATE/DELETE 先落 -wal，主库 mtime 可能不变 —— 只靠指纹会漏判，
+        导致被遗忘或被取代的记忆继续留在 _cached_records 里被召回。
+        """
+        try:
+            self.retrieval._indexed_fingerprint = None
+            self.retrieval._query_cache.clear()
+        except Exception as exc:
+            logger.debug("检索索引失效失败：%s", exc)
+
+    def _mark_superseded(self, old_id: str, new_id: Optional[str] = None) -> bool:
+        """把 old_id 标记为已被取代（verification=superseded，保留全部历史）。
+
+        检索层对 superseded 已有降权（可信度 ×0.3、时序 ×0.3），
+        所以这是"更新"的正确落点：旧说法不再主导召回，但没被销毁。
+        """
+        old = self.store.find_by_id(old_id)
+        if old is None:
+            return False
+        updates = {"verification": "superseded"}
+        if new_id:
+            updates["superseded_by"] = new_id
+        ok = self.store.update_by_id(old_id, updates)
+        if not ok:
+            return False
+        try:
+            self.store.audit_log({
+                "ts": _now_iso(),
+                "actor": self.actor,
+                "action": "supersede",
+                "target_id": old_id,
+                "details": {"superseded_by": new_id,
+                            "content_preview": (old.get("content") or "")[:50]},
+            })
+        except Exception as exc:
+            logger.debug("可选功能降级，忽略异常：%s", exc)
+        self._invalidate_retrieval_index()
+        return True
+
+    def correct(self, old_memory_id: str, new_content: str, **kwargs: Any) -> Optional[str]:
+        """更正一条记忆：写入更正内容 + 把旧记忆标记为 superseded。
+
+        对应规则里的"用户纠正先前说法"：先 recall 拿到旧记忆 id，
+        再调用本方法（或等价的 retain(..., supersedes=旧id)）。
+        返回新记忆 id；旧记忆不存在时返回 None。
+        """
+        old = self.store.find_by_id(old_memory_id)
+        if old is None:
+            return None
+        kw = dict(kwargs)
+        kw.pop("fast", None)          # _build_record 不接受 fast
+        kw.pop("supersedes", None)    # 由本方法统一注入
+        return self.retain(new_content, mtype=old.get("type", "semantic"),
+                           supersedes=old_memory_id, **kw)
+
+    def resolve_targets(self, query: Optional[str] = None,
+                        memory_id: Optional[str] = None, k: int = 3):
+        """解析"要操作哪条记忆"：给 memory_id 直接取；否则用 recall 按相关性找。
+
+        返回 [(score|None, record), ...]。供 forget_targets 复用。
+        """
+        if memory_id:
+            rec = self.store.find_by_id(memory_id)
+            return [(None, rec)] if rec else []
+        if not query:
+            return []
+        out = []
+        for item in self.recall(query, k=int(k or 3)):
+            try:
+                out.append((round(float(item[0]), 4), item[1]))
+            except (TypeError, ValueError, IndexError):
+                out.append((None, item))
+        return [t for t in out if isinstance(t[1], dict)]
+
+    def forget_targets(self, memory_id: Optional[str] = None,
+                       query: Optional[str] = None, k: int = 3,
+                       dry_run: bool = False, evict: bool = False,
+                       reason: str = "user_forget") -> Dict[str, Any]:
+        """遗忘入口（MCP / CLI 共用）：支持 memory_id 或自然语言 query。
+
+        dry_run=True 只解析候选、不做任何修改 —— Agent 应先 dry_run 把候选
+        报给用户确认，再实际执行，避免"忘记"误伤。
+        """
+        targets = self.resolve_targets(query=query, memory_id=memory_id, k=k)
+        resolved = []
+        for score, rec in targets:
+            resolved.append({
+                "memory_id": rec.get("id"),
+                "content": (rec.get("content") or "")[:120],
+                "mtype": rec.get("type"),
+                "confidence_before": rec.get("confidence"),
+                "status_before": rec.get("status", "active"),
+                "score": score,
+            })
+        report = {"dry_run": bool(dry_run), "targets": resolved,
+                  "count": len(resolved)}
+        if dry_run:
+            return report
+        forgotten, failed = [], []
+        for t in resolved:
+            try:
+                if self.forget(t["memory_id"], evict=evict, reason=reason):
+                    forgotten.append(t)
+                else:
+                    failed.append(t)
+            except Exception as exc:
+                t["error"] = str(exc)
+                failed.append(t)
+        report["forgotten"] = forgotten
+        report["failed"] = failed
+        report["count"] = len(forgotten)
+        report["evict"] = bool(evict)
+        return report
 
     # ---- v7.0.0: close ----
     
@@ -543,10 +708,19 @@ class MemoryBrain:
     def retain(self, content: str, mtype: str = "semantic", fast: bool = False,
                project: Optional[str] = None, **kwargs: Any) -> str:
         """写入一条记忆。project 可选项目名用于多项目隔离。
-fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
+fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向量索引仍然保留**，
+因为语义检索依赖它（见本函数 fast 分支的说明）。
 时序版本追踪：相同 template_hash 自动递增 version。
 返回值类型稳定为 str（memory_id）。"""
         import hashlib
+        # v7.0.0-MCP：取出调用方显式意图，避免被下游覆盖。
+        # confidence —— Notary 评估会无条件改写 record["confidence"]（见下方
+        #   assessment 段），因此先取出，评估后再还原为调用方的值，并把 Notary
+        #   的原始判断留档在 meta["notary_confidence"]（不丢信息）。
+        # supersedes —— 更正路径：本记忆写入后，把被取代的旧记忆标为 superseded。
+        # tags 无需特别处理，_build_record 直接接收。
+        _explicit_confidence = kwargs.pop("confidence", None)
+        _supersedes_id = kwargs.pop("supersedes", None)
         # v7.0.0 阶段4：字段级脱敏——密码/邮箱/卡号/密钥等敏感值先改写为掩码，
         # 再参与实体抽取、嵌入、指纹与落盘；公证器注入检测仍使用原文，以保留
         # 敏感字段的告警能力。脱敏汇总写入 record["meta"]["redactions"]。
@@ -559,11 +733,29 @@ fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
             record = _build_record(content, mtype=mtype, skip_detailed=True, **kwargs)
             if not record.get("event_time"):
                 record["event_time"] = _extract_event_time(content, record["created_at"])
-            # skips：entities_detailed(重) + graph_edges + embedding + conflict_detection
+            # skips：entities_detailed(重) + graph_edges + conflict_detection
             # 但保留 entities（轻量实体名，_build_record 已抽取），以支撑图谱实体关系网络
             record["entities_detailed"] = []
-            record["embedding"] = None
             record["graph_edges"] = []
+            # 向量索引：快速Path 必须保留，否则语义检索对这批记忆完全失效。
+            # 依据：语义后端下 retrieval.py 的 vec_weight 是主导信号（0.55），而
+            # n_vec 只在 record["embedding"] 非空时才计算（retrieval.py:494）——
+            # 只写向量后端而留空 embedding，候选即使被 Path2a 召回也会以 n_vec=0
+            # 排在末尾，等于白召回。故这里一次 encode，同时喂给 SQLite 与向量后端。
+            # （此前此处固定置 None 且从不调用 add()，导致 MCP 写入的记忆全部丢失
+            # 语义索引；这是本项目阶段四发现并修复的缺陷 F1。）
+            record["embedding"] = None
+            if self.embed_engine and self.enable_embeddings:
+                try:
+                    record["embedding"] = self.embed_engine.encode(content)
+                except Exception as exc:
+                    record["embedding"] = None
+                    logger.debug("可选功能降级，忽略异常：%s", exc)
+                if record.get("embedding") and hasattr(self.embed_engine, "add"):
+                    try:
+                        self.embed_engine.add(record["id"], record["embedding"])
+                    except Exception as exc:
+                        logger.debug("可选功能降级，忽略异常：%s", exc)
         else:
             record = _build_record(content, mtype=mtype, **kwargs)
             if not record.get("event_time"):
@@ -609,6 +801,20 @@ fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
         except Exception:
             record.setdefault("confidence", 0.7)
             record.setdefault("flags", [])
+        # v7.0.0-MCP：调用方显式 confidence 优先于 Notary 启发式评估。
+        # 依据：Notary 的 confidence 是对"内容可信度"的启发式打分，永远落在
+        # 0.7 左右；而规则要求"写入时必须设定 confidence"，那是用户/Agent 对
+        # 这条记忆的确定性判断，语义更强，不能被覆盖（原实现是静默丢弃）。
+        # Notary 的原始值不丢：留档到 meta["notary_confidence"]。
+        if _explicit_confidence is not None:
+            try:
+                _conf = max(0.0, min(1.0, float(_explicit_confidence)))
+            except (TypeError, ValueError):
+                _conf = None
+            if _conf is not None:
+                record.setdefault("meta", {})
+                record["meta"]["notary_confidence"] = record.get("confidence")
+                record["confidence"] = _conf
         # v7.0.0 阶段4：脱敏汇总写入 meta，并追加 redacted:* 告警 flags 供审计追溯。
         if redactions:
             record.setdefault("meta", {})
@@ -698,12 +904,19 @@ fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
             self.last_stats = self.stats_tracker.summary()
         if self._show_stats and self.stats_tracker:
             self._stats_line("写入", f"+{len(content)}字符")
+        # v7.0.0-MCP：更正路径——把被本次写入取代的旧记忆标记为 superseded。
+        # 放在 append 之后：新记忆已落库，superseded_by 指向的 id 一定存在。
+        if _supersedes_id:
+            try:
+                self._mark_superseded(_supersedes_id, record["id"])
+            except Exception as exc:
+                logger.debug("标记 superseded 失败：%s", exc)
         # v7.0.0：返回值类型统一稳定为 str（不再因 _stats_auto 条件返回 tuple）
         return record["id"]
 
     def retain_batch(self, items: List[Any], fast: bool = False) -> List[Dict[str, Any]]:
         """批量writes 。items: [(content, mtype, kwargs), ...]
-        fast=True: 跳过实体抽取/嵌入/图谱构建（批量场景快 3-5x）"""
+        fast=True: 跳过实体详抽/图谱构建；**向量索引仍然保留**（语义检索依赖它）"""
         records = []
         for item in items:
             content, mtype = item[0], item[1] if len(item) > 1 else "semantic"
@@ -712,10 +925,23 @@ fast=True 跳过实体抽取/图/向量/冲突检测（批量快10倍）。
             if fast:
                 rec["entities"] = []
                 rec["entities_detailed"] = []
-                rec["embedding"] = None
                 rec["graph_edges"] = []
-            elif self.embed_engine and self.enable_embeddings:
-                rec["embedding"] = self.embed_engine.encode(content)
+            # 向量索引：批量路径同样必须保留（语义检索依赖它）。此处同时修掉一个
+            # 既有缺陷——旧代码的 fast=False 分支只把 embedding 写进 record，从不
+            # 调用向量后端的 add()，因此经 retain_batch 写入的记忆从未进入向量索引
+            # （MCP 的 retain_batch 与 Python SDK 的 retain_batch 都受影响）。
+            rec["embedding"] = None
+            if self.embed_engine and self.enable_embeddings:
+                try:
+                    rec["embedding"] = self.embed_engine.encode(content)
+                except Exception as exc:
+                    rec["embedding"] = None
+                    logger.debug("可选功能降级，忽略异常：%s", exc)
+                if rec.get("embedding") and hasattr(self.embed_engine, "add"):
+                    try:
+                        self.embed_engine.add(rec["id"], rec["embedding"])
+                    except Exception as exc:
+                        logger.debug("可选功能降级，忽略异常：%s", exc)
             records.append(rec)
         self.store.append_batch(records)
         return records

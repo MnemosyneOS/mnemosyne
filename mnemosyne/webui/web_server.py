@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Mnemosyne 7.0.0 — Web 管理端（深度优化版）。
+"""Mnemosyne 7.0.1 — Web 管理端（深度优化版）。
 
 零依赖：仅使用 Python 标准库（http.server / json / os / sqlite3 / hashlib 等），
 不引入 Flask、不使用任何 CDN，前端所有资源均为本地静态文件。
@@ -1245,7 +1245,7 @@ def _sync_source_fetch(brain, source):
     if not url:
         return {"error": "数据源 URL 为空"}
     import urllib.request as _ur
-    req = _ur.Request(url, headers={"User-Agent": "MnemosyneWeb/7.0.0"})
+    req = _ur.Request(url, headers={"User-Agent": "MnemosyneWeb/7.0.1"})
     with _ur.urlopen(req, timeout=source.get("timeout", 10)) as resp:
         text = resp.read().decode("utf-8", "replace")
     written = _retain_from_text(brain, text, agent_proj)
@@ -1706,7 +1706,7 @@ _CONTENT_TYPES = {
 class MnemosyneWebHandler(BaseHTTPRequestHandler):
     """HTTP 请求处理器：静态资源 + 会话认证 + REST API。"""
 
-    server_version = "MnemosyneWeb/7.0.0"
+    server_version = "MnemosyneWeb/7.0.1"
 
     def log_message(self, format, *args):
         pass
@@ -2145,7 +2145,7 @@ def run_server(port=9090, host="0.0.0.0", base_dir=None, namespace="default", au
     _ensure_users_file()
     brain = _get_brain()
 
-    print("Mnemosyne Web 管理端 v7.0.0")
+    print("Mnemosyne Web 管理端 v7.0.1")
     print(f"  Base dir:   {brain.base_dir}")
     print(f"  Namespace:  {getattr(brain, 'namespace', 'default')}")
     print(f"  Backend:    {brain.store_backend}")

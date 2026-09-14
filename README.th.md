@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-13%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.0** — ระบบความจำ AI แบบไม่ต้องพึ่งพาไลบรารีภายนอก (zero-dependency) ทำงานบนเครื่องเป็นหลัก (local-first) พร้อมการลืมข้อมูลแบบหลายระดับ (multi-tier forgetting) กระดาษบัญชีแบบโซ่แฮช (hash-chain ledger) ชุดพัฒนาปลั๊กอิน (plugin SDK) แดชบอร์ดเว็บบนเครื่อง (local web dashboard) และการรองรับ MCP (Model Context Protocol / โปรโตคอลบริบทแบบจำลอง)
+**Mnemosyne OS 7.0.1** — ระบบความจำ AI แบบไม่ต้องพึ่งพาไลบรารีภายนอก (zero-dependency) ทำงานบนเครื่องเป็นหลัก (local-first) พร้อมการลืมข้อมูลแบบหลายระดับ (multi-tier forgetting) กระดาษบัญชีแบบโซ่แฮช (hash-chain ledger) ชุดพัฒนาปลั๊กอิน (plugin SDK) แดชบอร์ดเว็บบนเครื่อง (local web dashboard) และการรองรับ MCP (Model Context Protocol / โปรโตคอลบริบทแบบจำลอง)
 
 > เอนจินความจำ AI แห่งเดียวที่**แกนกลางไม่ต้องพึ่งพาไลบรารีของบุคคลที่สามเลย** (พึ่งพาเพียงไลบรารีมาตรฐานของ Python 3.8+ เท่านั้น) — ไม่มีฐานข้อมูลเวกเตอร์ (vector database) ไม่มีรันไทม์ LLM (โมเดลภาษาขนาดใหญ่) และไม่มีการผูกมัดกับระบบคลาวด์ (cloud lock-in) ทำงานได้ทั้งบนแล็ปท็อป เซิร์ฟเวอร์ หรือโครงสร้างเซิร์ฟเวอร์เลส (serverless infra)
 
@@ -48,7 +48,7 @@
 <tr><td><b>ความจำแบบหลายระดับ</b></td><td>ชั้น hot / warm / cold พร้อมเศรษฐศาสตร์แห่งการลืม (forgetting economics) — ย้ายความจำที่มีค่าน้อยกว่าไปยังที่อื่น โดยไม่ลบทิ้งอย่างเงียบเชีย</td></tr>
 <tr><td><b>กระดาษบัญชีแบบโซ่แฮช</b></td><td>กระดาษบัญชีแบบโซ่ SHA-256 — <code>verify_chain()</code> ตรวจจับการแก้ไขผิดปกติและระบุบันทึกที่เสียหายได้อย่างแม่นยำ</td></tr>
 <tr><td><b>ชุดพัฒนาปลั๊กอิน</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> รวมถึงปลั๊กอินทางการ (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>)</td></tr>
-<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>13 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
+<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>14 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
 <tr><td><b>แดชบอร์ดเว็บ</b></td><td>แดชบอร์ดสีเข้มแบบเทคโนโลยีบนเครื่อง (local dark dashboard) ไม่มี CDN ภายนอก — ให้บริการจาก <code>web_server.py</code></td></tr>
 <tr><td><b>API แบบอะซิงโครนัส</b></td><td>ตัวหุ้ม asyncio <code>AsyncMemoryBrain</code> สำหรับการนำเข้าข้อมูลปริมาณมาก</td></tr>
 <tr><td><b>ปรับให้เหมาะกับภาษาจีน</b></td><td>การแบ่งโทเค็นแบบบิแกรม (bigram tokenization) + FTS5 + พจนานุกรมคำเหมือนในตัว (built-in synonym dictionary)</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-เซิร์ฟเวอร์ MCP เปิดเผย **13 เครื่องมือ (tools)**:
+เซิร์ฟเวอร์ MCP เปิดเผย **14 เครื่องมือ (tools)**:
 
 | Tool | Description |
 | --- | --- |
@@ -190,6 +190,7 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `memory/export-v1` | ส่งออกผ่านโปรโตคอลการแลกเปลี่ยนความจำ |
 | `memory/import-v1` | นำเข้าผ่านโปรโตคอลการแลกเปลี่ยนความจำ |
 | `memory/claim` | เรียกร้องความจำจากการส่งออกภายนอก |
+| `forget` | ลืมความจำหนึ่งรายการ — ตั้งค่าความเชื่อมั่นเป็น 0 และลบแบบซอฟต์ (รับ `memory_id` หรือ `query` ภาษาธรรมชาติ) |
 
 เชื่อมต่อโฮสต์ MCP ใดก็ได้ (เช่น Claude Desktop, Hermes Agent ฯลฯ) โดยชี้ไปที่คำสั่ง stdio ด้านบน
 
@@ -221,7 +222,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## โครงสร้างโครงการ
 
 ```
-Mnemosyne7.0.0/
+Mnemosyne7.0.1/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -234,7 +235,7 @@ Mnemosyne7.0.0/
 ├── session/                  # Conversation importer
 ├── visualization/            # Knowledge tree generator
 ├── plugins/                  # Extra plugins (HRR / Async)
-├── mnemosyne_plugins/        # Official plugins (numpy_vector / crypto / reranker)
+├── mnemosyne_plugins/        # Official plugins (numpy_vector / crypto / reranker / qdrant_backend)
 ├── examples/                 # Runnable examples (Ollama / LangChain / MCP / CLI / embedded)
 └── docs/                     # Documentation (architecture, modules, plugins, API, deployment)
 ```
@@ -249,6 +250,10 @@ python -m unittest tests.test_plugins -v
 ## เอกสารประกอบ
 
 - `README_CN.md` — คำอธิบายภาษาจีน (Chinese README)
+- `docs/DEPLOY_DEEPSEEK_HARNESS.md` — ติดตั้งร่วมกับ DeepSeek Harness (ผ่าน MCP)
+- `docs/KNOWN_DEFECTS.md` — ข้อบกพร่องที่ยืนยันแล้วในสแตกหน่วยความจำ 7.0.1 พร้อมหลักฐานและการแก้ไข
+- `docs/RECALL_STRATEGY.md` — กลไกการเรียกคืนและกลยุทธ์การฉีดข้อมูลต่อรอบ
+- `docs/ACCEPTANCE_GUIDE.md` — คู่มือการตรวจรับ (พร้อม `scripts/verify_memory_lifecycle.py`)
 - `docs/` — เอกสารฉบับเต็ม: สถาปัตยกรรม, โมเดลข้อมูล, เอกสารโมดูล, เอกสารปลั๊กอิน, การอ้างอิง API / CLI / MCP, การติดตั้งใช้งาน, การบูรณาการ
 - `COMPLIANCE.md` — แผนที่การปฏิบัติตามมาตรฐาน HIPAA / 等保 / GDPR / PIPL
 - `comparison.md` — การเปรียบเทียบคุณสมบัตกับทางเลือกอื่น

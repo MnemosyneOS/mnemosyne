@@ -674,6 +674,16 @@ class RetrievalEngine:
             scored.append((total, r, reasons))
 
         scored.sort(key=lambda x: x[0], reverse=True)
+        # ---- v7.0.0-MCP：置信度归零 = 已撤回（"忘记"的语义），输出前硬过滤 ----
+        # 为什么放在这个位置：候选池的构建、doc_tf / 倒排 / _conf_weights 都按下标
+        # 与 _cached_records 对齐（records 与 _doc_tf_cache 必须同序同长），在候选阶段
+        # 增删元素会让下标错位、检索串味。放在打分排序之后只剔除输出项，零对齐风险。
+        # 为什么需要它：forget 走的是"置信度 0 + status=deleted"双保险，status 过滤
+        # 已能兜住绝大多数情况；这条是给"调用方显式写入 confidence=0"这类撤回语义
+        # 兜底，确保被撤回的记忆在任何情况下都不会被交回给调用方。
+        scored = [it for it in scored
+                  if (it[1].get("confidence")
+                      if it[1].get("confidence") is not None else 0.7) > 0]
         # ---- session 多样性重排（P99优化后新增，提升多证据召回）----
         # 根因：LongMemEval 多答案 session 时，单 session 占满 top-k，其他答案 session 被挤出
         # 方案：top-k 内单 session 最多 max_per_session 条，不足 k 时用后续高分候补

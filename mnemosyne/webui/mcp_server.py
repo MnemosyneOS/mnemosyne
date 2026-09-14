@@ -91,18 +91,20 @@ def _get_ns(arguments):
     """Extract namespace from per-request arguments."""
     return arguments.get("namespace") if isinstance(arguments, dict) else None
 
-# ---------- 9 tools (includes audit + namespace) ----------
+# ---------- 14 tools (includes audit + forget + namespace) ----------
 TOOLS = [
-    {"name":"retain","description":"写入记忆。content: 内容; mtype: 类型; namespace: 多租户隔离; project: 可选项目隔离",
-     "inputSchema":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","enum":["semantic","episodic","procedural"],"default":"semantic"},"project":{"type":"string"},"namespace":{"type":"string"},"confidence":{"type":"number"},"importance":{"type":"integer"}},"required":["content"]}},
-    {"name":"recall","description":"检索记忆。query: 查询; k: 返回条数; namespace: 多租户隔离; project: 可选项目隔离",
+    {"name":"retain","description":"写入记忆。content: 内容; mtype: 类型; tags: 标签数组（如 [\"偏好\",\"项目\"]）; confidence: 可信度0-1; importance: 重要性1-5; supersedes: 本记忆所更正的旧记忆id（更正场景，写入后旧记忆被标记 superseded）; namespace: 多租户隔离; project: 可选项目隔离",
+     "inputSchema":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","enum":["semantic","episodic","procedural","preference","identity","lesson","strategy","reflective"],"default":"semantic"},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"},"importance":{"type":"integer"},"supersedes":{"type":"string"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["content"]}},
+    {"name":"recall","description":"检索记忆。query: 查询; k: 返回条数; namespace: 多租户隔离; project: 可选项目隔离。返回项含 memory_id（可直接用于 forget / retain(supersedes=)）与 verification——verification=superseded/outdated 表示该条已被更新的说法取代，不得当作当前事实引用",
      "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer","default":5},"namespace":{"type":"string"},"project":{"type":"string"}},"required":["query"]}},
+    {"name":"forget","description":"遗忘/删除记忆：把目标记忆的 confidence 降为 0 并标记 status=deleted（默认软遗忘，审计链与可信度轨迹保留、可回溯）。memory_id 与 query 二选一：给 query 时先按相关性解析目标。建议先用 dry_run=true 把候选报给用户确认，再执行。evict=true 为物理删除。",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"query":{"type":"string"},"k":{"type":"integer","default":3},"dry_run":{"type":"boolean","default":False},"evict":{"type":"boolean","default":False},"reason":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"stats","description":"运行统计——写入/召回/Token节省等全维度；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"}}}},
     {"name":"graph_query","description":"知识图谱查询；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"entity":{"type":"string"},"namespace":{"type":"string"}},"required":["entity"]}},
-    {"name":"retain_batch","description":"批量写入（15x加速）；namespace: 可选",
-     "inputSchema":{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","default":"semantic"}},"required":["content"]}},"namespace":{"type":"string"},"project":{"type":"string"}},"required":["items"]}},
+    {"name":"retain_batch","description":"批量写入（15x加速）；items 每项可为 {content, mtype, tags, confidence, importance}；namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","default":"semantic"},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"},"importance":{"type":"integer"}},"required":["content"]}},"namespace":{"type":"string"},"project":{"type":"string"}},"required":["items"]}},
     {"name":"doctor","description":"健康检查——扫描记忆库完整性、记录数、磁盘；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"}}}},
     {"name":"temporal_query","description":"时序查询——按时间排序返回版本链；namespace: 可选",
@@ -135,7 +137,7 @@ def handle_tools_call(name, arguments):
         mtype = arguments.get("mtype", "semantic")
         kwargs = {}
         for kw in ("confidence", "importance", "source", "context", "fact_type",
-                    "source_type", "expires_at", "tags"):
+                    "source_type", "expires_at", "tags", "supersedes"):
             if kw in arguments and arguments[kw] is not None:
                 kwargs[kw] = arguments[kw]
         mid = b.retain(content, mtype=mtype, fast=True, project=project, **kwargs)
@@ -152,12 +154,21 @@ def handle_tools_call(name, arguments):
         out = []
         for r in results:
             try:
-                out.append({"score": round(float(r[0]), 4),
+                # memory_id 必须回传：forget / retain(supersedes=) 都要用它定位目标。
+                # 原实现不回传 id，导致 Agent 拿到结果也无法执行遗忘或更正。
+                out.append({"memory_id": r[1].get("id") if isinstance(r[1], dict) else None,
+                            "score": round(float(r[0]), 4),
                             "content": (r[1].get("content","") if isinstance(r[1], dict) else str(r[1]))[:300],
                             "type": r[1].get("type","semantic") if isinstance(r[1], dict) else "unknown",
+                            "tags": r[1].get("tags", []) if isinstance(r[1], dict) else [],
                             "created_at": r[1].get("created_at","") if isinstance(r[1], dict) else "",
                             "version": r[1].get("version", 1) if isinstance(r[1], dict) else 1,
                             "confidence": r[1].get("confidence") if isinstance(r[1], dict) else None,
+                            # verification 必须回传：更正后的旧记忆在库里是
+                            # verification=superseded（检索层降权但不删除），
+                            # 不回传的话 Agent 无从分辨"哪条说法已被取代"。
+                            "verification": r[1].get("verification", "unverified") if isinstance(r[1], dict) else None,
+                            "superseded_by": r[1].get("superseded_by") if isinstance(r[1], dict) else None,
                             "flags": r[1].get("flags", []) if isinstance(r[1], dict) else []})
             except (ValueError, TypeError, IndexError):
                 pass
@@ -176,9 +187,40 @@ def handle_tools_call(name, arguments):
 
     elif name == "retain_batch":
         items = arguments["items"]
-        batch = [(it["content"], it.get("mtype","semantic"), {}) for it in items]
+        # v7.0.0-MCP 修复：原实现把第三个元素写死成 {}，逐项的 confidence / tags /
+        # importance 全部被丢弃 —— 于是"批量写入时设定 confidence 和 tags"这条规则
+        # 在批量路径上静默失效。这里逐项透传给 _build_record。
+        batch = []
+        for it in items:
+            kw = {}
+            for k in ("confidence", "importance", "tags"):
+                if it.get(k) is not None:
+                    kw[k] = it[k]
+            batch.append((it["content"], it.get("mtype", "semantic"), kw))
         b.retain_batch(batch, fast=True)
-        return {"result": f"批量写入 {len(items)} 条", "namespace": ns or "default"}
+        return {"result": f"批量写入 {len(items)} 条",
+                "with_tags": sum(1 for it in items if it.get("tags")),
+                "with_confidence": sum(1 for it in items if it.get("confidence") is not None),
+                "namespace": ns or _default_namespace}
+
+    elif name == "forget":
+        memory_id = arguments.get("memory_id")
+        query = arguments.get("query")
+        if not memory_id and not query:
+            return {"error": "memory_id 与 query 至少提供一个"}
+        try:
+            report = b.forget_targets(
+                memory_id=memory_id,
+                query=query,
+                k=arguments.get("k", 3),
+                dry_run=bool(arguments.get("dry_run", False)),
+                evict=bool(arguments.get("evict", False)),
+                reason=arguments.get("reason") or "user_forget",
+            )
+            report["namespace"] = ns or _default_namespace
+            return report
+        except Exception as e:
+            return {"error": str(e)}
 
     elif name == "doctor":
         try:
@@ -196,7 +238,7 @@ def handle_tools_call(name, arguments):
     elif name == "list_projects":
         try:
             projs = b.list_projects()
-            return {"projects": projs, "count": len(projs), "namespace": ns or "default"}
+            return {"projects": projs, "count": len(projs), "namespace": ns or _default_namespace}
         except Exception as e:
             return {"error": str(e)}
 
@@ -204,7 +246,7 @@ def handle_tools_call(name, arguments):
         memory_id = arguments.get("memory_id")
         try:
             trail = b.audit(memory_id)
-            return {"memory_id": memory_id, "namespace": ns or "default", "entries": trail, "count": len(trail)}
+            return {"memory_id": memory_id, "namespace": ns or _default_namespace, "entries": trail, "count": len(trail)}
         except Exception as e:
             return {"error": str(e)}
 
@@ -212,7 +254,7 @@ def handle_tools_call(name, arguments):
         memory_id = arguments.get("memory_id")
         try:
             history = b.store.get_confidence_history(memory_id) if hasattr(b.store, "get_confidence_history") else []
-            return {"memory_id": memory_id, "namespace": ns or "default", "history": history, "count": len(history)}
+            return {"memory_id": memory_id, "namespace": ns or _default_namespace, "history": history, "count": len(history)}
         except Exception as e:
             return {"error": str(e)}
 
@@ -221,7 +263,7 @@ def handle_tools_call(name, arguments):
         if not filepath:
             return {"error": "filepath parameter required"}
         try:
-            result = b.export_memories(filepath, namespace=ns or "default")
+            result = b.export_memories(filepath, namespace=ns or _default_namespace)
             return {"result": "success", **result}
         except Exception as e:
             return {"error": str(e)}
@@ -231,7 +273,7 @@ def handle_tools_call(name, arguments):
         if not filepath:
             return {"error": "filepath parameter required"}
         try:
-            result = b.import_memories(filepath, namespace=ns or "default")
+            result = b.import_memories(filepath, namespace=ns or _default_namespace)
             return {"result": "success", **result}
         except Exception as e:
             return {"error": str(e)}
@@ -241,7 +283,7 @@ def handle_tools_call(name, arguments):
         if not filepath:
             return {"error": "filepath parameter required"}
         try:
-            result = b.claim(filepath, namespace=ns or "default")
+            result = b.claim(filepath, namespace=ns or _default_namespace)
             return {"result": "success", **result}
         except Exception as e:
             return {"error": str(e)}
@@ -270,7 +312,7 @@ def handle_request(req):
         # Eagerly initialise the brain for the requested namespace
         _ensure_brain(namespace=ns_hint)
         result = {"protocolVersion":"2024-11-05",
-                  "serverInfo":{"name":"mnemosyne-memory","version":"7.0.0"},
+                  "serverInfo":{"name":"mnemosyne-memory","version":"7.0.1"},
                   "capabilities":{"tools":{}}}
         if ns_hint:
             result["namespace"] = ns_hint

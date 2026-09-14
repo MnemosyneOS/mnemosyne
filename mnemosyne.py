@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne OS Engine v7.0.0 — AI Memory Operating System
+Mnemosyne OS Engine v7.0.1 — AI Memory Operating System
 ============================================================
 Zero-dependency, cross-platform, multi-language AI Agent memory engine.
 
@@ -16,7 +16,7 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-__version__ = "7.0.0"
+__version__ = "7.0.1"
 VERSION = __version__
 
 from mnemosyne import (

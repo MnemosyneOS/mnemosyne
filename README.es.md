@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-13%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.0** — un sistema de memoria de IA sin dependencias, de prioridad local, con olvido multinivel, un libro de contabilidad de cadena hash, un SDK de plugins, un panel web local y soporte para MCP (Model Context Protocol).
+**Mnemosyne OS 7.0.1** — un sistema de memoria de IA sin dependencias, de prioridad local, con olvido multinivel, un libro de contabilidad de cadena hash, un SDK de plugins, un panel web local y soporte para MCP (Model Context Protocol).
 
 > El único motor de memoria de IA cuyo **núcleo no requiere dependencias de terceros** — solo usa la biblioteca estándar de Python 3.8+ — sin base de datos vectorial, sin entorno de ejecución LLM, sin dependencia de la nube. Funciona en una laptop, un servidor o infraestructura sin servidor.
 
@@ -48,7 +48,7 @@
 <tr><td><b>Memoria multinivel</b></td><td>Niveles caliente / tibio / frío con olvido económico — migra memorias de bajo valor, nunca las elimina silenciosamente.</td></tr>
 <tr><td><b>Libro de contabilidad de cadena hash</b></td><td>Libro de contabilidad encadenado SHA-256 — <code>verify_chain()</code> detecta manipulaciones y localiza el registro corrupto exacto.</td></tr>
 <tr><td><b>SDK de plugins</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + plugins oficiales (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>Servidor MCP</b></td><td>13 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
+<tr><td><b>Servidor MCP</b></td><td>14 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
 <tr><td><b>Panel web</b></td><td>Panel local oscuro con estética tecnológica, sin CDN externo — servido desde <code>web_server.py</code>.</td></tr>
 <tr><td><b>API asíncrona</b></td><td><code>AsyncMemoryBrain</code> es un contenedor asyncio para ingesta de alto rendimiento.</td></tr>
 <tr><td><b>Optimizado para chino</b></td><td>Tokenización bigrama + FTS5 + diccionario de sinónimos integrado.</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-El servidor MCP expone **13 herramientas**:
+El servidor MCP expone **14 herramientas**:
 
 | Tool | Descripción |
 | --- | --- |
@@ -190,6 +190,7 @@ El servidor MCP expone **13 herramientas**:
 | `memory/export-v1` | Exporta vía el Protocolo de Intercambio de Memoria |
 | `memory/import-v1` | Importa vía el Protocolo de Intercambio de Memoria |
 | `memory/claim` | Reclama memorias desde una exportación externa |
+| `forget` | Olvidar una memoria — fija la confianza en 0 y aplica borrado lógico (acepta `memory_id` o una `query` en lenguaje natural) |
 
 Conecta cualquier host MCP (Claude Desktop, Hermes Agent, etc.) apuntándolo al comando stdio de arriba.
 
@@ -221,7 +222,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Estructura del proyecto
 
 ```
-Mnemosyne7.0.0/
+Mnemosyne7.0.1/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -234,7 +235,7 @@ Mnemosyne7.0.0/
 ├── session/                  # Conversation importer
 ├── visualization/            # Knowledge tree generator
 ├── plugins/                  # Extra plugins (HRR / Async)
-├── mnemosyne_plugins/        # Official plugins (numpy_vector / crypto / reranker)
+├── mnemosyne_plugins/        # Official plugins (numpy_vector / crypto / reranker / qdrant_backend)
 ├── examples/                 # Runnable examples (Ollama / LangChain / MCP / CLI / embedded)
 └── docs/                     # Documentation (architecture, modules, plugins, API, deployment)
 ```
@@ -249,6 +250,10 @@ python -m unittest tests.test_plugins -v
 ## Documentación
 
 - `README_CN.md` — Documentación en chino
+- `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Despliegue con DeepSeek Harness (vía MCP)
+- `docs/KNOWN_DEFECTS.md` — Defectos confirmados en la pila de memoria 7.0.1, con evidencia y correcciones
+- `docs/RECALL_STRATEGY.md` — Mecánica de recuperación y estrategia de inyección por turno
+- `docs/ACCEPTANCE_GUIDE.md` — Guía de aceptación (con `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Documentación completa: arquitectura, modelo de datos, documentación de módulos, documentación de plugins, referencias de API / CLI / MCP, despliegue, integración
 - `COMPLIANCE.md` — Mapa de cumplimiento (HIPAA / 等保 / GDPR / PIPL)
 - `comparison.md` — Comparación de funciones con alternativas

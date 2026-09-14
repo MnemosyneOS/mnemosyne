@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne OS Engine v7.0.0 — Zero-Dependency AI Memory System
+Mnemosyne OS Engine v7.0.1 — Zero-Dependency AI Memory System
 ===============================================================
 """
 import os
@@ -12,8 +12,8 @@ _PARENT = os.path.dirname(_ROOT)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-__version__ = "7.0.0"
-VERSION = "7.0.0"
+__version__ = "7.0.1"
+VERSION = "7.0.1"
 
 # === Core classes ===
 from .brain import MemoryBrain

@@ -33,7 +33,7 @@ __all__ = ["SqliteBackend"]
 # ---------------------------------------------------------------------------
 INDEX_NAME = "index.jsonl"
 META_NAME = "meta.json"
-VERSION = "7.0.0"
+VERSION = "7.0.1"
 
 
 def _m():

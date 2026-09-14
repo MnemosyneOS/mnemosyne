@@ -8,7 +8,7 @@ from .utils import (_fail, _ok,)
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.0"
+VERSION = "7.0.1"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -27,7 +27,7 @@ VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "supersed
 
 
 def _build_parser():
-    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.0")
+    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.1")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
     p.add_argument("--no-embeddings", action="store_true", help="禁用向量检索")
     p.add_argument("--no-graph", action="store_true", help="禁用知识图谱")
