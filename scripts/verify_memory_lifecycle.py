@@ -219,6 +219,12 @@ def main():
     show('遗忘后再召回', after)
     check(all(x.get('memory_id') != tgt for x in after.get('results', [])),
           '被遗忘的记忆不再出现在召回结果里（否则命中 F11：检索缓存未失效）')
+    # 注意：未被取代的记录，superseded_by 为 None 时键根本不落进 dict
+    # （_row_to_record 跳过 None），所以只能拿 superseded 的那条来验，
+    # 不能用 `in` 判断键是否存在。
+    sup = [x for x in after.get('results', []) if x.get('verification') == 'superseded']
+    check(bool(sup) and all(x.get('superseded_by') == r4.get('memory_id') for x in sup),
+          'recall 回传 superseded_by（恒为 null -> 输出投影漏列，命中 F9-b）')
 
     # ---------- 5. 按 id 遗忘 + dry_run ----------
     dr = m.tool('forget', {'query': '结论说清楚', 'k': 2, 'dry_run': True})

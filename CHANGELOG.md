@@ -1,5 +1,30 @@
 # 更新记录（Release Notes）
 
+## 未发布 —— 7.0.1 勘误补丁
+
+7.0.1 发布后追查出的三项勘误。**不改动版本号声明**，随 `main` 分支后续提交交付。
+
+### 修复
+- **`recall` 回传的 `superseded_by` 恒为 `null`（F9-b）**：检索层为省内存只物化
+  "检索融合所需字段"（`mnemosyne/retrieval.py` 的 `_RECORD_KEYS` / `_LIGHT_COLUMNS`），
+  而 MCP 的 `recall` 输出投影**复用同一份 dict**。`superseded_by` 不在白名单里，
+  于是 `.get()` 静默拿到缺省值 —— 尽管库里该列有值。
+  同一根因还导致 `version` 恒为 `1`、`flags` 恒为 `[]`。
+  修法：三列并入两份白名单（都是小标量，内存影响可忽略），并在文件里注明两处必须同步。
+
+### 文档
+- `docs/DEPLOY_DEEPSEEK_HARNESS.md`（12 处）与 `deploy-to-github.md`（7 处）里
+  残留的 `7.0.0` 订正为 `7.0.1`。
+- `deploy-to-github.md`：作者本机私有路径（`C:/Users/<your-user>/Desktop/...`）
+  换成通用占位符；`MCP 13 Tools` 订正为 **14 Tools**（7.0.1 起 `forget` 入库）。
+- `docs/KNOWN_DEFECTS.md`：新增 F9-b 条目，含实测对照、根因与教训。
+- `docs/ACCEPTANCE_GUIDE.md`：`recall` 判据补上 `superseded_by` 的取值要求。
+
+### 验收
+- `scripts/verify_memory_lifecycle.py` 断言 20 → **21 项**：新增
+  "`recall` 回传的 `superseded_by` 必须等于新记忆 id"以兜底防回归。
+  修复后 21/21 全部通过。
+
 ## 7.0.1（2026-09-14）
 
 针对记忆栈的一轮缺陷修复与可验证性补强。核心引擎的改动集中在**记忆生命周期语义**
@@ -27,7 +52,7 @@
     "每轮召回"的代价评估。
   - `docs/ACCEPTANCE_GUIDE.md` —— 验收principle：握手与工具面、子进程环境逐键对齐、
     冷热延迟预算、命名空间隔离、审计链、生命周期闭环、假失败速查。
-  - `scripts/verify_memory_lifecycle.py` —— 参数化的 20 项断言生命周期验收脚本。
+  - `scripts/verify_memory_lifecycle.py` —— 参数化的 21 项断言生命周期验收脚本。
 
 ### 修复
 - **`retain()` 显式 `confidence` 不再被覆盖**：Notary 评估会无条件改写

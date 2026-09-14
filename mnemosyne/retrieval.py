@@ -40,21 +40,33 @@ def _intern(table, token):
 
 
 # 检索融合所需的记录字段（轻量记录缓存只保留这些键，省 ~40% 记录内存）
+#
+# 注意：轻量记录同时是「对外输出」的数据源 —— MCP 的 recall 投影直接读这份
+# dict。所以这里少一个键，对应字段在工具返回里就会**静默变成 null/默认值**，
+# 而且没有任何报错。历史上就踩过两次：
+#   - verification（已补）：少了它，模型分不清哪条说法已被取代；
+#   - superseded_by / version / flags（7.0.2 补）：`superseded_by` 恒为 null，
+#     尽管库里该列有值；`version` 恒为 1，`flags` 恒为 []。
+# 三个字段都是小标量（None / int / 短列表），对内存的影响可忽略（大头的
+# content 本来就在清单里），因此并入白名单而不是在输出层回查数据库。
 _RECORD_KEYS = (
     "id", "content", "type", "entities", "tags", "confidence", "importance",
     "tier", "status", "project", "layer", "fact_type", "verification",
     "event_time", "created_at", "access_count", "last_accessed_at",
     "session_id", "embedding", "topic_tag", "meta",
+    "version", "superseded_by", "flags",
 )
 
 # 与 _RECORD_KEYS 对应的 sqlite 列名白名单（type←mtype、meta←template_hash）。
 # 轻量模式重建索引时按此列清单直接物化轻量记录，
 # 跳过完整记录 dict 的双份驻留（100k 内存关键优化）。
+# 新增字段时必须与 _RECORD_KEYS 同步，否则 SQL 少选一列、输出侧又变回 null。
 _LIGHT_COLUMNS = (
     "id", "content", "mtype", "entities", "tags", "confidence", "importance",
     "tier", "status", "project", "layer", "fact_type", "verification",
     "event_time", "created_at", "access_count", "last_accessed_at",
     "session_id", "embedding", "topic_tag", "template_hash",
+    "version", "superseded_by", "flags",
 )
 
 
