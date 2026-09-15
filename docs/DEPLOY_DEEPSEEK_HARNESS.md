@@ -1,6 +1,6 @@
-# Mnemosyne 7.0.1 部署principle：接入 DeepSeek Harness（通过 MCP）
+# Mnemosyne 7.0.2 部署principle：接入 DeepSeek Harness（通过 MCP）
 
-> Deployment Guide: Integrate Mnemosyne 7.0.1 with DeepSeek Harness via MCP
+> Deployment Guide: Integrate Mnemosyne 7.0.2 with DeepSeek Harness via MCP
 
 > **让 AI 记住你 · 同时帮你省 Token**
 > 从 pip 安装 → 接入 DeepSeek Harness → 验证 → 日常使用 → 升级，一站式全流程教程
@@ -11,7 +11,7 @@
 
 ## 0. 阅读principle（先花 1 分钟读这里）
 
-本教程的目标非常明确：**把 Mnemosyne 7.0.1 装好、接上你的 AI 助手、让它"记得住"你说过的话，并且在每次对话里尽量少花钱（省 Token）**。
+本教程的目标非常明确：**把 Mnemosyne 7.0.2 装好、接上你的 AI 助手、让它"记得住"你说过的话，并且在每次对话里尽量少花钱（省 Token）**。
 
 ### 约定符号
 
@@ -49,7 +49,7 @@
 | --- | --- | --- |
 | 第 1 步 | 确认你的 AI 助手是否支持 MCP（不支持有替代方案） | 明确用什么接入 |
 | 第 2 步 | 安装 Python（编程语言运行环境）和 Node.js（运行 DeepSeek Harness 需要） | 环境就绪 |
-| 第 3 步 | 用 pip 安装 Mnemosyne 7.0.1（pip = Python 的安装工具） | 装好记忆核心 |
+| 第 3 步 | 用 pip 安装 Mnemosyne 7.0.2（pip = Python 的安装工具） | 装好记忆核心 |
 | 第 4 步 | 初始化记忆库 + 命令行测试写入/召回 | 记忆库可用 |
 | 第 5 步 | 安装 DeepSeek Harness（你的 AI 助手主程序） | AI 助手可运行 |
 | 第 6 步 | 把 Mnemosyne 注册成 DeepSeek Harness 的 MCP 工具 | 两者接通 |
@@ -174,14 +174,14 @@ npm --version
 
 ---
 
-## 3. 安装 Mnemosyne 7.0.1
+## 3. 安装 Mnemosyne 7.0.2
 
 ### 3.1 用 pip 安装（pip 是 Python 的官方安装工具）
 
 ```powershell
 pip install mnemosyne-os
 # 【这是什么】从 Python 官方仓库下载并安装 mnemosyne-os（Mnemosyne 的正式包名）
-# 【为什么】这就是 Mnemosyne 7.0.1 本体，装好后你的电脑就有了记忆引擎
+# 【为什么】这就是 Mnemosyne 7.0.2 本体，装好后你的电脑就有了记忆引擎
 ```
 
 **如果网速慢/装不动（国内常见）**，改用国内镜像源（镜像源 = 官方仓库的国内加速副本）：
@@ -199,7 +199,7 @@ pip install mnemosyne-os -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```powershell
 pip show mnemosyne-os | Select-String "Version|Requires"
 # 【这是什么】显示已安装的版本号和依赖列表
-# 【为什么】确认装的是 7.0.1；Requires（依赖）为空说明它是零依赖设计，很干净
+# 【为什么】确认装的是 7.0.2；Requires（依赖）为空说明它是零依赖设计，很干净
 ```
 
 ```powershell
@@ -406,7 +406,7 @@ dsh web
 
 > 💡 如果想启动时不自动打开浏览器，加 `--no-open` 参数：`dsh web --no-open`
 
-### 7.2 打开网页并验证 13 个工具
+### 7.2 打开网页并验证 17 个工具
 
 ```powershell
 Start-Process "http://127.0.0.1:3080"
@@ -416,7 +416,7 @@ Start-Process "http://127.0.0.1:3080"
 
 进入界面后，**先选择工作区（Workspace，工作目录）**——DSH 的安全设计要求必须先选定一个文件夹作为工作目录，否则无法输入对话。
 
-然后在**工具列表**（一般在设置面板或新建会话的可用工具里）搜索 `mnemosyne`，应能看到这 13 个工具：
+然后在**工具列表**（一般在设置面板或新建会话的可用工具里）搜索 `mnemosyne`，应能看到这 17 个工具：
 
 | 工具名 | 中文释义 / 作用 |
 | --- | --- |
@@ -535,7 +535,7 @@ Get-Content "$env:USERPROFILE\.dsh\AGENTS.md"
 
 ## 10. 压缩引擎与省 Token 配置（重点）
 
-> Mnemosyne 7.0.1 自带一套**压缩（Compression）能力**，用于：把旧记忆合并成更精炼的总结（省 Token）、去重（省空间）、提炼洞察（记得住）。**这些能力内置在 `mnemosyne` 命令里，不需要额外安装任何东西。**
+> Mnemosyne 7.0.2 自带一套**压缩（Compression）能力**，用于：把旧记忆合并成更精炼的总结（省 Token）、去重（省空间）、提炼洞察（记得住）。**这些能力内置在 `mnemosyne` 命令里，不需要额外安装任何东西。**
 
 ### 10.1 三个压缩引擎命令
 
@@ -552,10 +552,10 @@ mnemosyne consolidate --help
 mnemosyne reflect --help
 mnemosyne dedup --help
 # 【这是什么】分别打印三个压缩命令的可用参数说明
-# 【为什么】确认你本机 7.0.1 的完整参数（下方给的是通用参数，帮你理解含义）
+# 【为什么】确认你本机 7.0.2 的完整参数（下方给的是通用参数，帮你理解含义）
 ```
 
-### 10.2 通用参数说明（结合 7.0.1 实际能力）
+### 10.2 通用参数说明（结合 7.0.2 实际能力）
 
 | 参数 | 中文释义 | 作用 / 建议 |
 | --- | --- | --- |
@@ -697,7 +697,7 @@ npm update -g @deepseek-ai/dsh
 | 3 | 看升级说明 | 打开 PyPI/GitHub 的 Release Notes（发布说明） | 确认有没有"破坏性变更" |
 | 4 | 处理数据迁移 | 若说明里要求：`mnemosyne migrate` | 数据格式升级需要迁移 |
 | 5 | 重启 DSH | 停旧进程 + `dsh web` | 让新的 MCP 服务生效 |
-| 6 | 重新验证 13 个工具 | 网页工具列表搜 `mnemosyne` | 确认 MCP 接入没断 |
+| 6 | 重新验证 17 个工具 | 网页工具列表搜 `mnemosyne` | 确认 MCP 接入没断 |
 | 7 | 会话冒烟测试 | 写一条 + 新会话召回一条 | 确认"记得住"闭环仍成立 |
 
 **其中第 3、4 项检查展开说明：**
@@ -708,7 +708,7 @@ mnemosyne migrate
 # 【为什么】有些大版本会改存储格式，不迁移可能读不到旧记忆
 ```
 
-**如果 7.0.1 → 未来版本后 MCP 配置里的模块名变了**（比如 `mnemosyne.webui.mcp_server` 改成别的），记得同步更新第 6.2 步的 `cordis.patch.yml` 里的 `args`，再重启 DSH。
+**如果 7.0.2 → 未来版本后 MCP 配置里的模块名变了**（比如 `mnemosyne.webui.mcp_server` 改成别的），记得同步更新第 6.2 步的 `cordis.patch.yml` 里的 `args`，再重启 DSH。
 
 > 💡 **省 Token 与升级**：升级通常意味着更快的检索和更省 Token 的实现，所以"勤升级"本身就是在省钱。但升级后一定要跑第 13.4 步的 7 项检查，别升完发现记忆工具丢了还不知道。
 
@@ -806,7 +806,7 @@ claude mcp add mnemosyne -- python -m mnemosyne.webui.mcp_server
 到这一步，你已经完成了：
 
 1. ✅ 确认 AI 助手支持 MCP（或不支持的替代方案）
-2. ✅ 安装 Python + Node.js + Mnemosyne 7.0.1 + DeepSeek Harness
+2. ✅ 安装 Python + Node.js + Mnemosyne 7.0.2 + DeepSeek Harness
 3. ✅ Mnemosyne 注册为 DSH 的 MCP 工具，13 个记忆工具上线
 4. ✅ 会话实测"记得住"闭环通过
 5. ✅ 注入记忆规则，AI 自动记忆、按需召回（省 Token）

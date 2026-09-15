@@ -87,6 +87,20 @@ class VectorBackendPlugin:
     def add(self, memory_id, vector, **kwargs):
         raise NotImplementedError
 
+    def remove(self, memory_id, **kwargs):
+        """Drop one memory's vector from the backend.
+
+        Default is a no-op (NOT ``NotImplementedError``) so that every
+        existing third-party backend stays source-compatible.  A backend
+        that owns a *persistent* index should override it.
+
+        Contract: Brain calls this on forget / overwrite / dedup, and treats
+        any failure as non-fatal — the authoritative record already lives in
+        SQLite, so a surviving vector is a *precision* problem (it keeps
+        occupying ANN candidate slots), never data loss.
+        """
+        return False
+
     def search(self, query_vector, top_k=5, **kwargs):
         raise NotImplementedError
 

@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""记忆生命周期验收：写入(confidence/tags) -> 更正(supersedes) -> 遗忘(forget)。
+"""记忆生命周期验收：写入(confidence/tags) -> 更正(supersedes) -> 遗忘(forget)
+-> AIC 胶囊精确压缩（v7.0.2 新增第 6 节）。
 
 为什么需要它：**规则写了不等于工具支持。** 7.0.0 的 MCP 面上，
 `retain` 的 confidence 会被静默丢弃、`retain_batch` 丢弃逐项元数据、
 `recall` 不回传 memory_id、且**根本没有任何删除工具**。
 所以"用户说忘记 X"这类规则，在 7.0.1 之前是**结构性不可执行**的。
+
+v7.0.2 变更（本脚本随之修订，两处）
+-----------------------------------
+1. 新增断言「无关查询受相关性下限约束」：7.0.2 引入相关性下限后，
+   无关查询不再返回满 K 条无关记忆（7.0.1 的行为是无论如何都填满 k 条，
+   且无关查询的 top1 融合分反而更高 —— 因为五路打分各自做了 x/max(x) 归一化，
+   **分数没有绝对含义**）。
+2. 修订「recall 回传 superseded_by」：该断言原先用同一个**无关查询**去召回被
+   取代的记录，与上面第 1 条**语义直接冲突**（被取代的记录本就不该被无关查询
+   召回）。现改用与目标内容相关的查询验证**投影**本身，把
+   「投影是否完整」与「下限是否生效」两件事解耦、各自独立断言。
 
 本脚本以 MCP stdio 方式起一个子进程，在**一次性命名空间**上跑断言，
 跑完由调用方删除该命名空间目录与向量集合。
@@ -216,13 +228,28 @@ def main():
     check('forget' in logs, 'audit_log 记录了 forget')
 
     after = m.tool('recall', {'query': 'bge-m3 嵌入模型是多少维', 'k': 5})
-    show('遗忘后再召回', after)
+    show('遗忘后再召回（无关查询）', after)
     check(all(x.get('memory_id') != tgt for x in after.get('results', [])),
           '被遗忘的记忆不再出现在召回结果里（否则命中 F11：检索缓存未失效）')
-    # 注意：未被取代的记录，superseded_by 为 None 时键根本不落进 dict
-    # （_row_to_record 跳过 None），所以只能拿 superseded 的那条来验，
-    # 不能用 `in` 判断键是否存在。
-    sup = [x for x in after.get('results', []) if x.get('verification') == 'superseded']
+    # v7.0.2 新增断言：相关性下限生效 —— 无关查询**不再**返回满 K 条无关记忆。
+    # 7.0.1 的行为是"无论如何都填满 k 条"，于是 Agent 拿到 5 条看似证据的无关内容；
+    # 实测无关查询 top1 融合分可达 1.0200（高于相关查询的 0.6922），因为五路打分
+    # 每路都做了 x/max(x) 归一化 —— 最高分恒为 1.0，分数**没有绝对含义**。
+    # 下限（REL_MIN_SEMANTIC=0.45，标定自实测：相关簇 min 0.5222 / 无关簇 max 0.4064）
+    # 让"没有相关记忆"能被如实表达为接近空的结果。
+    check(len(after.get('results', [])) <= 1,
+          '无关查询受相关性下限约束（v7.0.2 新行为：宁缺勿滥，避免把无关记忆当证据）')
+
+    # ---- F9-b：superseded_by 必须出现在 recall 输出投影里 ----
+    # v7.0.2 修订说明：这条断言原先用**同一个无关查询**去召回被取代的记录，
+    # 那与上面"下限生效"的语义**直接冲突** —— 被取代的记录本来就不该被无关查询
+    # 召回（那正是下限要拦的东西）。原来能通过，只是因为 7.0.1 无论相关与否都
+    # 填满 k 条。故此处改用与目标记录**内容相关**的查询来验证投影本身，
+    # 把两件事彻底解耦：① 投影是否带出 superseded_by（本断言）；
+    # ② 无关查询是否被下限抑制（上一断言）。
+    rel = m.tool('recall', {'query': '用户偏好 先给结论 再给依据', 'k': 5})
+    show('按相关内容召回（验证 superseded_by 投影）', rel)
+    sup = [x for x in rel.get('results', []) if x.get('verification') == 'superseded']
     check(bool(sup) and all(x.get('superseded_by') == r4.get('memory_id') for x in sup),
           'recall 回传 superseded_by（恒为 null -> 输出投影漏列，命中 F9-b）')
 
@@ -232,6 +259,69 @@ def main():
     check(dr.get('dry_run') is True and dr.get('targets'), 'dry_run 只解析候选、不做改动')
     r6 = m.tool('forget', {'memory_id': mid})
     check(r6.get('count', 0) == 1, 'forget(memory_id=...) 直接生效')
+
+    # ---------- 6. AIC 记忆胶囊：极短上下文下的精确压缩（v7.0.2 新增） ----------
+    # 验收目标：在"只给 1~2 轮、几百 token"的极短上下文里，仍然 100% 精准 ——
+    # 即 (a) 原子（数字/日期/金额/型号/URL）一个不丢；
+    #    (b) 需要原文时能**逐字**取回（无损可逆）；
+    #    (c) 预算装不下时**降级而非丢弃**。
+    # 这三条就是"压缩不以牺牲精准为代价"的可验证形式。
+    tools6 = {t['name'] for t in m.call('tools/list',
+                                        {}).get('result', {}).get('tools', [])}
+    check('capsule' in tools6, '存在 capsule 工具（取单条记忆胶囊）')
+    check('expand' in tools6, '存在 expand 工具（按指针精确取回原文）')
+
+    CAP_TEXT = ('用户的生产库端口是 6333，嵌入模型是 bge-m3 共 1024 维，'
+                '预算上限 15000 元，交付日期 2026-12-31。')
+    r7 = m.tool('retain', {'content': CAP_TEXT, 'mtype': 'semantic',
+                           'tags': ['验收'], 'confidence': 0.9})
+    capid = r7.get('memory_id')
+    check(bool(capid), '胶囊验收样本已写入')
+
+    capr = m.tool('capsule', {'memory_id': capid, 'budget_tokens': 40})
+    show('capsule(budget_tokens=40)', capr)
+    ctext = capr.get('text') or ''
+    need_atoms = ('6333', 'bge-m3', '1024', '15000元', '2026-12-31')
+    flat = ''.join(ctext.casefold().split())
+    check(capr.get('selfcheck_ok') is True,
+          '胶囊自检通过（原子守恒 + 抽取式 + 指针在场）')
+    check(all(a in flat for a in need_atoms),
+          '胶囊保留全部关键原子（预算 40 token，实际 %s）' % capr.get('tokens'))
+    check(bool(capr.get('ref')) and capr['ref'].startswith('m:'),
+          '胶囊带稳定指针 ref（可逆的凭据）')
+
+    exr = m.tool('expand', {'ref': capr.get('ref')})
+    show('expand(ref)', {'verified': exr.get('verified'),
+                         'chars': exr.get('content_chars'),
+                         'content': (exr.get('content') or '')[:60]})
+    stored_cap = con.execute('SELECT content FROM memories WHERE id=?',
+                            (capid,)).fetchone()
+    check(exr.get('verified') is True, 'expand 内容哈希校验通过')
+    check(bool(stored_cap) and exr.get('content') == stored_cap['content'],
+          'expand 逐字取回原文（无损可逆，压缩不丢信息）')
+
+    # 极短预算召回：预算装不下原文时必须**降级为胶囊**，而不是丢弃该条记忆
+    bt = m.tool('recall', {'query': '嵌入模型是几维', 'k': 5, 'budget_tokens': 40})
+    show('recall(budget_tokens=40)', {'results': [
+        {'band': x.get('confidence_band'), 'level': x.get('capsule_level'),
+         'ref': x.get('ref'), 'content': (x.get('content') or '')[:70]}
+        for x in (bt.get('results') or [])],
+        'cost': {k: (bt.get('cost_report') or {}).get(k)
+                 for k in ('budget_limit', 'budget_used', 'budget_respected',
+                           'capsule_count', 'indexed_count', 'truncated')}})
+    cr = bt.get('cost_report') or {}
+    _flat = ''.join((''.join(x.get('content', '').casefold().split())
+                     for x in (bt.get('results') or [])))
+    _idx = ''.join((''.join(json.dumps(bt.get('precision_index') or [],
+                                       ensure_ascii=False).casefold().split())))
+    check('budget_limit' in cr and 'budget_used' in cr and 'budget_respected' in cr,
+          '预算账目回传（budget_limit/budget_used/budget_respected）')
+    check(cr.get('budget_used', 0) <= cr.get('budget_limit', 0) or not cr.get('budget_respected'),
+          '预算被真正遵守（或已如实标注未能遵守）')
+    check('1024' in _flat or '1024' in _idx,
+          '极短预算下关键数值仍可见（正文胶囊或精准索引二者之一）')
+    check(bool(cr.get('capsule_count') or cr.get('indexed_count')),
+          '放不下原文时降级为胶囊/精准索引（信息未消失）')
 
     con.close()
     m.stop()

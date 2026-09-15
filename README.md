@@ -12,7 +12,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -25,7 +25,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.1** — a zero-dependency , local-first  AI memory system  with multi-tier forgetting , a hash-chain ledger , a plugin SDK , a local web dashboard , and MCP  support.
+**Mnemosyne OS 7.0.2** — a zero-dependency , local-first  AI memory system  with multi-tier forgetting , a hash-chain ledger , a plugin SDK , a local web dashboard , and MCP  support.
 
 > The only AI memory engine whose **core requires zero third-party dependencies**  — no vector database , no LLM  runtime, no cloud lock-in. Runs on a laptop, a server, or serverless infra .
 
@@ -36,7 +36,7 @@ Use it as a **Python  library**, a **CLI **, an **HTTP API **, an **MCP server *
 <tr><td><b>Multi-tier memory </b></td><td>Hot / warm / cold tiers with economic forgetting  — migrate low-value memories, never silently delete them.</td></tr>
 <tr><td><b>Hash-chain ledger </b></td><td>SHA-256 chained ledger — <code>verify_chain()</code> detects tampering and locates the exact corrupted record.</td></tr>
 <tr><td><b>Plugin SDK </b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + official plugins (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP server </b></td><td>14 tools over stdio JSON-RPC, with token auth  and multi-tenant namespaces .</td></tr>
+<tr><td><b>MCP server </b></td><td>20 tools over stdio JSON-RPC, with token auth  and multi-tenant namespaces .</td></tr>
 <tr><td><b>Web dashboard </b></td><td>Tech-aesthetic local dark dashboard , no external CDN — served from <code>web_server.py</code>.</td></tr>
 <tr><td><b>Async API </b></td><td><code>AsyncMemoryBrain</code> asyncio wrapper for high-throughput ingestion.</td></tr>
 <tr><td><b>Chinese-optimized </b></td><td>Bigram tokenization  + FTS5 + built-in synonym dictionary .</td></tr>
@@ -161,7 +161,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-The MCP server exposes **14 tools **:
+The MCP server exposes **20 tools **:
 
 | Tool | Description |
 | --- | --- |
@@ -179,6 +179,9 @@ The MCP server exposes **14 tools **:
 | `memory/import-v1` | Import via Memory Exchange Protocol  |
 | `memory/claim` | Claim memories from an external export  |
 | `forget` | Forget a memory — set confidence to 0 and soft-delete (accepts `memory_id`, or a natural-language `query`) |
+| `consolidate` | Compression · memory consolidation — merge highly similar / synonymous memories into one representative memory; originals marked `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
+| `reflect` | Compression · enhanced reflection — totals by type / layer / fact type / confidence, top entities, fact-conflict detection, temporal density; `deep=true` adds cognitive-pattern discovery |
+| `dedup` | Compression · deduplication — detect duplicates and near-duplicates via content fingerprint + vector / term-frequency similarity; `dry_run=true` reports only |
 
 Connect any MCP host (Claude Desktop, Hermes Agent, etc.) by pointing it at the stdio command above.
 
@@ -210,7 +213,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Project Structure 
 
 ```
-Mnemosyne7.0.1/
+Mnemosyne7.0.2/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -238,7 +241,7 @@ python -m unittest tests.test_plugins -v
 ## Documentation 
 
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Deploy with DeepSeek Harness (via MCP)
-- `docs/KNOWN_DEFECTS.md` — Confirmed defects in the 7.0.1 memory stack, with evidence and fixes
+- `docs/KNOWN_DEFECTS.md` — Confirmed defects in the 7.0.2 memory stack, with evidence and fixes
 - `docs/RECALL_STRATEGY.md` — Recall mechanics and per-turn injection strategy assessment
 - `docs/ACCEPTANCE_GUIDE.md` — Acceptance guide (with `scripts/verify_memory_lifecycle.py`)
 - `README_CN.md` — 中文说明 (Chinese README)

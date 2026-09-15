@@ -91,12 +91,12 @@ def _get_ns(arguments):
     """Extract namespace from per-request arguments."""
     return arguments.get("namespace") if isinstance(arguments, dict) else None
 
-# ---------- 14 tools (includes audit + forget + namespace) ----------
+# ---------- 18 tools (includes audit + forget + namespace + recall_health) ----------
 TOOLS = [
     {"name":"retain","description":"写入记忆。content: 内容; mtype: 类型; tags: 标签数组（如 [\"偏好\",\"项目\"]）; confidence: 可信度0-1; importance: 重要性1-5; supersedes: 本记忆所更正的旧记忆id（更正场景，写入后旧记忆被标记 superseded）; namespace: 多租户隔离; project: 可选项目隔离",
      "inputSchema":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","enum":["semantic","episodic","procedural","preference","identity","lesson","strategy","reflective"],"default":"semantic"},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"},"importance":{"type":"integer"},"supersedes":{"type":"string"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["content"]}},
-    {"name":"recall","description":"检索记忆。query: 查询; k: 返回条数; namespace: 多租户隔离; project: 可选项目隔离。返回项含 memory_id（可直接用于 forget / retain(supersedes=)）与 verification——verification=superseded/outdated 表示该条已被更新的说法取代，不得当作当前事实引用",
-     "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer","default":5},"namespace":{"type":"string"},"project":{"type":"string"}},"required":["query"]}},
+    {"name":"recall","description":"检索记忆。query: 查询; k: 返回条数; namespace: 多租户隔离; project: 可选项目隔离; budget_tokens: 可选上下文预算（token），设定后返回 {results, cost_report}，cost_report 含 budget_limit/budget_used/dropped_count/truncated；compress/compress_level: 可选智能压缩。返回项含 memory_id（可直接用于 forget / retain(supersedes=)）、verification（superseded/outdated 表示该条已被更新的说法取代，不得当作当前事实引用）与 confidence_band（high/normal/low，low 已在服务端被相关性下限剔除，正常不会出现）",
+     "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer","default":5},"namespace":{"type":"string"},"project":{"type":"string"},"mtype":{"type":"string","description":"按记忆类型过滤（如 preference/semantic/identity）"},"tags":{"type":"array","items":{"type":"string"},"description":"标签数组过滤（任一命中即保留，OR 语义；与 mtype 为 AND 关系）"},"budget_tokens":{"type":"integer","description":"上下文预算（token）。设定后返回 {results, cost_report}，按分数降序逐条装箱，绝不超预算"},"compress":{"type":"boolean","default":False},"compress_level":{"type":"integer","default":2}},"required":["query"]}},
     {"name":"forget","description":"遗忘/删除记忆：把目标记忆的 confidence 降为 0 并标记 status=deleted（默认软遗忘，审计链与可信度轨迹保留、可回溯）。memory_id 与 query 二选一：给 query 时先按相关性解析目标。建议先用 dry_run=true 把候选报给用户确认，再执行。evict=true 为物理删除。",
      "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"query":{"type":"string"},"k":{"type":"integer","default":3},"dry_run":{"type":"boolean","default":False},"evict":{"type":"boolean","default":False},"reason":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"stats","description":"运行统计——写入/召回/Token节省等全维度；namespace: 可选",
@@ -105,8 +105,14 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"entity":{"type":"string"},"namespace":{"type":"string"}},"required":["entity"]}},
     {"name":"retain_batch","description":"批量写入（15x加速）；items 每项可为 {content, mtype, tags, confidence, importance}；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","default":"semantic"},"tags":{"type":"array","items":{"type":"string"}},"confidence":{"type":"number"},"importance":{"type":"integer"}},"required":["content"]}},"namespace":{"type":"string"},"project":{"type":"string"}},"required":["items"]}},
-    {"name":"doctor","description":"健康检查——扫描记忆库完整性、记录数、磁盘；namespace: 可选",
+    {"name":"doctor","description":"健康检查——扫描记忆库完整性、记录数、磁盘，并给出向量后端写/删成败记账（vector_ops）、向量插件实时健康度与熔断器状态（vector_backend）、图边规模与回填状态（graph）；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"}}}},
+    {"name":"recall_health","description":"召回质量只读指标——调用次数/空结果率/触发相关性下限被剔除的条数/平均返回条数/平均top1分/置信带分布/通道命中分布/延迟分位/向量后端成败/非法字符替换计数/胶囊缓存命中率/图边规模/最近20轮明细。用于判断'召回是否随会话时长退化'；namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"}}}},
+    {"name":"capsule","description":"取单条记忆的【记忆胶囊】：在给定预算内把一条记忆压成 指针+结构化事实+内容原子（数字/日期/金额/型号/URL/邮箱/引号原话）。原子在任何层级都完整保留，因此预算极小时仍能回答'多少钱/什么时候/哪个型号'这类追问；需要原文再用 expand。memory_id 或 ref 二选一；budget_tokens 默认 60",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"ref":{"type":"string"},"budget_tokens":{"type":"integer","default":60},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"expand","description":"按指针取回原文（精确展开）——压缩的逆运算，逐字回传原始内容并校验内容哈希。ref 形如 m:<id>#<hash>[@级别]，来自 recall/capsule 返回的 ref 或显示指针；namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"ref":{"type":"string"},"namespace":{"type":"string"}},"required":["ref"]}},
     {"name":"temporal_query","description":"时序查询——按时间排序返回版本链；namespace: 可选",
      "inputSchema":{"type":"object","properties":{"entity":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"list_projects","description":"列出所有项目名（多项目隔离）；namespace: 可选",
@@ -121,6 +127,12 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
     {"name":"memory/claim","description":"Claim memories from an external export (import-and-merge logic)。namespace: 可选; filepath: 导入目录路径",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
+    {"name":"consolidate","description":"压缩引擎·记忆合并：把高度相似/同义的记忆聚合并合并成一条代表性记忆，原记忆标记 consolidated。min_similarity: 相似度阈值(默认0.6); max_group: 每组最大条数(默认5); generate_summary: 是否生成合并摘要(默认true); dry_run: 仅统计不执行(默认false); namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"min_similarity":{"type":"number","default":0.6},"max_group":{"type":"integer","default":5},"generate_summary":{"type":"boolean","default":True},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"reflect","description":"压缩引擎·增强反思：统计记忆总量/类型/层/事实类型/可信度分布、抽取高频实体、检测事实冲突、时序密度；deep=true 额外做认知模式发现。question: 可选聚焦问题; namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"question":{"type":"string"},"deep":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"dedup","description":"压缩引擎·去重：基于内容指纹+向量/词频相似度检测重复与近似记忆，dry_run=true 仅报告不删除(默认false); namespace: 可选",
+     "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
 ]
 
 def handle_tools_list():
@@ -150,7 +162,34 @@ def handle_tools_call(name, arguments):
 
     elif name == "recall":
         query, k = arguments["query"], arguments.get("k", 5)
-        results = b.recall(query, k=k, project=project)
+        # v7.0.2（P2-1）：budget_tokens 必须在这里透传。
+        # 7.0.1 的 MCP 层**根本没有把 budget_tokens 传给 brain** —— 于是
+        # "按上下文预算取记忆"这条能力从工具侧完全不可达（工具 schema 里也没写），
+        # brain 里那套预算装箱代码等于死代码。compress / compress_level 同理。
+        _budget = arguments.get("budget_tokens")
+        _kw = {}
+        if _budget is not None:
+            try:
+                _kw["budget_tokens"] = max(1, int(_budget))
+            except (TypeError, ValueError):
+                _kw["budget_tokens"] = None
+        if arguments.get("compress") is not None:
+            _kw["compress"] = bool(arguments.get("compress"))
+        if arguments.get("compress_level") is not None:
+            try:
+                _kw["compress_level"] = int(arguments.get("compress_level"))
+            except (TypeError, ValueError):
+                pass
+        _raw = b.recall(query, k=k, project=project,
+                        mtype=arguments.get("mtype"),
+                        tags=arguments.get("tags"),
+                        **_kw)
+        # budget_tokens 设定时 brain 返回 (results, cost_report)；否则返回 list。
+        # 两者都必须能正常走下面的投影，不能因为多了个元组就整段失效。
+        if isinstance(_raw, tuple) and len(_raw) == 2 and isinstance(_raw[1], dict):
+            results, _cost = _raw
+        else:
+            results, _cost = _raw, None
         out = []
         for r in results:
             try:
@@ -169,10 +208,75 @@ def handle_tools_call(name, arguments):
                             # 不回传的话 Agent 无从分辨"哪条说法已被取代"。
                             "verification": r[1].get("verification", "unverified") if isinstance(r[1], dict) else None,
                             "superseded_by": r[1].get("superseded_by") if isinstance(r[1], dict) else None,
+                            # v7.0.2（P0-2）：置信带必须回传。7.0.1 只有归一化后的
+                            # score（最高分恒为 1.0，无绝对含义），Agent 无法判断
+                            # "这条到底有多相关"。confidence_band 由相关下限判定给出
+                            # 语义（high = 语义距离足够近），可作引用门槛。
+                            "confidence_band": (r[1].get("_relevance_band")
+                                                if isinstance(r[1], dict) else None),
+                            # v7.0.2（AIC）：胶囊信息。budget_tokens 生效时，放不进
+                            # 预算的条目会被压成胶囊而非丢弃 —— ref 用于 expand 取原文。
+                            "ref": ((r[1].get("_capsule") or {}).get("ref")
+                                    if isinstance(r[1], dict) else None),
+                            "capsule_level": ((r[1].get("_capsule") or {}).get("level")
+                                              if isinstance(r[1], dict) else None),
+                            "capsule_tokens": ((r[1].get("_capsule") or {}).get("tokens")
+                                               if isinstance(r[1], dict) else None),
+                            "lossless": ((r[1].get("_capsule") or {}).get("lossless")
+                                         if isinstance(r[1], dict) else None),
                             "flags": r[1].get("flags", []) if isinstance(r[1], dict) else []})
             except (ValueError, TypeError, IndexError):
                 pass
+        # 预算账目随结果回传（P2-1）：让 Agent 知道"是不是被预算砍了"。
+        if _cost is not None:
+            _idx = _cost.get("precision_index") or []
+            return {"results": out,
+                    "cost_report": _cost,
+                    # v7.0.2（AIC）：装不进正文预算的条目以**精准索引**形式回传
+                    # （指针 + 关键原子 + 预览），调用方按需 expand，不占正文预算。
+                    "precision_index": _idx,
+                    "budget_note": ("预算已生效：按分数降序逐条装箱，"
+                                    "tokens_consumed=%s/%s；原文装不下的条目已"
+                                    "压成胶囊 %d 条、索引 %d 条%s"
+                                    % (_cost.get("budget_used"), _cost.get("budget_limit"),
+                                       _cost.get("capsule_count") or 0, len(_idx),
+                                       "（受预算截断）" if _cost.get("truncated") else "")),
+                    "capsule_note": ("胶囊只含指针/事实/原子，原子（数字·日期·金额·"
+                                     "型号·URL）在任何层级都完整保留；需要原文请用 "
+                                     "expand(ref)。")}
         return {"results": out}
+
+    elif name == "capsule":
+        # v7.0.2（AIC）：单条记忆的胶囊 —— 比 recall 更省（无需检索），
+        # 比 expand 更省 token，且原子守恒。
+        key = arguments.get("memory_id") or arguments.get("ref")
+        if not key:
+            return {"error": "memory_id 与 ref 至少提供一个"}
+        try:
+            return b.capsule(key, budget_tokens=arguments.get("budget_tokens", 60))
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "expand":
+        ref = arguments.get("ref")
+        if not ref:
+            return {"error": "ref 参数必填"}
+        try:
+            return b.expand(ref)
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "recall_health":
+        # v7.0.2（P2-2）：召回质量只读指标。
+        # 为什么必须暴露给 Agent/运维：7.0.1 的"越聊越偏"是靠人工跑对照实验才挖出来的，
+        # 没有指标面就只能靠用户感觉"最近不太准"。有了这个工具，任何一次会话结束后
+        # 都能直接读到空结果率、top1 分趋势、相关性下限剔除量、延迟分位。
+        try:
+            health = b.recall_health()
+            health["namespace"] = ns or _default_namespace
+            return health
+        except Exception as e:
+            return {"error": str(e)}
 
     elif name == "stats":
         return b.stats_tracker.summary() if b.stats_tracker else {}
@@ -288,6 +392,40 @@ def handle_tools_call(name, arguments):
         except Exception as e:
             return {"error": str(e)}
 
+    elif name == "consolidate":
+        try:
+            report = b.consolidate(
+                dry_run=bool(arguments.get("dry_run", False)),
+                min_similarity=float(arguments.get("min_similarity", 0.6)),
+                max_group=int(arguments.get("max_group", 5)),
+                generate_summary=bool(arguments.get("generate_summary", True)),
+            )
+            result = report.to_dict() if hasattr(report, "to_dict") else dict(report)
+            result["namespace"] = ns or _default_namespace
+            return result
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "reflect":
+        try:
+            result = b.reflect(
+                question=arguments.get("question"),
+                deep=bool(arguments.get("deep", False)),
+            )
+            result["namespace"] = ns or _default_namespace
+            return result
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "dedup":
+        try:
+            result = b.dedup(dry_run=bool(arguments.get("dry_run", False)))
+            if isinstance(result, dict):
+                result["namespace"] = ns or _default_namespace
+            return result
+        except Exception as e:
+            return {"error": str(e)}
+
     return {"error": f"Unknown tool: {name}"}
 
 # ---------- JSON-RPC ----------
@@ -312,7 +450,7 @@ def handle_request(req):
         # Eagerly initialise the brain for the requested namespace
         _ensure_brain(namespace=ns_hint)
         result = {"protocolVersion":"2024-11-05",
-                  "serverInfo":{"name":"mnemosyne-memory","version":"7.0.1"},
+                  "serverInfo":{"name":"mnemosyne-memory","version":"7.0.2"},
                   "capabilities":{"tools":{}}}
         if ns_hint:
             result["namespace"] = ns_hint

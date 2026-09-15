@@ -11,7 +11,7 @@ from .utils import (_now_iso, _stable_id, _tokenize,)
 
 # === Cross-platform file lock ===
 import os as _os
-VERSION = "7.0.1"
+VERSION = "7.0.2"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -100,7 +100,7 @@ class MemoryStore:
                 if attempt < retries:
                     time.sleep(0.05 * attempt)
         else:
-            raise OSError(f"writes 记忆失败（已Retry {retries}  times）：{last_err}")
+            raise OSError(f"写入记忆失败（已重试 {retries} 次）：{last_err}")
         meta = self.read_meta()
         if meta is None:
             meta = {"count": 0, "schema": "mnemosyne-v2", "version": VERSION, "created_at": _now_iso()}
@@ -117,7 +117,7 @@ class MemoryStore:
         return record
 
     def append_batch(self, records, retries=3):
-        """批量追加writes 。"""
+        """批量追加写入 。"""
         self.ensure_init()
         with open(self.index_path, "a", encoding="utf-8") as f:
             for rec in records:
@@ -153,7 +153,7 @@ class MemoryStore:
                     yield rec
                 except json.JSONDecodeError:
                     yield {"_corrupt": True, "line_no": line_no,
-                           "content": f"[损坏line #{line_no} 已skips ]",
+                           "content": f"[损坏行 #{line_no} 已跳过]",
                            "id": f"corrupt-{line_no}"}
 
     def all_records(self):
@@ -197,7 +197,7 @@ class MemoryStore:
         return None
 
     def update_by_id(self, memory_id, updates):
-        """原地updates 某 memory records的Field。"""
+        """原地更新某条记忆记录的字段。"""
         records = self.all_records()
         found = False
         for r in records:
@@ -230,7 +230,7 @@ class MemoryStore:
         return len(cold)
 
     def tier(self, memory_id):
-        """返回记忆热度层级：L1(热/tier=hot或高频访问≥3)/L2(温/正常)/L3(冷/deleted)。不存在返回 None。"""
+        """返回记忆热度层级：L1(热/tier=hot 或高频访问≥3)/L2(温/正常)/L3(冷/deleted)。不存在返回 None。"""
         r = None
         for rec in self.all_records():
             if rec.get("id") == memory_id:

@@ -10,6 +10,35 @@ EMBEDDING_DIM = 128
 PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
+def _sanitize_tags(tags):
+    """清洗 tags：去孤立代理项 + 去空白 + 去重（保序）。
+
+    与 content 的 _sanitize 对称。tags 是用户/Agent 直接传入的自由文本，
+    历史写入路径（MCP retain / retain_batch）未清洗就落库，导致 SQLite 里
+    存了带 lone surrogate 的 tag（Qdrant payload / 严格 UTF-8 序列化会 400）。
+    此函数在 _build_record 处设闸，今后任何来源的脏 tags 都在入库前被
+    替换为合法占位符 ``?``（U+003F；实测 ``encode("utf-8", errors="replace")``
+    用的是 ``?`` 而非 U+FFFD），根治而非回填。
+    """
+    if not tags:
+        return []
+    out = []
+    seen = set()
+    for t in tags:
+        if t is None:
+            continue
+        t = str(t)
+        try:
+            t.encode("utf-8")
+        except UnicodeEncodeError:
+            t = t.encode("utf-8", errors="replace").decode("utf-8")
+        t = t.strip()
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
 def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
                   importance=None, expires_at=None, context="", meta=None,
                   # v2.0 新增Field
@@ -21,20 +50,24 @@ def _build_record(content, mtype="semantic", layer=None, tags=None, source=None,
                   session_id=None, tool_name=None,
                   # v7.0.0 性能：快速路径跳过 entities_detailed 抽取
                   skip_detailed=False):
-    """Build一条完整记忆Record。
+    """构建一条完整记忆记录。
 
-    v2.0 新增Field（向后兼容：v1.x reads 时自动填充默认Value）：
+    v2.0 新增字段（向后兼容：v1.x 读取时自动填充默认值）：
       - fact_type: fact/opinion/belief/observation/inference/hypothesis
       - confidence: 0-1 可信度
       - source_type: user/system/inference/web_search/file/agent_generated
       - verification: unverified/verified/contradicted/outdated/superseded
-      - event_time: Event实际发生Time（ISO）
-      - knowledge_time: Agent获知此信息的Time（ISO）
-      - embedding: 预computes 向量（可选，惰性computes ）
-      - graph_edges: 实体关系边列Table
+      - event_time: 事件实际发生时间（ISO）
+      - knowledge_time: Agent 获知此信息的时间（ISO）
+      - embedding: 预先计算向量（可选，惰性计算）
+      - graph_edges: 实体关系边列表
       - parent_id: 上级记忆ID（用于consolidation）
     """
     layer = layer or _default_layer(mtype)
+    # 入库闸口：tags 清洗（去孤立代理项/空白/去重），与 content 的 _sanitize 对称。
+    # 根治上游传入的脏 tags（历史路径未清洗导致 SQLite 里存了带 lone
+    # surrogate 的 tag，Qdrant 严格 UTF-8 序列化会 400）。
+    tags = _sanitize_tags(tags)
     # 自动推断 fact_type
     if fact_type is None:
         fact_type = _infer_fact_type(mtype, content)
@@ -97,7 +130,7 @@ def _default_layer(mtype):
 
 
 def _infer_fact_type(mtype, content):
-    """based on Type和内容推断事实Type。"""
+    """基于类型和内容推断事实类型。"""
     mapping = {
         "preference": "opinion", "belief": "belief",
         "observation": "observation", "lesson": "inference",
@@ -150,15 +183,15 @@ def _auto_importance(content, mtype, tags):
     content = content or ""
     if any(kw in content for kw in ["密码", "密钥", "token", "secret"]):
         score = max(score, 5)
-    if any(kw in content for kw in ["关Key", "重要", "必须", "核心", "决策"]):
+    if any(kw in content for kw in ["关键词", "重要", "必须", "核心", "决策"]):
         score = min(score + 1, 5)
-    if tags and any(t in (tags or []) for t in ["关Key", "重要", "core"]):
+    if tags and any(t in (tags or []) for t in ["关键词", "重要", "core"]):
         score = min(score + 1, 5)
     return score
 
 
 def _extract_event_time(content, record_created_at):
-    """从内容中提取EventTime（启发式）。"""
+    """从内容中提取事件时间（启发式）。"""
     # Date模式：YYYY-MM-DD 或 YYYY年MM月DD日
     m = re.search(r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})[日]?", content or "")
     if m:

@@ -1,4 +1,4 @@
-"""Security test and report generator for Mnemosyne 7.0.1 (Module 10/11).
+"""Security test and report generator for Mnemosyne 7.0.2 (Module 10/11).
 
 Runs security tests and generates ``security_report.md``.
 
@@ -168,11 +168,11 @@ def generate_report(cred_results, unicode_results, html_results,
     passed = sum(1 for r in all_results if r.get("passed"))
     total = len(all_results)
 
-    report = f"""# Mnemosyne 7.0.1 — Security Report
+    report = f"""# Mnemosyne 7.0.2 — Security Report
 
 ## Executive Summary
 
-This report documents the security test results for Mnemosyne 7.0.1,
+This report documents the security test results for Mnemosyne 7.0.2,
 covering credential detection, invisible Unicode detection, HTML comment
 injection detection, encryption, and MCP unauthorized access protection.
 
@@ -251,7 +251,7 @@ injection detection, encryption, and MCP unauthorized access protection.
 
 ## Conclusion
 
-Mnemosyne 7.0.1 implements comprehensive security controls including
+Mnemosyne 7.0.2 implements comprehensive security controls including
 credential detection, invisible Unicode scanning, HTML comment injection
 prevention, and optional Fernet encryption. The security posture is
 {'strong' if passed == total else 'adequate with some gaps'}, with

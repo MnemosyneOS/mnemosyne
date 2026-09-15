@@ -15,7 +15,7 @@ DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
 
 def _upgrade_record(rec):
-    """将 v1.x RecordUpgrade到 v2.0 格式。"""
+    """将 v1.x 记录升级到 v2.0 格式。"""
     if rec.get("_corrupt"):
         return rec
     # 确保 v2.0 Field存在
@@ -40,10 +40,10 @@ def _upgrade_record(rec):
 
 
 class MemoryGraphStore:
-    """记忆Knowledge Graph（实体-关系边存储）。
+    """记忆知识图谱（实体-关系边存储）。
 
     与主 JSONL 并存，存储在 graph.jsonl。
-    supports 实体Query、关系遍历、多跳扩展。
+    支持实体查询、关系遍历、多跳扩展。
     """
 
     def __init__(self, base_dir=DEFAULT_DIR):
@@ -92,7 +92,7 @@ class MemoryGraphStore:
         return list(self.iter_edges())
 
     def get_neighbors(self, entity, max_depth=1):
-        """获取指定实体的邻居Node（supports 多跳）。"""
+        """获取指定实体的邻居节点（支持多跳）。"""
         edges = self.all_edges()
         result = {
             "entity": entity,
@@ -112,7 +112,7 @@ class MemoryGraphStore:
         return result
 
     def search_path(self, from_entity, to_entity, max_depth=3):
-        """BFS查找两实体间的最短Path。"""
+        """BFS 查找两实体间的最短路径。"""
         if from_entity == to_entity:
             return [from_entity]
         edges = self.all_edges()
@@ -184,7 +184,7 @@ def _cosine(vec_a, vec_b):
 
 
 def _temporal_score(created_iso, now_ts, half_life_days=90):
-    """computes Time衰减分数。"""
+    """计算时间衰减分数。"""
     try:
         created_ts = datetime.fromisoformat(created_iso.replace("Z", "+00:00")).timestamp()
     except Exception:

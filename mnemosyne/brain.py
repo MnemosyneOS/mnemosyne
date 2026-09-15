@@ -12,15 +12,18 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger("mnemosyne.brain")
 
+from .capsule import (build_capsule, capsule_cache_stats, capsule_selfcheck,
+                      content_hash, display_ref, estimate_tokens, make_ref,
+                      parse_ref,)
 from .graph import (MemoryGraphStore, _cosine,)
 from .models import (_auto_importance, _build_record, _default_confidence, _default_layer, _extract_event_time, _infer_fact_type, _infer_source_type, ConsolidationReport, DemoteReport,)
 from .retrieval import (RetrievalEngine,)
 from .storage import (MemoryStore,)
-from .utils import (EmbeddingEngine, StatsTracker, _extract_relationships, _now_iso, _stable_id, _tf_vector, _tokenize, _utcnow_ts, compress_text, _memory_value, _normalize_template_hash, _content_signature, _compute_pair_similarity, _unique_salt, _redact_sensitive_fields,)
+from .utils import (EmbeddingEngine, StatsTracker, _content_atoms, _extract_relationships, _now_iso, _stable_id, _tf_vector, _tokenize, _utcnow_ts, compress_text, _memory_value, _normalize_template_hash, _content_signature, _compute_pair_similarity, _unique_salt, _redact_sensitive_fields, encode_replaced_stats,)
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.1"
+VERSION = "7.0.2"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -36,6 +39,29 @@ MEMORY_LAYERS = {"working", "episodic", "semantic", "procedural", "reflective"}
 FACT_TYPES = {"fact", "opinion", "belief", "observation", "inference", "hypothesis"}
 SOURCE_TYPES = {"user", "system", "inference", "web_search", "file", "agent_generated", "external"}
 VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "superseded"}
+
+# v7.0.2 (P0-1)：access_count 计数上限。与 retrieval 打分侧
+# `access_boost = 1.0 + 0.01 * min(access_count, 5)` 对齐 —— 超过 5 已无边际影响，
+# 继续累积只会让"老记忆"长期压过"当前相关记忆"。
+_ACCESS_COUNT_CAP = 5
+
+# v7.0.2 (P2-2)：召回质量指标的环形缓冲长度（进程内，供 recall_health 读取）
+_RECALL_HEALTH_RING = 200
+
+
+def _write_dedupe_config():
+    """写入侧语义去重的开关与门限（v7.0.2 P2-3）。
+
+    默认开启（`MNEMOSYNE_WRITE_DEDUPE=0` 可关闭），门限 0.95
+    （`MNEMOSYNE_WRITE_DEDUPE_THRESHOLD` 可调，钳制在 [0.5, 1.0]）。
+    """
+    raw = str(os.environ.get("MNEMOSYNE_WRITE_DEDUPE", "1")).strip().lower()
+    enabled = raw not in ("0", "false", "no", "off", "")
+    try:
+        thr = float(os.environ.get("MNEMOSYNE_WRITE_DEDUPE_THRESHOLD", "0.95"))
+    except (TypeError, ValueError):
+        thr = 0.95
+    return enabled, max(0.5, min(thr, 1.0))
 
 
 class MemoryBrain:
@@ -93,6 +119,15 @@ class MemoryBrain:
         # v7.0.0: 公证器局部扫描索引（实体倒排 + 内容指纹），避免每次 retain 全量读盘/遍历
         self._entity_index = None            # entity → list[record]
         self._fingerprint_index = None       # template_hash/fingerprint → list[record]
+
+        # v7.0.2 (P1-2)：向量后端写/删成败记账（插件熔断时会静默丢弃，必须可见化）
+        self._vector_ops = {}
+        # v7.0.2 (P2-2)：召回质量指标环形缓冲（进程内，供 recall_health 工具读取）
+        self._recall_health = {"n": 0, "empty": 0, "floor_dropped": 0,
+                               "returned_sum": 0, "top1_sum": 0.0, "top1_n": 0,
+                               "bands": {}, "channels": {}, "recent": []}
+        # v7.0.2 (P1-1)：存量数据的图边懒回填标记（每个进程只做一次）
+        self._graph_backfilled = False
 
         # v7.0.0: MemoryNotary
         from .notary import MemoryNotary
@@ -266,6 +301,19 @@ class MemoryBrain:
                 "status": "deleted",
                 "deleted_at": _now_iso(),
             })
+        # 同步向量索引：删除该记忆在向量后端里的点。
+        # 根因（实测）：软遗忘只改 status/confidence、硬删除只删 SQLite 行，
+        # 两条路径都不触碰向量后端 —— 于是"已遗忘"的记忆仍在 ANN 候选池里占位；
+        # 硬删除后 SQLite 行已不存在，检索层的 status 过滤也无从判断，
+        # 该点成为**永久孤儿**（dsh 命名空间实测 33 点中有 3 个这样的孤儿），
+        # 直接稀释语义候选池、拉低召回精度。
+        # 软遗忘同样回收：该记忆本就被输出侧过滤掉，留下向量只有占位成本，
+        # 没有任何召回收益；可回溯性由行/审计链/可信度轨迹保留，向量是可重建的派生索引。
+        try:
+            if hasattr(self.embed_engine, "remove"):
+                self._note_vector_op("remove", self.embed_engine.remove(memory_id))
+        except Exception as exc:
+            self._note_vector_op("remove", False, exc)
         try:
             self.store.audit_log({
                 "ts": _now_iso(),
@@ -372,6 +420,14 @@ class MemoryBrain:
         """解析"要操作哪条记忆"：给 memory_id 直接取；否则用 recall 按相关性找。
 
         返回 [(score|None, record), ...]。供 forget_targets 复用。
+
+        v7.0.2：这里**显式关闭相关性下限**（`apply_floor=False`）。
+        理由：本方法的语义是"**定位目标**"而不是"回答问题"——
+        用户描述天然含糊（"把那个 bge 维度的事忘掉"），若套用回答问题的下限，
+        返回空就等于"无法遗忘"，是功能性的破坏。安全性不靠阈值，而靠
+        ① 所有调用方先走 dry_run 把候选报给用户确认；② 报告里带 score 与
+        相关性置信带，让人自己判断像不像。详见 `retrieval.retrieve` 的
+        `apply_floor` 说明。
         """
         if memory_id:
             rec = self.store.find_by_id(memory_id)
@@ -379,7 +435,7 @@ class MemoryBrain:
         if not query:
             return []
         out = []
-        for item in self.recall(query, k=int(k or 3)):
+        for item in self.recall(query, k=int(k or 3), apply_floor=False):
             try:
                 out.append((round(float(item[0]), 4), item[1]))
             except (TypeError, ValueError, IndexError):
@@ -405,9 +461,16 @@ class MemoryBrain:
                 "confidence_before": rec.get("confidence"),
                 "status_before": rec.get("status", "active"),
                 "score": score,
+                # v7.0.2：目标解析不套相关性下限（见 resolve_targets 说明），
+                # 因此必须把"像不像"的判据交回调用方 —— 置信带 + 相关性原值。
+                "confidence_band": rec.get("_relevance_band"),
+                "semantic_similarity": rec.get("_relevance"),
             })
         report = {"dry_run": bool(dry_run), "targets": resolved,
-                  "count": len(resolved)}
+                  "count": len(resolved),
+                  "target_resolution": ("by_query(no_relevance_floor)"
+                                        if query and not memory_id
+                                        else "by_memory_id")}
         if dry_run:
             return report
         forgotten, failed = [], []
@@ -486,15 +549,46 @@ class MemoryBrain:
     
     def _budget_recall(self, query: str, budget_tokens: int, k: int = 5,
                        **kwargs: Any) -> Tuple[List[Any], Dict[str, Any]]:
-        """Budget-constrained recall. Returns (results, cost_report)."""
+        """Budget-constrained recall. Returns (results, cost_report).
+
+        v7.0.2（P2-1）起：预算**真正参与取舍**（prefix packing，见下方说明），
+        并把 `budget_limit` / `budget_used` / `dropped_count` / `truncated`
+        一并回传，让调用方能区分"结果就是这么少"与"预算被砍掉了"。
+        """
+        import time as _bt
+        _bt0 = _bt.time()
+        # v7.0.2 (P1-1) 收尾：与 recall() 同一处理 —— 预算路径也必须能看到存量图边，
+        # 否则同一个库"普通召回有图谱增强、预算召回没有"，两条路径结果不一致。
+        if not self._graph_backfilled:
+            try:
+                self._backfill_graph_edges()
+            except Exception as exc:
+                logger.debug("图边回填失败（忽略，不影响检索）：%s", exc)
+                self._graph_backfilled = True
+
         # Token counter
         def _count_tokens(text):
+            """预算口径的 token 计数（v7.0.2 修正）。
+
+            【为什么必须改】原实现无分词器时用「4 字符 ≈ 1 token」—— 那是**英文**
+            经验值。中文一个字通常就是 1 个 token，于是 `len(text)//4` 把中文上下文
+            体积低估到 **1/3~1/4**：调用方写 `budget_tokens=40`（本意是"只给我
+            几十个 token"），实际被塞进 150+ token 的中文原文 —— 预算形同虚设，
+            `capsule` 的分层降级路径**永远触发不到**，"极致短上下文"就只是口号。
+            实测：一条 66 字符的中文记忆按旧口径算 16 token，于是"40 token 预算"
+            把它整条原文返回了。
+            新口径：优先用真实分词器（tiktoken/transformers，显式配置时）；
+            否则用 `capsule.estimate_tokens` —— CJK 逐字计 1、拉丁按词计 1，
+            宁可**略高估**也不乐观低估（保守估算最多让上下文小一点，绝不爆窗）。
+            """
             if self.stats_tracker and hasattr(self.stats_tracker, '_tokenizer'):
-                try:
-                    return len(self.stats_tracker._tokenizer.encode(text))
-                except Exception as exc:
-                    logger.debug("可选功能降级，忽略异常：%s", exc)
-            return max(1, len(text) // 4)
+                _tk = getattr(self.stats_tracker, "_tokenizer", None)
+                if _tk is not None:
+                    try:
+                        return len(_tk.encode(text))
+                    except Exception as exc:
+                        logger.debug("可选功能降级，忽略异常：%s", exc)
+            return estimate_tokens(text)
 
         # Get candidates
         candidates = self.retrieval.retrieve(self.store, query, k=20, **kwargs)
@@ -506,10 +600,14 @@ class MemoryBrain:
                 "tokens_saved": 0,
                 "top_k_tokens": 0,
                 "budget_tokens": budget_tokens,
+                "budget_limit": budget_tokens,
+                "budget_used": 0,
+                "dropped_count": 0,
+                "truncated": False,
                 "query_tokens": _count_tokens(query),
                 "marginal_values": [],
             }
-        
+
         # Greedy selection by marginal value (score × confidence × 边际信息量)
         selected = []
         selected_contents = []
@@ -527,38 +625,127 @@ class MemoryBrain:
             return len(sa & sb) / len(sa | sb)
 
         # Sort candidates by score * confidence
+        # 注意：`rest`（每条结果自带的 reasons）必须**随条目一起带走**。
+        # 旧实现把它漏在循环外，`selected.append((score, record, *rest))` 用的是
+        # 上一个 for 循环泄漏的 `rest` —— 于是预算召回返回的每一条都带着
+        # **最后一个候选**的 reasons（一个真实但极难发现的元数据错挂）。
         scored = []
         for score, record, *rest in candidates:
             conf = record.get("confidence", 0.7) if isinstance(record, dict) else 0.7
             content = record.get("content", "") if isinstance(record, dict) else ""
             tok_count = _count_tokens(content)
             marginal = score * conf
-            scored.append((marginal, score, record, content, tok_count))
+            scored.append((marginal, score, record, content, tok_count, rest))
 
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        for marginal, score, record, content, tok_count in scored:
-            if tokens_consumed + tok_count > budget_tokens:
+        # ---- v7.0.2 (P2-1 + AIC)：严格「按分数降序逐条装箱」，装不下就**降级** ----
+        # 旧实现（≤7.0.1）遇到"下一条放不下"时用 `continue` 跳过 → 预算值不参与
+        # 取舍（实测 120/60/30 产出完全相同，参数形同虚设）。
+        # 7.0.2 起分两步：
+        #   ① 放得下 → 给**原文**（无损，最不可能出错）；
+        #   ② 放不下 → 不丢弃，而是压成**记忆胶囊**（指针 + 事实 + 原子，见
+        #      capsule.py）。胶囊保证"原子守恒 + 可逆 + 零幻觉"，于是"预算不够"
+        #      变成"精度分层"而不是"信息消失"。
+        #   ③ 连最小胶囊（指针+原子）都装不下 → 进 `precision_index`：
+        #      以**引用索引**形式随结果回传，**不计入正文预算**，由调用方决定
+        #      是否 expand。这样"严格不超预算"与"事实不丢"同时成立。
+        truncated = False
+        capsules = []
+        precision_index = []
+        for marginal, score, record, content, tok_count, rest in scored:
+            if tokens_consumed + tok_count <= budget_tokens:
+                # ① 原文装得下：无损直通
+                redundancy = max((_bigram_overlap(content, c) for c in selected_contents),
+                                 default=0.0)
+                marginal_adjusted = marginal * (1.0 - redundancy)
+                selected.append((score, record, *rest))
+                selected_contents.append(content)
+                tokens_consumed += tok_count
+                marginal_values.append(round(marginal_adjusted, 4))
+                if len(selected) >= 20:  # Cap at top-20
+                    break
                 continue
-            # 边际信息量：与已选内容的重叠越大，边际价值越低（冗余惩罚，避免
-            # 预算被近重复记忆占满；首条无已选内容，惩罚为 0）。
-            redundancy = max((_bigram_overlap(content, c) for c in selected_contents),
-                             default=0.0)
-            marginal_adjusted = marginal * (1.0 - redundancy)
-            selected.append((score, record, *rest))
-            selected_contents.append(content)
-            tokens_consumed += tok_count
-            marginal_values.append(round(marginal_adjusted, 4))
-            if len(selected) >= 20:  # Cap at top-20
+
+            # ② 放不下 → 胶囊降级（不是丢弃）
+            _remain = int(budget_tokens) - tokens_consumed
+            try:
+                cap = self._capsule_of(record, _remain, token_counter=_count_tokens)
+            except Exception as exc:
+                logger.debug("胶囊构建失败，转为索引项：%s", exc)
+                cap = None
+            if cap is not None and not cap["over_budget"] \
+                    and cap["level"] != "full" and len(selected) < 20:
+                _mini = self._capsule_record(record, cap)
+                redundancy = max((_bigram_overlap(cap["text"], c)
+                                  for c in selected_contents), default=0.0)
+                selected.append((score, _mini, *rest))
+                selected_contents.append(cap["text"])
+                tokens_consumed += cap["tokens"]
+                marginal_values.append(round(marginal * (1.0 - redundancy), 4))
+                capsules.append({"ref": cap["ref"], "display_ref": cap["display_ref"],
+                                 "level": cap["level"], "tokens": cap["tokens"],
+                                 "lossless": False})
+                truncated = True
+                continue
+
+            # ③ 连最小胶囊都装不下 → 只回传索引（不占正文预算）
+            if cap is None:
+                _min_tokens = None
+            else:
+                _min_tokens = cap.get("min_tokens")
+            precision_index.append({
+                "ref": (cap or {}).get("ref") or make_ref(record.get("id") or "", content),
+                "display_ref": (cap or {}).get("display_ref"),
+                "level": (cap or {}).get("level"),
+                "tokens": (cap or {}).get("tokens"),
+                "min_tokens": _min_tokens,
+                "original_tokens": tok_count,
+                "atoms": (cap or {}).get("atoms") or [],
+                "preview": (content or "")[:40],
+                "over_budget": True,
+            })
+            truncated = True
+            if len(precision_index) >= 20:
                 break
-        
+
+        # 预算连一条完整条目都放不下 → 至少给**首条的最小胶囊**并显式标注。
+        # 为什么不是静默返回空：调用方已明确"用预算换上下文"，给出**标注过**的
+        # 首条远好于给空结果 —— 静默返回空会让 Agent 误以为"没有相关记忆"。
+        # 注意这里用胶囊而非原文：原文必然超预算，而胶囊只保留事实与指针。
+        budget_respected = True
+        if not selected and scored:
+            _m, _s, _rec, _content, _tok, _rest = scored[0]
+            try:
+                _cap = self._capsule_of(_rec, max(1, int(budget_tokens)),
+                                        token_counter=_count_tokens)
+            except Exception:
+                _cap = None
+            if _cap is not None:
+                selected.append((_s, self._capsule_record(_rec, _cap), *_rest))
+                selected_contents.append(_cap["text"])
+                tokens_consumed = _cap["tokens"]
+                budget_respected = not _cap["over_budget"]
+                capsules.append({"ref": _cap["ref"], "display_ref": _cap["display_ref"],
+                                 "level": _cap["level"], "tokens": _cap["tokens"],
+                                 "lossless": _cap["lossless"]})
+                marginal_values.append(round(_m, 4))
+            else:
+                selected.append((_s, _rec, *_rest))
+                selected_contents.append(_content)
+                tokens_consumed = min(_tok, max(1, int(budget_tokens)))
+                budget_respected = tokens_consumed <= int(budget_tokens)
+                marginal_values.append(round(_m, 4))
+            truncated = True
+
         # 计算 top_k_tokens：无预算时本应送入的全部候选 token 数。
         # _budget_recall 的候选池为 top-20（retrieve k=20），无预算即全部送入，
         # 因此基线 = 全部候选 token 之和；预算选择是其子集，故恒有
         # top_k_tokens >= tokens_consumed（token 经济学：预算只会省，不会多花）。
         top_k_tokens = sum(_count_tokens(r.get("content", "") if isinstance(r, dict) else "")
                            for _, r, *_ in candidates)
-        
+        _index_tokens = sum(int(p.get("tokens") or 0) for p in precision_index)
+
         cost_report = {
             "selected": [s[0] for s in selected],
             "selected_count": len(selected),
@@ -566,10 +753,34 @@ class MemoryBrain:
             "tokens_saved": max(0, top_k_tokens - tokens_consumed),
             "top_k_tokens": top_k_tokens,
             "budget_tokens": budget_tokens,
+            # v7.0.2 (P2-1)：把预算账目显式回传，让 Agent 自己判断"够不够用、
+            # 要不要追问"，而不是拿到一个长度不明、来路不明的上下文块。
+            "budget_used": tokens_consumed,
+            "budget_limit": budget_tokens,
+            "budget_respected": budget_respected,
+            "dropped_count": max(0, len(scored) - len(selected)),
+            "truncated": truncated,
             "query_tokens": _count_tokens(query),
             "marginal_values": marginal_values,
+            # v7.0.2 (AIC)：降级与索引账目
+            "capsule_count": len(capsules),
+            "capsules": capsules,
+            "indexed_count": len(precision_index),
+            "index_tokens": _index_tokens,
+            "precision_index": precision_index,
+            "capsule_cache": capsule_cache_stats(),
         }
-        
+
+        # v7.0.2 (P2-2)：预算路径同样进质量指标，否则 recall_health 只统计到
+        # "非预算"那一半调用，指标面失真（用 budget_tokens 的 Agent 恰好是最需要
+        # 看"截断率/空结果率"的那批）。
+        try:
+            self._accumulate_recall_health(
+                getattr(self.retrieval, "last_recall_metrics", None),
+                latency_ms=(_bt.time() - _bt0) * 1000)
+        except Exception as exc:
+            logger.debug("召回指标累积失败（忽略）：%s", exc)
+
         return selected, cost_report
 
     def show_stats(self, on=True):
@@ -582,7 +793,7 @@ class MemoryBrain:
         s = self.stats_tracker.summary() if self.stats_tracker else {}
         saved = s.get("estimated_tokens_saved", 0)
         print(f"[Mnemosyne] {action} | 写入{s.get('today_retain','?')} 检索{s.get('today_recall','?')} | "
-              f"命中率{s.get('today_hit_rate',0):.0%} | 拦截未送入LLM≈{saved}Token | {detail}")
+              f"命中率{s.get('today_hit_rate',0):.0%} | 拦截未送入 LLM ≈{saved}Token | {detail}")
 
     def ensure_init(self):
         self.store.ensure_init()
@@ -683,7 +894,7 @@ class MemoryBrain:
         th = (record.get("meta") or {}).get("template_hash")
         if th is None:
             th = hashlib.sha256(
-                MemoryBrain._normalize_for_hash(content).encode("utf-8")
+                MemoryBrain._normalize_for_hash(content).encode("utf-8", errors="surrogatepass")
             ).hexdigest()[:16]
         candidates = []
         seen = set()
@@ -753,9 +964,11 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
                     logger.debug("可选功能降级，忽略异常：%s", exc)
                 if record.get("embedding") and hasattr(self.embed_engine, "add"):
                     try:
-                        self.embed_engine.add(record["id"], record["embedding"])
+                        self._note_vector_op("add", self.embed_engine.add(
+                            record["id"], record["embedding"],
+                            tags=record.get("tags"), mtype=record.get("type")))
                     except Exception as exc:
-                        logger.debug("可选功能降级，忽略异常：%s", exc)
+                        self._note_vector_op("add", False, exc)
         else:
             record = _build_record(content, mtype=mtype, **kwargs)
             if not record.get("event_time"):
@@ -777,9 +990,11 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
                 # 语义候选召回（阶段3 修复：此前插件向量索引从未被填充）
                 if record.get("embedding") and hasattr(self.embed_engine, "add"):
                     try:
-                        self.embed_engine.add(record["id"], record["embedding"])
+                        self._note_vector_op("add", self.embed_engine.add(
+                            record["id"], record["embedding"],
+                            tags=record.get("tags"), mtype=record.get("type")))
                     except Exception as exc:
-                        logger.debug("可选功能降级，忽略异常：%s", exc)
+                        self._note_vector_op("add", False, exc)
             conflicts = self._detect_conflicts_at_write(record)
             if conflicts:
                 record["meta"]["write_conflicts"] = conflicts
@@ -834,7 +1049,7 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
         record["version"] = 1
         record.setdefault("meta", {})
         record["meta"]["template_hash"] = hashlib.sha256(
-            MemoryBrain._normalize_for_hash(content).encode("utf-8")
+            MemoryBrain._normalize_for_hash(content).encode("utf-8", errors="surrogatepass")
         ).hexdigest()[:16]
         old = self._ensure_template_index().get(record["meta"]["template_hash"])
         if old and old[2] != "deleted":
@@ -848,6 +1063,27 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
                     [r for r in self.store.all_records() if r["id"] != old[0]]
                     + [full_old])
                 did_rewrite = True
+
+        # ---- v7.0.2 (P2-3): 写入侧语义去重（近似重复 → 并入既有记忆）----
+        # 位置：紧跟"精确重复（template_hash 相同）走版本递增"之后、落盘之前。
+        # 精确重复已被上一步吃掉，这里处理的是**近似重复**（0.95 ≤ sim < 1.0）：
+        # 同一条偏好被反复重述会堆成多条高度相似的 active 记忆（实测 dedup 报出
+        # 5 对 0.98~0.986 的重复），它们白占 ANN 候选位、让 Top-K 被同一事实的多个
+        # 变体塞满 —— 事前收口比事后 dedup 更省也更准。
+        # 边界：显式 `supersedes=` 的更正路径**不参与**（用户明确要求版本链）。
+        if _supersedes_id is None and not did_rewrite:
+            _dd_on, _dd_thr = _write_dedupe_config()
+            if _dd_on:
+                try:
+                    _dup, _dup_sim = self._find_near_duplicate(record, content, _dd_thr)
+                except Exception as exc:
+                    _dup, _dup_sim = None, 0.0
+                    logger.debug("写入侧去重：检测失败，按新增处理：%s", exc)
+                if _dup is not None:
+                    _merged_id = self._merge_near_duplicate(_dup, record, content, _dup_sim)
+                    if _merged_id:
+                        return _merged_id
+                    # 合并落库失败 → 继续走正常新增路径（宁可重复，绝不丢数据）
         
         # v7.0.0: crypto 加密（content 字段静态加密，密钥缺失时静默跳过）
         if getattr(self, "crypto_plugin", None) is not None and getattr(self.crypto_plugin, "available", False):
@@ -915,7 +1151,7 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
         return record["id"]
 
     def retain_batch(self, items: List[Any], fast: bool = False) -> List[Dict[str, Any]]:
-        """批量writes 。items: [(content, mtype, kwargs), ...]
+        """批量写入。items: [(content, mtype, kwargs), ...]
         fast=True: 跳过实体详抽/图谱构建；**向量索引仍然保留**（语义检索依赖它）"""
         records = []
         for item in items:
@@ -939,11 +1175,39 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
                     logger.debug("可选功能降级，忽略异常：%s", exc)
                 if rec.get("embedding") and hasattr(self.embed_engine, "add"):
                     try:
-                        self.embed_engine.add(rec["id"], rec["embedding"])
+                        self.embed_engine.add(rec["id"], rec["embedding"],
+                                              tags=rec.get("tags"),
+                                              mtype=rec.get("type"))
                     except Exception as exc:
                         logger.debug("可选功能降级，忽略异常：%s", exc)
             records.append(rec)
         self.store.append_batch(records)
+        # v7.0.2: Audit log（对齐单条 retain 的审计链）。
+        # 根因：retain_batch 此前从不写 audit_log / confidence_history，
+        # 导致经批量路径写入的记忆在 audit() 查询里 0 条记录——
+        # "用户明确让记、说记住了，但审计链查无此记"的根因即此。
+        # 对齐单条 retain（行 865 / 874）：写入即留审计链 + 可信度轨迹。
+        for rec in records:
+            _rid = rec.get("id", "")
+            _content = rec.get("content", "") or ""
+            try:
+                self.store.audit_log({
+                    "ts": _now_iso(),
+                    "actor": self.actor,
+                    "action": "retain_batch",
+                    "target_id": _rid,
+                    "details": {"content_preview": _content[:50],
+                                "mtype": rec.get("type", "semantic"),
+                                "tags": rec.get("tags", [])},
+                })
+                self.store.add_confidence_history(_rid, {
+                    "ts": _now_iso(),
+                    "confidence": rec.get("confidence", 0.7),
+                    "reason": "retain_batch",
+                })
+                self._index_record(rec)
+            except Exception as exc:
+                logger.debug("可选功能降级，忽略异常：%s", exc)
         return records
 
     def _detect_conflicts_at_write(self, new_record):
@@ -979,20 +1243,46 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
     def recall(self, query: str, k: int = 5, project: Optional[str] = None,
                compress: bool = False, compress_level: int = 2,
                budget_tokens: Optional[int] = None,
+               mtype: Optional[str] = None,
+               tag: Optional[str] = None,
+               tags: Optional[list] = None,
                **kwargs: Any) -> Union[List[Any], Tuple[List[Any], Dict[str, Any]]]:
         """检索记忆。project: 可选，只检索该项目下的记忆。自动记录命中率和延迟。
+
+        结构化过滤（混合检索）：
+        - mtype: 按记忆类型精确过滤（如 "preference"）
+        - tag:   按单标签过滤
+        - tags:  按多标签 OR 过滤（命中任一 tag 即保留；与 mtype 为 AND 关系）
+        向量语义通道（Qdrant 插件）会把 mtype/tags 作为 payload filter 透传；
+        SQLite/FTS5 通道在 retrieve 入口做记录级过滤。
 
         返回值：默认稳定为 list（(score, record, reasons) 列表）；
         budget_tokens 设置时显式返回 (results, cost_report) 元组。
         """
         import time
         t0 = time.time()
+
+        # v7.0.2 (P1-1) 收尾：存量数据的图边懒回填。
+        # 为什么放在 recall 入口：图通道（5 路融合中权重 0.10）依赖 graph.jsonl /
+        # edges 表里的边，而 7.0.1 之前的所有写入都**没有产生任何边**（抽取器打不出
+        # 三元组）。只修抽取器只会让"新写入"有图，老记忆仍然查不到 —— 用户视角就是
+        # "明明记过，图谱里却没有"。回填本身是幂等的（进程内标志 + 目录内标记文件），
+        # 且失败/无图可补都只是 no-op，绝不影响 recall 主路径。
+        if not self._graph_backfilled:
+            try:
+                self._backfill_graph_edges()
+            except Exception as exc:
+                logger.debug("图边回填失败（忽略，不影响检索）：%s", exc)
+                self._graph_backfilled = True
         
         # v7.0.0: Budget-constrained recall
         if budget_tokens is not None:
-            return self._budget_recall(query, budget_tokens, k=k, project=project, **kwargs)
+            return self._budget_recall(query, budget_tokens, k=k, project=project,
+                                       mtype=mtype, tag=tag, tags=tags, **kwargs)
         
-        results = self.retrieval.retrieve(self.store, query, k=k, **kwargs)
+        results = self.retrieval.retrieve(self.store, query, k=k,
+                                           mtype=mtype, tag=tag, tags=tags,
+                                           **kwargs)
         # v7.0.0: crypto 解密（读取时还原 content 字段）
         if getattr(self, "crypto_plugin", None) is not None and getattr(self.crypto_plugin, "available", False):
             _dec = []
@@ -1038,6 +1328,10 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
         hit = len(results) > 0
         if results:
             self._touch_recalled(results)
+        # v7.0.2 (P2-2)：累积召回质量指标（recall_health 只读工具的数据来源）
+        self._accumulate_recall_health(
+            getattr(self.retrieval, "last_recall_metrics", None),
+            latency_ms=(time.time() - t0) * 1000)
         # --- 分层协同：BM25 不足 K 个时，回调外部向量库（L2）补充 ---
         if self.semantic_hook and len(results) < k:
             try:
@@ -1141,7 +1435,7 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
     # ---- Memory Reflection（增强版：认知级反思） ----
 
     def reflect(self, question=None, deep=False):
-        """增强反思：counts  + 冲突 + 趋势 + 认知模式Found 。"""
+        """增强反思：计数 + 冲突 + 趋势 + 认知模式发现。"""
         records = [r for r in self.store.all_records()
                    if not r.get("_corrupt") and r.get("status") != "deleted"]
         insights = {
@@ -1203,7 +1497,7 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         return insights
 
     def _discover_patterns(self, records):
-        """从记忆中自动Found line为/认知模式。"""
+        """从记忆中自动发现行为/认知模式。"""
         patterns = []
 
         # 偏好聚合：从preference和reflectiveType提取
@@ -1328,6 +1622,21 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
                     consolidated_rec["embedding"] = self.embed_engine.encode(summary_content)
 
                 self.store.append(consolidated_rec)
+                # 同步向量索引：合并产物必须进向量后端。
+                # 根因（实测）：上一行 if 已 encode 出 embedding 并随 append 落进
+                # SQLite，但**从未调用向量后端的 add()** —— 于是合并产物对语义召回
+                # 完全不可见（dsh 命名空间实测：2 条 [Memory Consolidation] 记录在
+                # SQLite 有 4096B 向量 blob，却在 Qdrant 里没有任何点）。
+                # 后果是把多条记忆合并成 1 条 active 记录，反而丢掉了 0.55 权重的
+                # 语义通道，等于"越压缩越召回不到"。与 retain() 的写法保持一致。
+                if consolidated_rec.get("embedding") and hasattr(self.embed_engine, "add"):
+                    try:
+                        self.embed_engine.add(
+                            consolidated_rec["id"], consolidated_rec["embedding"],
+                            tags=consolidated_rec.get("tags"),
+                            mtype=consolidated_rec.get("type"))
+                    except Exception as exc:
+                        logger.debug("可选功能降级，忽略异常：%s", exc)
                 for r in group_recs:
                     self.store.update_by_id(r["id"], {
                         "status": "consolidated",
@@ -1350,9 +1659,9 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
     # ---- 自学习循环 ----
 
     def self_learn(self, lookback_days=30):
-        """自学习循环：analyzes 近期交互，提炼可复用的line为策略。
+        """自学习循环：分析近期交互，提炼可复用的行为为策略。
 
-        Output策略记忆（strategyType），下 timesAgent可直接参考。
+        输出策略记忆（strategyType），下次 Agent 可直接参考。
         """
         records = [r for r in self.store.all_records()
                    if not r.get("_corrupt") and r.get("status") != "deleted"]
@@ -1375,7 +1684,7 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
             top_themes = [w for w, _ in common.most_common(8) if common[w] >= 2]
             if top_themes:
                 strategy = _build_record(
-                    content=f"常见问题模式：{', '.join(top_themes[:5])}。建议优先checks 这些领域避免重复错误。",
+                    content=f"常见问题模式：{', '.join(top_themes[:5])}。建议优先检查这些领域避免重复错误。",
                     mtype="strategy",
                     importance=4,
                     confidence=0.55,
@@ -1441,23 +1750,451 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
     def expire(self):
         return _expire_old(self.store)
 
+    def _note_vector_op(self, op, ok, exc=None):
+        """向量后端写/删的成败记账（v7.0.2 P1-2）。
+
+        【为什么需要】插件侧熔断器在 Qdrant 异常后会**直接 return**，
+        之后 30 秒内（`MNEMOSYNE_QDRANT_BREAKER`）的 `add()` / `remove()`
+        全部被**静默丢弃**，调用方无法区分"成功"与"丢弃"；而 `doctor` 过去
+        不暴露插件统计 —— 结果是一次瞬时抖动会让一批记忆永久失去语义索引，
+        且**无人知道**。这里把每次成败记账，并让"丢索引"变成可见告警。
+        """
+        key = "vec_%s_ok" % op if ok else "vec_%s_fail" % op
+        self._vector_ops[key] = self._vector_ops.get(key, 0) + 1
+        if not ok:
+            det = self._vector_ops.setdefault("vec_fail_detail", [])
+            if len(det) < 20:
+                det.append({"op": op, "at": _now_iso(),
+                            "error": (str(exc)[:160] if exc else None)})
+            n = self._vector_ops[key]
+            if n <= 5 or n % 50 == 0:
+                logger.warning("向量后端 %s 未成功（第 %d 次）：该记忆的语义索引可能缺失，"
+                               "权威数据已安全落库；请检查 Qdrant / 嵌入服务",
+                               op, n)
+        return ok
+
+    def _backfill_graph_edges(self, limit: int = 5000, force: bool = False):
+        """存量数据的图边懒回填（v7.0.2 P1-1 收尾）。
+
+        【为什么需要】P1-1 修好了抽取器（`A的B是C` → `用户 --is_a--> RTX 4090
+        (qualifier=显卡)`），但那只对**新写入**生效。7.0.1 及以前入库的记忆，
+        其 `graph_edges` 必然为空 —— 因为当时的抽取器连一条三元组都打不出来
+        （`graph_query("用户")` 实测恒为空列表）。于是"修好代码"之后用户仍会看到
+        "我明明记过，图谱里却没有"，这是典型的"改了但没生效"。
+
+        【做法】一次性扫描活跃记录，对**尚未在图里出现过**的（按 memory_id 判定）
+        用当前抽取器重算三元组并写入 graph.jsonl 与 SQLite edges 表。
+        幂等保证：
+          • 进程内标志 `self._graph_backfilled`
+          • 数据目录内的标记文件 `.graph_edges_backfilled_v702`
+            （跨进程也不重复做；`force=True` 可强制重跑）
+        安全边界：只**新增**边，绝不修改/删除任何记忆记录；单条抽取异常即跳过；
+        `limit` 限制单次回填的边数上限，避免首启卡顿（剩余部分下次调用继续）。
+        返回统计字典，便于 doctor / 诊断脚本读取。
+        """
+        if self.graph_store is None or not self.enable_graph:
+            self._graph_backfilled = True
+            return {"skipped": "graph_disabled"}
+        marker = os.path.join(self.base_dir, ".graph_edges_backfilled_v702")
+        if not force:
+            if self._graph_backfilled:
+                return {"skipped": "done_in_process"}
+            if os.path.exists(marker):
+                self._graph_backfilled = True
+                return {"skipped": "marker_present"}
+
+        # 1) 已有边的 memory_id 集合（判定"这条记忆是否已被图覆盖"）
+        try:
+            existing = {e.get("memory_id") for e in self.graph_store.iter_edges()
+                        if e.get("memory_id")}
+        except Exception as exc:
+            logger.debug("图边回填：读取既有边失败，跳过本次：%s", exc)
+            self._graph_backfilled = True
+            return {"skipped": "read_edges_failed"}
+
+        # 2) 找出缺口并重算三元组
+        new_edges = []
+        scanned = 0
+        covered = 0
+        try:
+            records = self.store.all_records()
+        except Exception as exc:
+            logger.debug("图边回填：读取记录失败，跳过本次：%s", exc)
+            self._graph_backfilled = True
+            return {"skipped": "read_records_failed"}
+        for r in records:
+            if len(new_edges) >= limit:
+                break
+            if not isinstance(r, dict):
+                continue
+            if r.get("status") == "deleted" or r.get("_corrupt"):
+                continue
+            rid = r.get("id")
+            if not rid:
+                continue
+            scanned += 1
+            if rid in existing:
+                covered += 1
+                continue
+            content = r.get("content") or ""
+            if not content:
+                continue
+            try:
+                rels = _extract_relationships(r.get("entities_detailed") or [],
+                                              content)
+            except Exception:
+                continue
+            for rel in rels:
+                if len(new_edges) >= limit:
+                    break
+                e = dict(rel)
+                e["memory_id"] = rid
+                new_edges.append(e)
+
+        # 3) 分批写入（图存储 + SQLite edges 表，与 retain 路径保持一致）
+        written = 0
+        for i in range(0, len(new_edges), 500):
+            chunk = new_edges[i:i + 500]
+            try:
+                self.graph_store.add_edges(chunk)
+                written += len(chunk)
+            except Exception as exc:
+                logger.debug("图边回填：写入 graph.jsonl 失败：%s", exc)
+            if hasattr(self.store, "add_edges") and self.store is not self.graph_store:
+                try:
+                    self.store.add_edges(chunk)
+                except Exception as exc:
+                    logger.debug("图边回填：写入 edges 表失败：%s", exc)
+
+        # 4) 边变了 → 检索侧的图通道缓存必须失效
+        if written:
+            try:
+                self._invalidate_retrieval_index()
+            except Exception:
+                pass
+        # 5) 落标记（写失败不影响本次结果，下次重做即可）
+        try:
+            with open(marker, "w", encoding="utf-8") as f:
+                f.write(json.dumps({"at": _now_iso(), "edges": written,
+                                    "scanned": scanned, "covered": covered},
+                                   ensure_ascii=False))
+        except Exception as exc:
+            logger.debug("图边回填：标记写入失败：%s", exc)
+        self._graph_backfilled = True
+        if written:
+            logger.info("图边回填完成：扫描 %d 条记录，补齐 %d 条边"
+                        "（原已覆盖 %d 条）", scanned, written, covered)
+        return {"scanned": scanned, "covered": covered, "edges_written": written}
+
+    # ---- v7.0.2 (AIC)：记忆胶囊与精确展开 ----
+
+    def _capsule_of(self, record, budget_tokens, token_counter=None):
+        """构建一条记忆的胶囊（内层封装，统一 token 计数口径）。"""
+        return build_capsule(record, budget_tokens, token_counter=token_counter,
+                             use_cache=True)
+
+    @staticmethod
+    def _capsule_record(record, cap):
+        """把胶囊渲染成一条"可返回的记录"（不修改原记录对象）。
+
+        为什么复制而不是原地改：`_cached_records` 里的 dict 是跨调用共享的索引
+        对象，原地改写 content 会污染整个检索索引（原文被胶囊覆盖）—— 那将是
+        灾难性的。复制一份只用于本次输出。
+        """
+        mini = dict(record)
+        mini["content"] = cap["text"]
+        mini["_capsule"] = {
+            "ref": cap["ref"], "display_ref": cap["display_ref"],
+            "level": cap["level"], "tokens": cap["tokens"],
+            "min_tokens": cap.get("min_tokens"),
+            "original_tokens": cap["original_tokens"], "ratio": cap["ratio"],
+            "lossless": cap["lossless"], "atoms": cap["atoms"],
+        }
+        return mini
+
+    def _load_record_for_ref(self, pr):
+        """按指针取记录：先精确命中 id，再退化为前缀匹配（短指针）。"""
+        rid = pr.get("id") or ""
+        rec = None
+        try:
+            rec = self.store.find_by_id(rid)
+        except Exception:
+            rec = None
+        if rec is not None:
+            return rec
+        try:
+            for r in self.store.all_records():
+                if str(r.get("id") or "").startswith(rid):
+                    return r
+        except Exception as exc:
+            logger.debug("按指针前缀查找失败：%s", exc)
+        return None
+
+    def expand(self, ref, verify=True):
+        """按指针取回**原文**（极限上下文精确压缩的逆运算）。
+
+        这是"极短上下文也能 100% 精准"的最后一环：胶囊把上下文压到几十个
+        token，里面只有指针 + 事实 + 原子；模型一旦需要原文（引用、复述、
+        核对细节），用 `expand(ref)` 逐字取回 —— 因此压缩**从不丢信息**，
+        只是把它分层存放。
+
+        `verify=True` 时校验内容哈希：若库里的正文与指针声明的不一致
+        （记录被改写 / id 复用 / 指针抄错），返回 ``verified=False`` 并给出
+        实际哈希，**不静默交付可疑内容**。
+        """
+        pr = parse_ref(ref) if isinstance(ref, str) else None
+        if pr is None:
+            return {"error": "指针格式非法（应形如 m:<id>#<hash>[@级别]）",
+                    "ref": ref, "verified": False}
+        rec = self._load_record_for_ref(pr)
+        if rec is None:
+            return {"error": "指针指向的记忆不存在（可能已被物理删除）",
+                    "ref": ref, "verified": False}
+        content = rec.get("content") or ""
+        if getattr(self, "crypto_plugin", None) is not None \
+                and getattr(self.crypto_plugin, "available", False):
+            try:
+                content = self.crypto_plugin.decrypt("content", content)
+            except Exception as exc:
+                logger.debug("可选功能降级，忽略异常：%s", exc)
+        actual = content_hash(content, 16)
+        want = (pr.get("hash") or "")
+        verified = True
+        if verify and want:
+            verified = actual.startswith(want.lower())
+        return {
+            "ref": make_ref(rec.get("id") or "", content, pr.get("level")),
+            "memory_id": rec.get("id"),
+            "level": pr.get("level"),
+            "lossless": True,
+            "content": content,
+            "content_chars": len(content),
+            "content_tokens": estimate_tokens(content),
+            "content_hash": actual,
+            "verified": bool(verified),
+            "verification_note": (None if verified else
+                                  "内容哈希与指针不符：该记忆可能已被改写，"
+                                  "请以本字段返回的正文为准并重新取指针"),
+            "type": rec.get("type") or rec.get("mtype") or "semantic",
+            "tags": rec.get("tags") or [],
+            "created_at": rec.get("created_at") or "",
+            "verification": rec.get("verification", "unverified"),
+            "superseded_by": rec.get("superseded_by"),
+            "status": rec.get("status", "active"),
+        }
+
+    def capsule(self, memory_id_or_ref, budget_tokens=None):
+        """取单条记忆的胶囊（按 id 或指针）。
+
+        用途：Agent 只需"这一条的关键事实"而不要全文时，直接取胶囊 ——
+        比 `recall` 更省（无需检索），比 `expand` 更省 token，
+        且**原子守恒**（数字/日期/型号/URL 全在）。
+        """
+        if budget_tokens is None:
+            budget_tokens = 60
+        # 参数既可以是完整/短指针（m:<id>[#hash][@level]），也可以直接给 memory_id
+        pr = parse_ref(memory_id_or_ref) if isinstance(memory_id_or_ref, str) else None
+        rec = self._load_record_for_ref(pr) if pr else None
+        if rec is None and isinstance(memory_id_or_ref, str):
+            # 退化为"直接按 id 取"（也支持 id 前缀，方便手工调用）
+            rec = self._load_record_for_ref({"id": memory_id_or_ref})
+        if rec is None:
+            return {"error": "记忆不存在（memory_id 或 ref 未命中）",
+                    "memory_id": memory_id_or_ref}
+        content = rec.get("content") or ""
+        cap = self._capsule_of(rec, int(budget_tokens))
+        ok, problems = capsule_selfcheck(cap, content)
+        return {
+            "ref": cap["ref"], "display_ref": cap["display_ref"],
+            "memory_id": cap["memory_id"], "level": cap["level"],
+            "text": cap["text"], "atoms": cap["atoms"], "facts": cap["facts"],
+            "tokens": cap["tokens"], "min_tokens": cap["min_tokens"],
+            "original_tokens": cap["original_tokens"], "ratio": cap["ratio"],
+            "lossless": cap["lossless"], "over_budget": cap["over_budget"],
+            "selfcheck_ok": ok, "selfcheck_problems": problems,
+            "note": ("胶囊只含指针/事实/原子，原子（数字·日期·金额·型号·URL 等）"
+                     "在任何层级都完整保留；需要原文请用 expand(ref)。"),
+        }
+
+    def _find_near_duplicate(self, record, content, threshold):
+        """找与 *content* 高度相似的既有活跃记忆（v7.0.2 P2-3 写入侧语义去重）。
+
+        候选池用向量后端的 ANN 检索（O(log n)），再用同维度 cosine 精判 ——
+        只有真正 ≥ threshold、**type 一致**、且**内容原子完全相同**才算近似重复。
+
+        【为什么必须加"原子相同"这一道】纯相似度判重会**改错事实**：
+        "用户的年假是 5 天" 与 "用户的年假是 15 天" 只差一个字符，cosine 实测
+        0.95+，只看相似度就会把后者并进前者 —— 结果是**新事实被旧事实吃掉**，
+        而用户与审计都看不出发生了什么。这是"记忆系统越用越不准"的最恶劣形态。
+        因此凡"改一个字就是另一个事实"的片段（数字/日期/金额/型号/URL/邮箱/
+        引号原话，见 `utils._content_atoms`）不同者，**相似度再高也绝不合并**。
+        方向取舍：宁可漏合并（多留一条近重复）也绝不误合并（改写事实）。
+
+        向量后端不可用时退化为最近写入的若干条 + 词频相似度（纯本地）。
+        """
+        pool = []
+        vec = record.get("embedding")
+        if vec and hasattr(self.embed_engine, "search"):
+            try:
+                for mid, _sim in self.embed_engine.search(vec, top_k=10):
+                    if mid:
+                        pool.append(mid)
+            except Exception as exc:
+                logger.debug("写入侧去重：向量候选获取失败：%s", exc)
+        if not pool:
+            try:
+                pool = [r.get("id") for r in self.store.all_records()
+                        if r.get("status") != "deleted"][-40:]
+            except Exception as exc:
+                logger.debug("写入侧去重：退化候选获取失败：%s", exc)
+                pool = []
+        new_atoms = _content_atoms(content)
+        best, best_sim = None, 0.0
+        for mid in pool:
+            if not mid or mid == record.get("id"):
+                continue
+            try:
+                r = self.store.find_by_id(mid)
+            except Exception:
+                r = None
+            if not r or r.get("status") == "deleted" or r.get("_corrupt"):
+                continue
+            if (r.get("type") or "semantic") != (record.get("type") or "semantic"):
+                continue
+            # 原子守恒硬约束：原子多重集不同 → 不是重复，是**另一个事实**。
+            if _content_atoms(r.get("content") or "") != new_atoms:
+                continue
+            try:
+                if vec and r.get("embedding") is not None \
+                        and self.embed_engine is not None:
+                    sim = float(self.embed_engine.similarity(vec, r["embedding"]))
+                else:
+                    sim = float(_compute_pair_similarity(
+                        {"content": content, "id": record.get("id")}, r, {},
+                        embed_engine=None))
+            except Exception:
+                continue
+            if sim > best_sim:
+                best, best_sim = r, sim
+        if best is not None and best_sim >= threshold:
+            return best, round(best_sim, 4)
+        return None, 0.0
+
+    def _merge_near_duplicate(self, old, new_record, content, sim):
+        """把近似重复的新写入**并入**既有记忆，而不是新增一条（v7.0.2 P2-3）。
+
+        为什么在写入侧收口：同一条偏好被反复重述（"我喜欢大窑汽水" /
+        "我爱喝大窑汽水"）会在库里堆成多条高度相似的活跃记忆 —— 实测 `dedup`
+        能报出 5 对 0.98~0.986 的重复。它们白占 ANN 候选位，并让 Top-K 被同一
+        事实的多个变体塞满（"越写越糊"）。事前收口比事后 dedup 更省，也更准。
+        合并规则：内容以最新表述为准、tags 取并集、confidence/importance 取高者、
+        version+1；向量随内容重算并**覆盖同一个点**（id 不变，无需删点）。
+        返回既有记忆的 id（库内 active 条目不增加）。
+        """
+        import hashlib as _hl
+        merged = dict(old)
+        merged["content"] = content
+        merged["tags"] = list(dict.fromkeys(
+            (old.get("tags") or []) + (new_record.get("tags") or [])))
+        try:
+            merged["confidence"] = max(float(old.get("confidence") or 0.7),
+                                       float(new_record.get("confidence") or 0.7))
+        except (TypeError, ValueError):
+            pass
+        try:
+            merged["importance"] = max(int(old.get("importance") or 3),
+                                       int(new_record.get("importance") or 3))
+        except (TypeError, ValueError):
+            pass
+        merged["version"] = int(old.get("version", 1)) + 1
+        merged["updated_at"] = _now_iso()
+        if self.embed_engine is not None and self.enable_embeddings:
+            try:
+                _emb = self.embed_engine.encode(content)
+                if _emb:
+                    merged["embedding"] = _emb
+            except Exception as exc:
+                logger.debug("写入侧去重：重算向量失败：%s", exc)
+        merged.setdefault("meta", {})
+        if isinstance(merged["meta"], dict):
+            merged["meta"]["merge_dedup"] = {"similarity": sim, "at": _now_iso()}
+        merged["meta"]["template_hash"] = _hl.sha256(
+            MemoryBrain._normalize_for_hash(content)
+            .encode("utf-8", errors="surrogatepass")).hexdigest()[:16]
+        try:
+            self.store.rewrite([r for r in self.store.all_records()
+                                if r.get("id") != merged["id"]] + [merged])
+        except Exception as exc:
+            logger.warning("写入侧去重：合并落库失败，回退为新增：%s", exc)
+            return None
+        if merged.get("embedding") and hasattr(self.embed_engine, "add"):
+            try:
+                self._note_vector_op("add", self.embed_engine.add(
+                    merged["id"], merged["embedding"],
+                    tags=merged.get("tags"), mtype=merged.get("type")))
+            except Exception as exc:
+                self._note_vector_op("add", False, exc)
+        try:
+            self.store.audit_log({
+                "ts": _now_iso(), "actor": self.actor,
+                "action": "retain_merge_dedup",
+                "target_id": merged["id"],
+                "details": {"similarity": sim, "content_preview": content[:50]},
+            })
+            self.store.add_confidence_history(merged["id"], {
+                "ts": _now_iso(), "confidence": merged.get("confidence", 0.7),
+                "reason": "write_dedup_merge", "flags": merged.get("flags", []),
+            })
+        except Exception as exc:
+            logger.debug("写入侧去重：审计写入失败：%s", exc)
+        if self.ledger is not None:
+            try:
+                self.ledger.append("retain_dedup", memory_id=merged["id"],
+                                   data_summary={"similarity": sim,
+                                                 "content_preview": content[:50]})
+            except Exception as exc:
+                logger.debug("写入侧去重：账本追加失败：%s", exc)
+        self._invalidate_retrieval_index()
+        self._template_index = None  # 强制下次重建（内容已变）
+        if self.stats_tracker:
+            self.stats_tracker.track_retain(len(content), content=content)
+            self.last_stats = self.stats_tracker.summary()
+        return merged["id"]
+
     def _touch_recalled(self, results):
         """更新命中记录的访问计数。
 
         v7.0.0 优化：只遍历命中结果（O(k)），不再全量扫描 O(N)——
         100k 规模下这是每次 recall 的关键热点。sqlite 后端把计数落库，
         并同步检索索引指纹，避免下一次 recall 触发全量重建。
+
+        v7.0.2（P0-1）：**计数语义收窄**。旧语义是"只要进入结果列表就算命中"，
+        于是与被查内容无关、只是被顺带列出的记忆也会累积 access_count，
+        再经 retrieval 的 access_boost 反哺排名 → 正反馈回路：
+        会话越长偏置越强，实测能把正确答案从 rank1 挤到 rank3。
+        新语义：仅当该条融合分落入 top1 的 90% 以内（即真被排到前位、
+        可能是用户要的那条）才 +1；计数上限 5，与打分侧
+        `min(access_count, 5)` 对齐（超过 5 已无边际影响）。
         """
         now = _now_iso()
+        _scores = [float(r[0]) for r in results
+                   if isinstance(r, (tuple, list)) and r
+                   and isinstance(r[0], (int, float))]
+        _gate = (max(_scores) * 0.90) if _scores else None
         touched = {}
         for r in results:
             rec = r[1] if isinstance(r, (tuple, list)) and len(r) > 1 else r
-            if isinstance(rec, dict) and rec.get("id"):
-                rid = rec["id"]
-                rec["access_count"] = (rec.get("access_count") or 0) + 1
-                rec["last_accessed_at"] = now
-                touched[rid] = {"access_count": rec["access_count"],
-                                "last_accessed_at": now}
+            if not (isinstance(rec, dict) and rec.get("id")):
+                continue
+            if (_gate is not None and isinstance(r, (tuple, list)) and r
+                    and isinstance(r[0], (int, float)) and float(r[0]) < _gate):
+                continue  # 尾部搭便车的记录不计数（原先会）
+            rid = rec["id"]
+            rec["access_count"] = min((rec.get("access_count") or 0) + 1,
+                                      _ACCESS_COUNT_CAP)
+            rec["last_accessed_at"] = now
+            touched[rid] = {"access_count": rec["access_count"],
+                            "last_accessed_at": now}
         if not touched:
             return
         if self.store_backend == "sqlite" and hasattr(self.store, "update_by_id"):
@@ -1466,11 +2203,106 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
                     self.store.update_by_id(rid, upd)
                 except Exception as exc:
                     logger.debug("访问计数落库失败：%s", exc)
+            # v7.0.2：把同一批更新同步回**共享检索索引记录**。
+            # 为什么现在必须显式同步：`retrieve()` 改为返回记录**副本**（消除跨调用
+            # 别名污染，见 `retrieval._snapshot`），于是上面就地改的是副本；不同步
+            # 的话索引里那份 access_count 要等下次索引重建才更新，等于"访问计数在
+            # 会话内不生效"。这里 O(1) 补齐，语义与落库一致。
+            for rid, upd in touched.items():
+                try:
+                    self.retrieval.sync_record(rid, upd)
+                except Exception as exc:
+                    logger.debug("访问计数同步索引失败：%s", exc)
             # 同步索引指纹：访问计数 UPDATE 会改变 db mtime，避免下次检索全量重建
             try:
                 self.retrieval._indexed_fingerprint = self.retrieval._store_fingerprint(self.store)
             except Exception:
                 pass
+
+    # ---- v7.0.2 (P2-2): 召回质量监控 ----
+
+    def _accumulate_recall_health(self, metrics, latency_ms=None):
+        """累积召回质量指标（v7.0.2 P2-2）。
+
+        为什么需要：7.0.1 的"越聊越偏"（access_boost 正反馈）是靠**人工对照实验**
+        才挖出来的 —— 没有指标面，这类"随会话时长退化"的质量问题只能靠运气发现。
+        这里把每轮 recall 的返回条数 / top1 分数 / 是否触发相关性下限 / 命中通道
+        分布 / 延迟落进环形缓冲，`recall_health` 只读工具即可直接读出趋势。
+        """
+        if not metrics:
+            return
+        h = self._recall_health
+        h["n"] += 1
+        if metrics.get("empty"):
+            h["empty"] += 1
+        h["floor_dropped"] += int(metrics.get("floor_dropped") or 0)
+        h["returned_sum"] += int(metrics.get("returned") or 0)
+        if metrics.get("top1") is not None:
+            h["top1_sum"] += float(metrics["top1"])
+            h["top1_n"] += 1
+        for k_, v_ in (metrics.get("bands") or {}).items():
+            h["bands"][str(k_)] = h["bands"].get(str(k_), 0) + int(v_)
+        for k_, v_ in (metrics.get("channels") or {}).items():
+            h["channels"][str(k_)] = h["channels"].get(str(k_), 0) + int(v_)
+        ring = h["recent"]
+        ring.append({
+            "at": _now_iso(),
+            "returned": metrics.get("returned"),
+            "top1": metrics.get("top1"),
+            "band": metrics.get("top1_band"),
+            "floor_dropped": metrics.get("floor_dropped"),
+            "empty": metrics.get("empty"),
+            "cache_hit": metrics.get("cache_hit"),
+            "latency_ms": (round(float(latency_ms), 2)
+                           if latency_ms is not None else None),
+        })
+        if len(ring) > _RECALL_HEALTH_RING:
+            del ring[:len(ring) - _RECALL_HEALTH_RING]
+
+    def recall_health(self):
+        """召回质量只读指标（v7.0.2 P2-2）。
+
+        输出：调用次数 / 空结果率 / 触发相关性下限被剔除的条数 / 平均返回条数 /
+        平均 top1 分 / 置信带分布 / 通道命中分布 / 延迟 p50·max /
+        向量后端写删成败（P1-2）/ 非法字符替换计数（P2-4）/ 最近 20 轮明细。
+        用途：跑一段真实会话后看"precision / 空结果率 / top1 分"是否随时间退化。
+        """
+        h = self._recall_health
+        n = h["n"]
+        lat = sorted(x["latency_ms"] for x in h["recent"]
+                     if x.get("latency_ms") is not None)
+        try:
+            from .retrieval import (REL_HIGH_SEMANTIC, REL_MIN_NGRAM,
+                                    REL_MIN_SEMANTIC)
+            thresholds = {"rel_min_semantic": REL_MIN_SEMANTIC,
+                          "rel_min_ngram": REL_MIN_NGRAM,
+                          "rel_high_semantic": REL_HIGH_SEMANTIC}
+        except Exception:
+            thresholds = {}
+        return {
+            "namespace": self.namespace,
+            "recall_calls": n,
+            "empty_results": h["empty"],
+            "empty_rate": round(h["empty"] / n, 4) if n else 0.0,
+            "floor_dropped_items": h["floor_dropped"],
+            "avg_returned": round(h["returned_sum"] / n, 3) if n else 0.0,
+            "avg_top1": round(h["top1_sum"] / h["top1_n"], 4) if h["top1_n"] else None,
+            "bands": dict(h["bands"]),
+            "channels": dict(h["channels"]),
+            "latency_ms": {"n": len(lat),
+                           "p50": lat[len(lat) // 2] if lat else None,
+                           "max": lat[-1] if lat else None},
+            "vector_backend_ops": dict(self._vector_ops),
+            "encoding_replacements": encode_replaced_stats(),
+            # v7.0.2 (AIC)：胶囊缓存命中率 —— 直接反映"上下文压缩是否稳定"
+            # （命中率越高，同一记忆在同一预算下产出的胶囊越一致，
+            #  上游 LLM 的前缀/KV 缓存越容易复用）。
+            "capsule_cache": capsule_cache_stats(),
+            "graph_edges": (None if self.graph_store is None else
+                            len(self.graph_store.all_edges())),
+            "thresholds": thresholds,
+            "recent": list(h["recent"][-20:]),
+        }
 
     def overwrite(self, memory_id: str, new_content: str, **kwargs: Any) -> Optional[str]:
         """覆盖某条记忆：软删旧版 + 追加新版（版本控制，保留历史）。返回新记录 id，失败返回 None。"""
@@ -1490,8 +2322,28 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         new_rec["parent_id"] = memory_id
         new_rec["supersedes"] = memory_id
         old["superseded_by"] = new_rec["id"]
+        # 向量：overwrite 经 _build_record 构建（该函数本身不编码），必须显式补上，
+        # 否则新版记忆落库时 embedding 恒为 None —— 语义通道（权重 0.55）永久缺失。
+        if self.embed_engine is not None and self.enable_embeddings:
+            try:
+                new_rec["embedding"] = self.embed_engine.encode(new_content)
+            except Exception as exc:
+                new_rec["embedding"] = None
+                logger.debug("可选功能降级，忽略异常：%s", exc)
         records.append(new_rec)
         self.store.rewrite(records)
+        # 同步向量索引：删旧点 + 写新点。与 forget/_dedup 同一根因 ——
+        # overwrite 此前只改 SQLite，新版不 add、旧版点不回收。
+        try:
+            if new_rec.get("embedding") and hasattr(self.embed_engine, "add"):
+                self._note_vector_op("add", self.embed_engine.add(
+                    new_rec["id"], new_rec["embedding"],
+                    tags=new_rec.get("tags"), mtype=new_rec.get("type")))
+            if hasattr(self.embed_engine, "remove"):
+                self._note_vector_op("remove", self.embed_engine.remove(memory_id))
+        except Exception as exc:
+            self._note_vector_op("upsert", False, exc)
+        self._invalidate_retrieval_index()
         return new_rec["id"]
 
     def evict_lru(self, max_records: Optional[int] = None,
@@ -1539,7 +2391,21 @@ older_than_days: 超过 N 天未访问即淘汰。
     # ---- 图Query ----
 
     def graph_query(self, entity: str, depth: int = 2) -> Dict[str, Any]:
-        """返回 {query, nodes, edges} 格式的图谱查询结果。"""
+        """返回 {query, nodes, edges} 格式的图谱查询结果。
+
+        v7.0.2（P1-1）：
+          • 入口先做一次存量图边懒回填 —— 否则 7.0.1 及以前入库的记忆在这里
+            永远查不到（这是"改好了但用户看不到效果"的典型场景）。
+          • edges 带出 `qualifier`（`A的B是C` 的属性限定词，如"显卡"），
+            使"用户的显卡是什么"这类按属性反问可被回答。
+        """
+        # 存量数据回填（幂等；失败不影响查询本身）
+        if not self._graph_backfilled:
+            try:
+                self._backfill_graph_edges()
+            except Exception as exc:
+                logger.debug("图边回填失败（忽略，不影响查询）：%s", exc)
+                self._graph_backfilled = True
         # 优先走后端原生 graph_query（SqliteBackend 有）
         if self.store is not self.graph_store and hasattr(self.store, "graph_query"):
             try:
@@ -1556,12 +2422,15 @@ older_than_days: 超过 N 天未访问即淘汰。
             all_edges = []
         for e in all_edges:
             if e.get("from") == entity or e.get("to") == entity:
-                edges.append({
+                _edge = {
                     "from": e.get("from"),
                     "relation": e.get("relation", "related_to"),
                     "to": e.get("to"),
                     "strength": e.get("strength"),
-                })
+                }
+                if e.get("qualifier"):
+                    _edge["qualifier"] = e["qualifier"]
+                edges.append(_edge)
                 nodes.add(e.get("from"))
                 nodes.add(e.get("to"))
         return {"query": entity, "nodes": sorted(nodes), "edges": edges}
@@ -1580,7 +2449,18 @@ older_than_days: 超过 N 天未访问即淘汰。
 
     def doctor(self) -> Dict[str, Any]:
         """健康检查——扫描记忆库完整性、记录数、磁盘空间。
-返回 dict: {status, total_records, active_records, corrupt_records, disk_free_mb, recommendation}"""
+
+        v7.0.2 新增三个诊断段（均为**增量**，旧键一个不改，向后兼容）：
+          • `vector_ops`   —— 向量后端写/删成败记账 + 失败明细（P1-2）
+          • `vector_backend` —— 插件自述健康度（Qdrant 可达性 / 点数 /
+             已知点 id 数 / 熔断器剩余时间 / 各原因丢弃计数）（P1-2）
+          • `graph`        —— 图边总数与回填状态（P1-1）
+        为什么必须进 doctor：7.0.1 的 doctor 只看"记录数/损坏数/磁盘"，
+        于是**"记忆都在、但语义索引丢了"、"图通道空转"这类故障完全隐形** ——
+        doctor 报 healthy，用户却觉得"召回不准"。
+        返回 dict: {status, total_records, active_records, corrupt_records,
+        disk_free_mb, recommendation, vector_ops, vector_backend, graph}
+        """
         import os
         records = self.store.all_records()
         active = [r for r in records if r.get("status", "active") != "deleted"]
@@ -1593,7 +2473,30 @@ older_than_days: 超过 N 天未访问即淘汰。
         except OSError as exc:
             logger.debug("doctor() 磁盘余量获取失败：%s", exc)
             disk_mb = -1
-        return {
+
+        # --- v7.0.2 (P1-2)：向量后端可观测性 ---
+        _vb = None
+        try:
+            _eng = self.embed_engine
+            if _eng is not None and hasattr(_eng, "health"):
+                _vb = _eng.health()
+        except Exception as exc:
+            _vb = {"error": str(exc)[:200]}
+        # --- v7.0.2 (P1-1)：图边统计 ---
+        _graph = {"enabled": bool(self.enable_graph and self.graph_store is not None),
+                  "backfilled": bool(self._graph_backfilled)}
+        try:
+            if self.graph_store is not None:
+                _edges = self.graph_store.all_edges()
+                _graph["edges"] = len(_edges)
+                _graph["entities"] = len({e.get("from") for e in _edges}
+                                         | {e.get("to") for e in _edges})
+                _graph["with_qualifier"] = sum(
+                    1 for e in _edges if e.get("qualifier"))
+        except Exception as exc:
+            _graph["error"] = str(exc)[:200]
+
+        diag = {
             "status": "healthy" if not corrupt else "needs_repair",
             "total_records": len(records),
             "active_records": len(active),
@@ -1601,8 +2504,21 @@ older_than_days: 超过 N 天未访问即淘汰。
             "deleted_records": len(records) - len(active),
             "brain_dir": self.base_dir,
             "disk_free_mb": disk_mb,
-            "recommendation": "Run brain.memory_repair()" if corrupt else "No issues found"
+            "recommendation": "Run brain.memory_repair()" if corrupt else "No issues found",
+            "vector_ops": dict(self._vector_ops),
+            "vector_backend": _vb,
+            "graph": _graph,
         }
+        # 向量写失败是"数据未丢但检索会变差"的隐性故障 —— 只提示、不改 status，
+        # 因为它不影响权威数据的完整性判定（doctor 的 status 语义保持稳定）。
+        _vfail = sum(v for k, v in self._vector_ops.items()
+                     if k.startswith("vec_") and k.endswith("_fail"))
+        if _vfail:
+            diag["recommendation"] = (
+                "向量后端有 %d 次写/删未成功（语义召回会退化，权威数据完好）；"
+                "请检查 Qdrant 与嵌入服务，必要时重跑 backfill。%s"
+                % (_vfail, diag["recommendation"]))
+        return diag
 
     def temporal_query(self, entity=None, limit=20):
         """时序查询——返回按时间排序的记录版本链。
@@ -2001,6 +2917,7 @@ def _dedup(store, dry_run=False, embed_engine=None):
     records = store.all_records()
     seen = {}
     merged = 0
+    dropped = []
     similar_pairs = []
     out = []
     for r in records:
@@ -2010,18 +2927,26 @@ def _dedup(store, dry_run=False, embed_engine=None):
         fp = _stable_id(r.get("content", ""))
         if fp in seen:
             merged += 1
+            dropped.append(r.get("id"))
             if not dry_run:
                 continue
         seen[fp] = r
         out.append(r)
     if len(out) <= 300:
+        # 每条内容只编码一次（O(n) 次 HTTP），而不是每个 pair 现编两次
+        # （O(n²) 次）。300 条上限下后者最坏 ≈9 万次调用，足以让 dedup 假死。
+        vecs = {}
+        if embed_engine is not None:
+            for r in out:
+                try:
+                    vecs[r["id"]] = embed_engine.encode(r.get("content", ""))
+                except Exception:
+                    pass
         for i in range(len(out)):
             for j in range(i + 1, len(out)):
-                if embed_engine:
-                    sim = embed_engine.similarity(
-                        embed_engine.encode(out[i].get("content", "")),
-                        embed_engine.encode(out[j].get("content", "")),
-                    )
+                vi, vj = vecs.get(out[i]["id"]), vecs.get(out[j]["id"])
+                if vi and vj:
+                    sim = embed_engine.similarity(vi, vj)
                 else:
                     sim = _cosine(
                         _tf_vector(_tokenize(out[i].get("content", ""))),
@@ -2031,6 +2956,27 @@ def _dedup(store, dry_run=False, embed_engine=None):
                     similar_pairs.append((out[i]["id"], out[j]["id"], round(sim, 3)))
     if not dry_run and merged > 0:
         store.rewrite(out)
+        # 同步向量索引：回收被去重掉的记录的点。
+        # 根因：store.rewrite(out) 只重建 SQLite，向量点原样留存 —— 与 forget
+        # 的硬删除同一后果：SQLite 行已消失，检索层无从过滤，成为永久孤儿点，
+        # 每去重一批就多污染一点 ANN 候选池（去重本该提升精度，实际反噬）。
+        if embed_engine is not None and hasattr(embed_engine, "remove"):
+            _rm_fail = 0
+            for mid in dropped:
+                if not mid:
+                    continue
+                try:
+                    if embed_engine.remove(mid) is False:
+                        _rm_fail += 1
+                except Exception as exc:
+                    _rm_fail += 1
+                    if _rm_fail <= 3:
+                        logger.debug("去重回收向量点失败：%s", exc)
+            if _rm_fail:
+                # v7.0.2 (P1-2)：失败必须可见 —— 否则"去重"会静默留下孤儿点，
+                # 反而稀释 ANN 候选池（这与去重的初衷完全相反）。
+                logger.warning("去重：%d/%d 个被去重记录的向量点未成功回收，"
+                               "将成为孤儿点并稀释语义候选池", _rm_fail, len(dropped))
     return {"merged": merged, "similar_pairs": similar_pairs[:20], "dry_run": dry_run}
 
 
@@ -2123,7 +3069,7 @@ def _capture_search(store, query, results_text, urls=None, title=None):
         content=snippet, mtype="web",
         tags=["web", "search"] + ([query[:20]] if query else []),
         source=source, importance=2,
-        context=f"联网searches 沉淀：{query}",
+        context=f"联网搜索沉淀：{query}",
         meta={"search_query": query, "capture_count": 1, "raw_urls": urls or []},
     )
     store.append(record)
@@ -2165,7 +3111,7 @@ def _export(store, fmt="json", out_path=None):
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         suffix = ".json"
     else:
-        lines = ["# Mnemosyne v7.0.1 记忆库exports ", "", f"exports Time：{_now_iso()}    共 {len(records)} 条", ""]
+        lines = ["# Mnemosyne v7.0.2 记忆库导出 ", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
         for r in records:
             lines.append(f"## [{r.get('type')}] [{r.get('fact_type', 'fact')}] {r.get('created_at', '')}")
             lines.append("")
@@ -2208,25 +3154,25 @@ def _hindsights_bench(brain, test_count=200):
     仅输出本机实测指标（延迟、数量），不做任何打分自评。
     """
     print("=" * 64)
-    print("  Mnemosyne v7.0.1 — 流水线自测（实测指标，不打分）")
+    print("  Mnemosyne v7.0.2 — 流水线自测（实测指标，不打分）")
     print("=" * 64)
     brain.ensure_init()
 
     results = {}
 
     # ---- 1. writes 机制Test ----
-    print("\n[1/6] writes 机制Test...")
+    print("\n[1/6] 写入机制测试...")
     test_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构设计。", "semantic"),
-        ("产品负责人哥偏好结论先line的回答风格，回答必须简短。", "preference"),
-        ("2026-08-07 完成了劳动仲裁一审起诉材料的commits 至横琴法院。", "episodic"),
+        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
+        ("2026-08-07 完成了劳动仲裁一审起诉材料的提交至横琴法院。", "episodic"),
         ("教训：hermes config set 对含点的嵌套 key 会拆错，必须用 Python 直接改 config.yaml。", "procedural"),
         ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect 三种核心操作。", "semantic"),
-        ("based on 过去20 times交互，用户多 times要求减少废话，偏好直接给Result。", "observation"),
+        ("根据过去 20 次交互，用户多次要求减少废话，偏好直接给结果。", "observation"),
         ("我认为未来 AI 记忆系统应当采用 Human-in-the-loop 模式。", "opinion"),
-        ("经过analyzes ，用户是Result导向型人格，建议先给结论再展开。", "belief"),
+        ("经过分析，用户是结果导向型人格，建议先给结论再展开。", "belief"),
         ("公司政策A在2026年1月废止，政策B于2026年3月生效。", "semantic"),
-        ("关Key决策：选择零依赖纯Python实现而非依赖PostgreSQL+pgvector。", "semantic"),
+        ("关键决策：选择零依赖纯Python实现而非依赖PostgreSQL+pgvector。", "semantic"),
     ]
     t0 = time.time()
     count = 0
@@ -2240,15 +3186,15 @@ def _hindsights_bench(brain, test_count=200):
     print(f"  writes  {count} 条，平均 {write_ms:.1f}ms/条")
 
     # ---- 2. 检索Test ----
-    print("\n[2/6] 检索能力Test...")
+    print("\n[2/6] 检索能力测试...")
     queries = [
-        ("Alice 在哪里Work？", "semantic"),
+        ("Alice 在哪里工作？", "semantic"),
         ("产品负责人哥的回答偏好", "preference"),
         ("劳动仲裁 横琴法院", "episodic"),
         ("hermes Config 教训", "procedural"),
         ("AI 记忆系统 架构", "semantic"),
         ("公司 政策 废止 生效", "semantic"),
-        ("用户 人格 line为模式", "belief"),
+        ("用户 人格 行为模式", "belief"),
     ]
     recall_times = []
     for q, _ in queries:
@@ -2260,7 +3206,7 @@ def _hindsights_bench(brain, test_count=200):
     print(f"  平均检索延迟：{results['recall_latency_ms_avg']}ms")
 
     # ---- 3. 反思Test ----
-    print("\n[3/6] 反思能力Test...")
+    print("\n[3/6] 反思能力测试...")
     t1 = time.time()
     ref = brain.reflect(deep=True)
     ref_time = (time.time() - t1) * 1000
@@ -2281,7 +3227,7 @@ def _hindsights_bench(brain, test_count=200):
     print(f"  巩固 {results['consolidate_groups']} 组记忆")
 
     # ---- 5. 自学习Test ----
-    print("\n[5/6] 自学习循环Test...")
+    print("\n[5/6] 自学习循环测试...")
     t1 = time.time()
     learn = brain.self_learn(lookback_days=365)
     learn_time = (time.time() - t1) * 1000
@@ -2297,7 +3243,7 @@ def _hindsights_bench(brain, test_count=200):
         graph_time = (time.time() - t1) * 1000
         results["graph_latency_ms"] = round(graph_time, 1)
         results["graph_query_ok"] = "depth_0" in neighbors
-        print(f"  图Query延迟：{graph_time:.1f}ms，Result正常：{results['graph_query_ok']}")
+        print(f"  图查询延迟：{graph_time:.1f}ms，结果正常：{results['graph_query_ok']}")
     else:
         results["graph_query_ok"] = False
         print("  图未启用")
@@ -2327,14 +3273,14 @@ def _hindsights_bench(brain, test_count=200):
 # ============================================================================
 
 def _benchmark(brain, count=2000):
-    print("\U0001f9ea Mnemosyne v7.0.1 性能基准Test")
+    print("\U0001f9ea Mnemosyne v7.0.2 性能基准测试")
     print("=" * 56)
     brain.ensure_init()
 
     t0 = time.time()
     for i in range(count):
         rec = _build_record(
-            f"benchmark memory {i}: 项目 {i % 50} 的关Key决策是选择模块化架构，负责人 Alice，Date 2026-08-07。",
+            f"benchmark memory {i}: 项目 {i % 50} 的关键决策是选择模块化架构，负责人 Alice，Date 2026-08-07。",
             mtype="semantic", tags=["benchmark", f"proj{i % 50}"], importance=(i % 5) + 1,
         )
         brain.store.append(rec)
@@ -2370,14 +3316,14 @@ def _benchmark(brain, count=2000):
 # ============================================================================
 
 def _demo(brain):
-    print("\U0001f9ea Mnemosyne v7.0.1 演示模式")
+    print("\U0001f9ea Mnemosyne v7.0.2 演示模式")
     print("=" * 50)
     brain.ensure_init()
 
     demo_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构。", "semantic"),
-        ("产品负责人哥偏好结论先line的回答风格，回答必须简短。", "preference"),
-        ("2026-08-07 完成了劳动仲裁一审起诉材料的commits 。", "episodic"),
+        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
+        ("2026-08-07 完成了劳动仲裁一审起诉材料的提交。", "episodic"),
         ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect。", "semantic"),
         ("我认为人 AI 记忆系统应该优先本地化、零依赖。", "belief"),
     ]
@@ -2388,14 +3334,14 @@ def _demo(brain):
               f"(confidence={rec.get('confidence', '?')}, importance={rec.get('importance', '?')})")
 
     print("-" * 50)
-    hits = brain.recall("Alice 在哪里Work？", k=3)
-    print("\U0001f9e0 recall 'Alice 在哪里Work？':")
+    hits = brain.recall("Alice 在哪里工作？", k=3)
+    print("\U0001f9e0 recall 'Alice 在哪里工作？':")
     for score, rec, reasons in hits:
         print(f"  -> [{rec.get('fact_type', '?')}] {rec['content'][:50]}  "
               f"(score={score:.3f}, {reasons})")
 
     print("-" * 50)
-    print("  \u2705 演示via ：v7.0.1 引擎可用。")
+    print("  \u2705 演示通过：v7.0.2 引擎可用。")
 
 
 # ============================================================================

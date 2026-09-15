@@ -7,7 +7,7 @@ and stored in a local Qdrant collection, which provides a persistent ANN
 index shared across processes instead of the per-process in-memory dict
 used by ``numpy_vector``.
 
-Design contract (verified against Mnemosyne 7.0.1 call sites)
+Design contract (verified against Mnemosyne 7.0.2 call sites)
 -------------------------------------------------------------
 ``available``
     Read at ``mnemosyne/brain.py:184`` to decide whether to splice this
@@ -17,24 +17,37 @@ Design contract (verified against Mnemosyne 7.0.1 call sites)
     is re-checked lazily on each call instead.
 
 ``encode(text)``
-    Called at ``brain.py:750/775/936/1328/1425``, ``retrieval.py:477`` and
+    Called at ``brain.py:763/789/951/1383/1567``, ``retrieval.py:540`` and
     ``cognitive.py:383/396``.  Returns a list[float] or ``None`` on
     failure (``None`` is tolerated by every call site).
 
-``add(memory_id, vector)``
-    Called at ``brain.py:756/780/942`` on the ``retain()`` /
-    ``retain_batch()`` write paths.
+``add(memory_id, vector, tags=None, mtype=None)``
+    Called at ``brain.py:769/794/957/1395/1577`` — on every write path that
+    produces a vector (``retain`` / ``retain_batch`` / ``consolidate`` /
+    ``overwrite``).  ``tags`` and ``mtype`` are stored in the point payload
+    so that ``search()`` can filter on them later.
 
-``search(query_vector, top_k)``
-    Called at ``retrieval.py:485`` for Path2a semantic candidate recall —
+``remove(memory_id)``
+    Called at ``brain.py:270`` (``forget``, both soft and ``evict=True``),
+    ``brain.py:2122`` region (``_dedup``) and ``brain.py:1578``
+    (``overwrite``, old version) — i.e. on every path that drops or
+    supersedes an authoritative record.  Without it those memories keep
+    occupying ANN candidate slots forever (hard-deleted ids are not even
+    visible to the retrieval-side ``status`` filter, so the point becomes a
+    permanent orphan).  Failure MUST stay non-fatal and never raise.
+
+``search(query_vector, top_k, tags=None, mtype=None)``
+    Called at ``retrieval.py:563`` for Path2a semantic candidate recall —
     the actual reason this plugin exists: it surfaces semantically
     equivalent memories that fall outside the FTS5 keyword candidate pool
     (``candidate_n=500``).  Returns ``[(memory_id, score), ...]`` sorted by
-    descending score.
+    descending score.  ``tags`` / ``mtype`` are optional payload filters;
+    callers probe support with a ``TypeError`` guard, so backends that do
+    not accept them keep working.
 
 ``similarity(vec_a, vec_b)``
-    Called *per candidate* at ``retrieval.py:495``, ``cognitive.py:399``,
-    ``utils.py:786`` and ``brain.py:2021``.  It MUST be pure local Python —
+    Called *per candidate* at ``retrieval.py:579``, ``cognitive.py:399``,
+    ``utils.py:786`` and ``brain.py:2122``.  It MUST be pure local Python —
     issuing an HTTP request here would turn one ``recall()`` into hundreds
     of round-trips.
 
@@ -123,7 +136,12 @@ class QdrantVectorBackend(VectorBackendPlugin):
         self._point_ids = {}
         self._stats = {"encoded": 0, "upserted": 0, "searched": 0,
                        "encode_errors": 0, "qdrant_errors": 0,
-                       "collection_created": 0}
+                       "collection_created": 0, "removed": 0,
+                       # v7.0.2 (P1-2)：把"被丢弃的写入"按原因分开计数 ——
+                       # dropped_breaker 是可重试的（熔断窗口内），其余三类是
+                       # 配置/依赖问题。混在一起会看不出该怎么修。
+                       "dropped_breaker": 0, "dropped_unavailable": 0,
+                       "dropped_no_collection": 0}
 
     # ------------------------------------------------------------------
     # helpers
@@ -305,15 +323,38 @@ class QdrantVectorBackend(VectorBackendPlugin):
             return 0.0
 
     def add(self, memory_id, vector, **kwargs):
-        """Upsert one memory vector into Qdrant (no-op on failure)."""
+        """Upsert one memory vector into Qdrant.  Returns True on success.
+
+        v7.0.2（P1-2）：**返回布尔**，不再裸 `return`。
+        为什么必须改：7.0.1 的熔断器在 Qdrant 异常后 `return`（返回 None），
+        之后 `MNEMOSYNE_QDRANT_BREAKER`（默认 30 秒）内的所有 `add()` 也直接
+        `return` —— 调用方拿到的都是 None，**无法区分"写成功"、"真失败"、
+        "被熔断静默丢弃"**。`brain._note_vector_op` 因此把 None 一律当失败，
+        指标虽然有了却分不清根因；更糟的是熔断窗口内的记忆会**永久**失去语义
+        索引而无人察觉（重启后也不会补）。
+
+        新语义：成功 True；失败/丢弃 False，并且：
+          • 因熔断器打开而丢弃 → 计入 `_stats["dropped_breaker"]`
+            （这是"可重试"的一类，与参数错误/维度不符等"不可重试"要分开看）
+          • 真失败 → 计入 `_stats["qdrant_errors"]` 并触发熔断
+        统计经 `health()["stats"]` 暴露，`brain.recall_health()` 汇总。
+        """
         if not self._available or not vector:
-            return
-        if self._breaker_open("qdrant") or not self._ensure_collection():
-            return
+            self._stats["dropped_unavailable"] = \
+                self._stats.get("dropped_unavailable", 0) + 1
+            return False
+        if self._breaker_open("qdrant"):
+            # 关键：这条记忆此刻**没有**进入向量库，且不会自动补写。
+            self._stats["dropped_breaker"] = self._stats.get("dropped_breaker", 0) + 1
+            return False
+        if not self._ensure_collection():
+            self._stats["dropped_no_collection"] = \
+                self._stats.get("dropped_no_collection", 0) + 1
+            return False
         try:
             pid = self._point_id(memory_id)
             payload = {"memory_id": str(memory_id), "collection": self.collection}
-            for key in ("namespace", "layer", "content"):
+            for key in ("namespace", "layer", "content", "tags", "mtype"):
                 if kwargs.get(key) is not None:
                     payload[key] = kwargs[key]
             if self.brain is not None and getattr(self.brain, "namespace", None):
@@ -325,16 +366,105 @@ class QdrantVectorBackend(VectorBackendPlugin):
                 method="PUT")
             self._point_ids[str(memory_id)] = pid
             self._stats["upserted"] += 1
+            return True
         except urllib.error.HTTPError as exc:
             if exc.code == 404:            # collection vanished → recreate lazily
                 self._collection_ready = False
                 self._collection_retry_after = 0.0
-                return
+                self._stats["qdrant_errors"] += 1
+                return False
             logger.debug("Qdrant 写入失败 HTTP %s（记忆本身已安全落库）：%s", exc.code, exc)
+            self._stats["qdrant_errors"] += 1
             self._trip("qdrant")
+            return False
         except Exception as exc:
             logger.debug("Qdrant 写入失败（记忆本身已安全落库）：%s", exc)
+            self._stats["qdrant_errors"] += 1
             self._trip("qdrant")
+            return False
+
+    def remove(self, memory_id, **kwargs):
+        """Delete one memory's point from Qdrant.  Returns True on success.
+
+        Why this must exist: without it a memory that is forgotten / evicted /
+        overwritten / deduped keeps occupying ANN candidate slots forever.
+        For a *hard* forget (``evict=True``) the SQLite row is gone, so the
+        retrieval-side status filter can no longer even *see* the id — the
+        point becomes a permanent orphan that silently dilutes the semantic
+        candidate pool (measured on the ``dsh`` namespace: 3 such orphans plus
+        1 unknown-payload point out of 33).
+
+        Failure is non-fatal and never raises: the authoritative record was
+        already handled in SQLite by the caller.
+        """
+        if not self._available:
+            return False
+        if not memory_id:
+            return False
+        if self._breaker_open("qdrant"):
+            # 熔断期内的删除同样被丢弃 → 会留下孤儿点，必须计数（v7.0.2 P1-2）
+            self._stats["dropped_breaker"] = self._stats.get("dropped_breaker", 0) + 1
+            return False
+        if not self._ensure_collection():
+            self._stats["dropped_no_collection"] = \
+                self._stats.get("dropped_no_collection", 0) + 1
+            return False
+        try:
+            pid = self._point_id(memory_id)
+            self._http_json(
+                f"{self.qdrant_url}/collections/{self.collection}/points/delete?wait=true",
+                {"points": [pid]},
+                method="POST")
+            self._point_ids.pop(str(memory_id), None)
+            self._stats["removed"] = self._stats.get("removed", 0) + 1
+            return True
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:            # collection vanished → recreate lazily
+                self._collection_ready = False
+                self._collection_retry_after = 0.0
+                return False
+            logger.debug("Qdrant 删除失败 HTTP %s（记忆本身已安全处理）：%s", exc.code, exc)
+            return False
+        except Exception as exc:
+            logger.debug("Qdrant 删除失败（记忆本身已安全处理）：%s", exc)
+            return False
+
+    # ------------------------------------------------------------------
+    # 结构化过滤（payload filter）构建
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _build_filter(tags=None, mtype=None):
+        """构造 Qdrant payload filter。
+
+        - tags: list[str]（任一标签命中即保留，OR 语义）；单值自动包装为 list
+        - mtype: str（类型精确匹配）
+        二者组合为 AND；均为 None/空 → 返回 None（不过滤，向后兼容旧调用）。
+
+        兼容性：老数据 point 的 payload 缺 tags/mtype 字段时，该 point 在
+        filter 下会被排除。部署侧应先跑回填脚本补 tags/mtype 再启用过滤。
+        """
+        tag_list = []
+        if tags is not None:
+            if isinstance(tags, (list, tuple)):
+                tag_list = [t for t in tags if t]
+            elif isinstance(tags, str) and tags:
+                tag_list = [tags]
+        if not tag_list and not mtype:
+            return None
+        conditions = []
+        if tag_list:
+            conditions.append({
+                "key": "tags",
+                "match": {"any": [str(t) for t in tag_list]},
+            })
+        if mtype:
+            conditions.append({
+                "key": "mtype",
+                "match": {"value": str(mtype)},
+            })
+        if len(conditions) == 1:
+            return conditions[0]
+        return {"must": conditions}
 
     def search(self, query_vector, top_k=5, **kwargs):
         """Semantic ANN search → ``[(memory_id, score), ...]`` desc."""
@@ -344,10 +474,19 @@ class QdrantVectorBackend(VectorBackendPlugin):
             return []
         try:
             limit = max(1, min(int(top_k or 5), 2048))
+            resp_payload = {
+                "query": [float(x) for x in query_vector],
+                "limit": limit,
+                "with_payload": True,
+                "with_vector": False,
+            }
+            flt = self._build_filter(
+                tags=kwargs.get("tags"), mtype=kwargs.get("mtype"))
+            if flt is not None:
+                resp_payload["filter"] = flt
             resp = self._http_json(
                 f"{self.qdrant_url}/collections/{self.collection}/points/query",
-                {"query": [float(x) for x in query_vector], "limit": limit,
-                 "with_payload": True, "with_vector": False},
+                resp_payload,
                 method="POST")
             result = resp.get("result") or {}
             points = result.get("points") if isinstance(result, dict) else result
@@ -401,10 +540,16 @@ class QdrantVectorBackend(VectorBackendPlugin):
                 "embed_ms": round(embed_ms, 1)}
 
     def health(self):
-        """Return a small dict describing live dependency status."""
+        """Return a small dict describing live dependency status.
+
+        v7.0.2（P1-2）新增 `breakers` 段：熔断器过去是**不可观测**的内部状态 ——
+        运维只能看到"语义检索突然变差"，看不到"Qdrant 在 12 秒前被判死、
+        还有 18 秒才恢复"。这里把剩余熔断时间与累计丢弃数一并暴露。
+        """
         out = {"plugin": self.name, "collection": self.collection,
                "dim": self.dim, "qdrant_url": self.qdrant_url,
-               "embed_url": self.embed_url, "stats": dict(self._stats)}
+               "embed_url": self.embed_url, "stats": dict(self._stats),
+               "breakers": self.breaker_state()}
         try:
             r = self._http_json(f"{self.qdrant_url}/collections/{self.collection}")
             res = r.get("result") or {}
@@ -413,6 +558,10 @@ class QdrantVectorBackend(VectorBackendPlugin):
             params = (res.get("config", {}).get("params", {}).get("vectors") or {})
             out["vector_size"] = params.get("size")
             out["distance"] = params.get("distance")
+            # 已知点 id 数 vs 服务端点数 —— 差值通常意味着存在孤儿点或被丢弃的写入
+            out["known_point_ids"] = len(self._point_ids)
+            if isinstance(out.get("points"), int):
+                out["point_id_delta"] = out["points"] - len(self._point_ids)
         except Exception as exc:
             out["qdrant"] = f"down: {exc}"
         try:
@@ -424,6 +573,25 @@ class QdrantVectorBackend(VectorBackendPlugin):
         except Exception as exc:
             out["embed"] = f"down: {exc}"
         return out
+
+    def breaker_state(self):
+        """熔断器可观测状态（v7.0.2 P1-2）。
+
+        返回每个依赖的 `open`（是否处于熔断期）、`retry_in_s`（剩余秒数）
+        与累计错误/丢弃计数。供 `doctor` / `recall_health` 直接读取。
+        """
+        now = time.time()
+        def _one(until, err_key, drop_key):
+            remain = max(0.0, until - now)
+            return {"open": remain > 0,
+                    "retry_in_s": round(remain, 2),
+                    "breaker_seconds": self.breaker_seconds,
+                    "errors": int(self._stats.get(err_key, 0)),
+                    "dropped": int(self._stats.get(drop_key, 0))}
+        return {
+            "qdrant": _one(self._qdrant_down_until, "qdrant_errors", "dropped_breaker"),
+            "embed": _one(self._embed_down_until, "encode_errors", "encode_errors"),
+        }
 
 
 def register(brain):

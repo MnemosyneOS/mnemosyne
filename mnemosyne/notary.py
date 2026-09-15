@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Memory Notary - pre-write trust pipeline for Mnemosyne OS v7.0.1.
+"""Memory Notary - pre-write trust pipeline for Mnemosyne OS v7.0.2.
 
 Implements the four pre-write checks:
 1. Source fingerprint / duplicate detection
@@ -128,7 +128,7 @@ class MemoryNotary:
         
         # Normalize content for comparison
         normalized = self._normalize_for_hash(content)
-        fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+        fingerprint = hashlib.sha256(normalized.encode("utf-8", errors="surrogatepass")).hexdigest()[:16]
         
         dup_ids = []
         for rec in existing_records:
@@ -210,7 +210,7 @@ class MemoryNotary:
         entity_set = set(entities) if entities else set()
 
         normalized = self._normalize_for_hash(content) if content else ""
-        fingerprint = (hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+        fingerprint = (hashlib.sha256(normalized.encode("utf-8", errors="surrogatepass")).hexdigest()[:16]
                        if normalized else "")
 
         # 截断兜底：超过 max_scan 时仅扫描最近 max_scan 条，并记录告警

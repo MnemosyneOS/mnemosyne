@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.1** — локальная система ИИ-памяти с нулевыми зависимостями, приоритетом локального хранения, многоуровневым забыванием, хеш-цепочечным реестром, SDK плагинов, локальной веб-панелью управления и поддержкой MCP (Model Context Protocol).
+**Mnemosyne OS 7.0.2** — локальная система ИИ-памяти с нулевыми зависимостями, приоритетом локального хранения, многоуровневым забыванием, хеш-цепочечным реестром, SDK плагинов, локальной веб-панелью управления и поддержкой MCP (Model Context Protocol).
 
 > Единственный движок ИИ-памяти, ядро которого **не требует сторонних зависимостей** (только стандартная библиотека Python 3.8+) — ни векторной базы данных, ни среды выполнения LLM (большой языковой модели), ни привязки к облаку. Работает на ноутбуке, сервере или бессерверной инфраструктуре.
 
@@ -48,7 +48,7 @@
 <tr><td><b>Многоуровневая память</b></td><td>Уровни hot / warm / cold с экономикой забывания — малозначимые воспоминания переносятся, но никогда не удаляются молча.</td></tr>
 <tr><td><b>Хеш-цепочечный реестр</b></td><td>Реестр на основе цепочки SHA-256 — <code>verify_chain()</code> обнаруживает подделку и указывает точную повреждённую запись.</td></tr>
 <tr><td><b>SDK плагинов</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + официальные плагины (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP-сервер</b></td><td>14 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
+<tr><td><b>MCP-сервер</b></td><td>17 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
 <tr><td><b>Веб-панель управления</b></td><td>Локальная тёмная панель в технологичном стиле без внешних CDN — обслуживается из <code>web_server.py</code>.</td></tr>
 <tr><td><b>Асинхронный API</b></td><td><code>AsyncMemoryBrain</code> — обёртка asyncio для высокопроизводительного приёма данных.</td></tr>
 <tr><td><b>Оптимизация для китайского</b></td><td>Биграммная токенизация + FTS5 + встроенный словарь синонимов.</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP-сервер предоставляет **14 инструментов**:
+MCP-сервер предоставляет **17 инструментов**:
 
 | Инструмент | Описание |
 | --- | --- |
@@ -191,6 +191,9 @@ MCP-сервер предоставляет **14 инструментов**:
 | `memory/import-v1` | Импорт через Memory Exchange Protocol |
 | `memory/claim` | Получить воспоминания из внешнего экспорта |
 | `forget` | Забыть воспоминание — уверенность становится 0 и выполняется мягкое удаление (принимает `memory_id` или `query` на естественном языке) |
+| `consolidate` | Движок сжатия · консолидация памяти — объединяет сильно похожие / синонимичные воспоминания в одно репрезентативное; исходные помечаются `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
+| `reflect` | Движок сжатия · расширенная рефлексия — итоги по типу / слою / типу факта / уверенности, частые сущности, обнаружение конфликтов фактов, временная плотность; `deep=true` добавляет поиск когнитивных паттернов |
+| `dedup` | Движок сжатия · дедупликация — поиск дубликатов и почти-дубликатов по отпечатку содержимого + векторному / частотному сходству; `dry_run=true` только отчёт |
 
 Подключите любой MCP-хост (Claude Desktop, Hermes Agent и др.), указав ему указанную выше stdio-команду.
 
@@ -222,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Структура проекта
 
 ```
-Mnemosyne7.0.1/
+Mnemosyne7.0.2/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -251,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — описание на китайском (китайское README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Развёртывание с DeepSeek Harness (через MCP)
-- `docs/KNOWN_DEFECTS.md` — Подтверждённые дефекты стека памяти 7.0.1: факты, измерения, влияние и исправления
+- `docs/KNOWN_DEFECTS.md` — Подтверждённые дефекты стека памяти 7.0.2: факты, измерения, влияние и исправления
 - `docs/RECALL_STRATEGY.md` — Механика поиска и стратегия инъекции на каждом ходу
 - `docs/ACCEPTANCE_GUIDE.md` — Руководство по приёмке (со `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Полная документация: архитектура, модель данных, документация по модулям, плагинам, справочники API / CLI / MCP, развёртывание, интеграция

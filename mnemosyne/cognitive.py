@@ -16,11 +16,11 @@ PROJ_BUCKETS = 2048
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), ".mnemosyne")
 
 class CognitiveResolver:
-    """Cognitive Resolver：receives 检索Result，Output结构化答案。
+    """Cognitive Resolver：接收检索结果，输出结构化答案。
 
     四子模块：
       1. TemporalResolver   — 今天/昨天/去年 → 绝对Date
-      2. PreferenceSynthesizer — 冲突偏好merges  → 当前偏好
+      2. PreferenceSynthesizer — 冲突偏好合并  → 当前偏好
       3. MultiHopReasoner   — 跨实体链式推理
       4. EntityCanonicalizer — 实体名统一
     """
@@ -42,7 +42,7 @@ class CognitiveResolver:
         ]
 
     def resolve(self, query, retrieved_records):
-        """主入口：对检索Result做四步认知加工。"""
+        """主入口：对检索结果做四步认知加工。"""
         records = retrieved_records[:20]  # 取 top-20
 
         # 提取上下文Date
@@ -79,7 +79,7 @@ class CognitiveResolver:
     # ---- 1. Temporal Resolver ----
 
     def _extract_dates(self, records):
-        """从检索Record中提取所有Date。"""
+        """从检索记录中提取所有日期。"""
         import re as _re
         dates = set()
         for r in records:
@@ -95,7 +95,7 @@ class CognitiveResolver:
         return sorted(dates)
 
     def _resolve_temporal(self, text, context_dates):
-        """将相对TimeTable达式转为绝对Date。"""
+        """将相对时间表达式转为绝对日期。"""
         import re as _re
         result = text
         # 找最近的Date作为锚点
@@ -129,9 +129,9 @@ class CognitiveResolver:
     # ---- 2. Preference Synthesizer ----
 
     def _synthesize_preference(self, all_text):
-        """从多条偏好Record中合成当前偏好。
+        """从多条偏好记录中合成当前偏好。
 
-        规则：Time越新权重越高；含updates 标记的覆盖旧Record。
+        规则：时间越新权重越高；含更新标记的覆盖旧记录。
         """
         import re as _re
         # 提取所有偏好相关句子
@@ -166,9 +166,9 @@ class CognitiveResolver:
         """跨实体链式推理。
 
         例如：
-          检索到"Alice 在 Acme 公司Work"
+          检索到"Alice 在 Acme 公司工作"
           检索到"Acme 公司总部在深圳"
-          → 推理解："Alice 在深圳Work"
+          → 推理解："Alice 在深圳工作"
         """
         import re as _re
         # Extract entities-关系对
@@ -176,7 +176,7 @@ class CognitiveResolver:
         for line in all_text.split('\n'):
             # 模式：X 是/在/做 Y
             for pattern in [
-                r'(\S{1,10})\s*(?:是|在|做|的|为|属于|Work于|就职于|住在|搬到|来到)\s*(\S{1,15})',
+                r'(\S{1,10})\s*(?:是|在|做|的|为|属于|工作于|就职于|住在|搬到|来到)\s*(\S{1,15})',
                 r'(\S{1,15})\s*(?:公司|集团|医院|工厂|的)\s*(?:总部|地址|在|位于)\s*(\S{1,10})',
             ]:
                 for m in _re.finditer(pattern, line):
@@ -202,7 +202,7 @@ class CognitiveResolver:
     # ---- 4. Entity Canonicalizer ----
 
     def _canonicalize_entities(self, all_text):
-        """统一实体Name变体。
+        """统一实体名称变体。
 
         OpenAI / Open AI / OpenAI公司 → OpenAI
         腾讯 / 腾讯公司 / Tencent → 腾讯
@@ -221,10 +221,10 @@ class CognitiveResolver:
     # ---- 5. Temporal-aware Re-ranking (v3.2) ----
 
     def rerank_by_time(self, query, records):
-        """Time感知重sorts ：Query含Time信号时，重排Result优先matches Time段。
+        """时间感知重排：查询含时间信号时，重排结果优先匹配时间段。
 
-        信号词：'现在''最近''换/搬到' → 优先新Record
-               '之前''原来''以前' → 优先旧Record
+        信号词：'现在''最近''换/搬到' → 优先新记录
+               '之前''原来''以前' → 优先旧记录
                含年份 → 优先该年
         """
         import re as _re
@@ -265,10 +265,10 @@ class CognitiveResolver:
     # ---- 6. Memory Re-verification (v3.2) ----
 
     def re_verify(self, records, graph_store=None):
-        """记忆重校验：交叉Validate检索Result。
+        """记忆重校验：交叉校验检索结果。
 
-        checks ：① 同一实体是否有冲突信息 ② 是否被后续Recordupdates 
-        标记低可信Result。
+        校验：① 同一实体是否有冲突信息 ② 是否被后续记录更新 
+        标记低可信结果。
         """
         import re as _re
         verified = []
@@ -303,7 +303,7 @@ class CognitiveResolver:
         return verified
 
     def _is_contradictory(self, text_a, text_b):
-        """简单检测两 records是否矛盾。"""
+        """简单检测两条记录是否矛盾。"""
         # 关Key词矛盾信号
         signals_a = set()
         signals_b = set()
@@ -324,9 +324,9 @@ class CognitiveResolver:
     # ---- 7. LLM Second-pass Filter (v3.2) ----
 
     def llm_filter(self, query, records):
-        """LLM 二 timesfilters ：模拟 LLM 判断检索Result是否真正相关。
+        """LLM 二次过滤：模拟 LLM 判断检索结果是否真正相关。
 
-        规则：① Query词命中率 > 30%  ② 实体重叠 ≥ 1
+        规则：① 查询词命中率 > 30%  ② 实体重叠 ≥ 1
              ③ 不是纯干扰对话  ④ 长度合理（非碎片）
         """
         import re as _re
@@ -373,9 +373,9 @@ class CognitiveResolver:
     # Session → Chunk Split → Turn Embedding → Cross Encoder ReRank → Evidence Turn
 
     def turn_localize(self, session_hits, query, embed_engine):
-        """Layer 2: Cross Encoder ReRank — 保留原始内容，只改善sorts 。
+        """Layer 2: Cross Encoder ReRank — 保留原始内容，只改善排序。
 
-        对per 条 hit 做多维语义打分后重新sorts ，不改变内容本身。
+        对每条 hit 做多维语义打分后重新排序，不改变内容本身。
         """
         import re as _re
         if not session_hits: return session_hits
@@ -413,7 +413,7 @@ class CognitiveResolver:
     # ---- Layer 3: Temporal Resolver (增强版) ----
 
     def build_temporal_map(self, all_records):
-        """从所有Record中Build {相对Time → 绝对Date} 映射Table。
+        """从所有记录中构建 {相对时间 → 绝对日期} 映射表。
 
         Output: {"today":"2024-03-01", "yesterday":"2024-02-29", ...}
         """
@@ -459,7 +459,7 @@ class CognitiveResolver:
         return temporal_map
 
     def resolve_with_map(self, text, temporal_map):
-        """用 temporal_map 替换文本中的相对Time。"""
+        """用 temporal_map 替换文本中的相对时间。"""
         for rel, abs_date in temporal_map.items():
             text = text.replace(rel, abs_date)
         return text
@@ -467,7 +467,7 @@ class CognitiveResolver:
     # ---- Layer 4: Entity Canonicalizer (增强版) ----
 
     def canonicalize_full(self, all_text):
-        """全量实体统一：Name变体 + 简称 + 人称代词。"""
+        """全量实体统一：名称变体 + 简称 + 人称代词。"""
         import re as _re
         text = all_text
 
@@ -488,7 +488,7 @@ class CognitiveResolver:
     # ---- Layer 5: Memory Graph (核心Upgrade) ----
 
     def build_entity_graph(self, all_records):
-        """从所有RecordBuild Entity → Relation → Value 结构化图谱。
+        """从所有记录构建 Entity → Relation → Value 结构化图谱。
 
         例: "今天买车" → {entity:"我", relation:"买车", time:"2024-03-01"}
         """
@@ -501,7 +501,7 @@ class CognitiveResolver:
             # 模式: 实体 + 动作 + (可选Time)
             patterns = [
                 r'(我|他|她|我们|用户)\s*(买了|去了|开始了|完成了|到了|搬到|入职|学到了|加入了)\s*(\S{2,10})',
-                r'(\S{2,6})\s*(是|在|做|Work于|就职于|住在|搬到|来到)\s*(\S{2,15})',
+                r'(\S{2,6})\s*(是|在|做|工作于|就职于|住在|搬到|来到)\s*(\S{2,15})',
             ]
             for pat in patterns:
                 for m in _re.finditer(pat, text):
@@ -517,7 +517,7 @@ class CognitiveResolver:
         return graph
 
     def query_entity_graph(self, graph, query):
-        """在图谱中检索与Query相关的结构化事实。"""
+        """在图谱中检索与查询相关的结构化事实。"""
         import re as _re
         q_words = set(_re.findall(r'[\u4e00-\u9fff]{2,}', query))
 
@@ -534,7 +534,7 @@ class CognitiveResolver:
     # ---- Layer 6: Evidence Expansion ----
 
     def expand_evidence_window(self, hits, all_turns, window=2):
-        """证据窗口扩展：命中 Turn N → 同时returns  Turn N-1, N, N+1。
+        """证据窗口扩展：命中 Turn N → 同时返回 Turn N-1, N, N+1。
 
         很多 LongMemEval 答案跨 Turn（如：Q1 说买了车，Q2 说花了多少钱）。
         """
@@ -564,7 +564,7 @@ class CognitiveResolver:
     def multi_hop_retrieve(self, query, graph, hits):
         """多跳检索：Question → Entity A → Related Event → Evidence Turn。
 
-        例: "A在哪Work？" → finds  "A在腾讯" → 图searches  "腾讯在深圳" → returns 两条
+        例: "A在哪工作？" → 找到 "A在腾讯" → 图搜索 "腾讯在深圳" → 返回两条
         """
         # 从图谱中finds 与Query相关的实体
         import re as _re
@@ -602,10 +602,10 @@ class CognitiveResolver:
             # EventType
             for event_type, keywords in {
                 '购车': ['买车','购车','提车'],
-                '入职': ['入职','上班','Work'],
+                '入职': ['入职','上班','工作'],
                 '搬家': ['搬家','搬到','搬到'],
                 '考试': ['考试','考','报考'],
-                '旅line': ['旅line','旅游','去了','去'],
+                '旅行': ['旅行','旅游','去了','去'],
                 '购买': ['买了','花了','购买','消费'],
             }.items():
                 for kw in keywords:
@@ -639,12 +639,12 @@ class CognitiveResolver:
     # ---- 方案6 (新): Memory Alias Expansion (Multi-Entry Index) ----
 
     def generate_aliases(self, text):
-        """为一条 Turn generates 多语义别名（不改原始内容，只建Index）。
+        """为一条 Turn 生成多语义别名（不改原始内容，只建索引）。
         
-        例: "今天正式开始在这家公司Work了" 
-        → aliases: ["入职", "开始Work", "第一天上班", "加入公司"]
+        例: "今天正式开始在这家公司工作了" 
+        → aliases: ["入职", "开始工作", "第一天上班", "加入公司"]
         
-        这些别名只在writes 时作为额外Index项存储，检索时 BM25 会via 这些别名
+        这些别名只在写入时作为额外索引项存储，检索时 BM25 会通过这些别名
         finds 同一 turn_id。原始 Turn 内容完全不变。
         """
         import re as _re
@@ -653,9 +653,9 @@ class CognitiveResolver:
         # 别名映射Table：原始词 → 语义同义词
         alias_map = {
             # 入职相关
-            '开始Work': ['入职', '第一天上班', '报到', '就业'],
-            '入职': ['开始Work', '第一天上班', '加入公司'],
-            '上班': ['Work', '入职', '就业'],
+            '开始工作': ['入职', '第一天上班', '报到', '就业'],
+            '入职': ['开始工作', '第一天上班', '加入公司'],
+            '上班': ['工作', '入职', '就业'],
             # 购买相关
             '买车': ['购车', '提车', '购买车辆'],
             '买了': ['购买', '购入', '消费'],
@@ -664,15 +664,15 @@ class CognitiveResolver:
             '搬到': ['搬家', '搬迁', '迁到', '换城市'],
             # 偏好相关
             '喜欢': ['偏好', '倾向', '选择'],
-            '换成': ['改为', '改成', 'updates 为'],
+            '换成': ['改为', '改成', '更新为'],
             # 教育相关  
             '毕业': ['完成学业', '拿到学位'],
             '考上': ['录取', '入学', '考入'],
             # 医疗相关
-            '体检': ['身体checks ', 'checks 身体'],
+            '体检': ['身体检查', '检查身体'],
             '住院': ['入院', '就医'],
             # 旅line相关
-            '旅游': ['旅line', '游玩', '出line'],
+            '旅游': ['旅行', '游玩', '出行'],
             '去了': ['去了', '到访', '旅游'],
             # Time相关
             '今天': ['今日', '当天', '本日'],
@@ -695,9 +695,9 @@ class CognitiveResolver:
     # ---- 方案1: Memory Fact Layer (带 source_turn_id) ----
 
     def build_fact_index(self, turns_list, session_dates=None):
-        """为per 条 turn 编译结构化 Fact，保留 source_turn_id 指针。
+        """为每条 turn 编译结构化 Fact，保留 source_turn_id 指针。
 
-        关Key：Fact 只做导航，不做Output。最终returns 的是 source_turn_id 对应的原始 Turn。
+        关键：Fact 只做导航，不做输出。最终返回的是 source_turn_id 对应的原始 Turn。
 
         returns : [{fact_type, subject, date, entities, source_turn_id, source_turn_text}, ...]
         """
@@ -713,14 +713,14 @@ class CognitiveResolver:
             abs_date = sd[session_idx] if session_idx < len(sd) else ''
 
             fact_types = {
-                'employment_start': ['入职', '开始Work', '上班', '报到', '第一天', '加入公司', '就职'],
+                'employment_start': ['入职', '开始工作', '上班', '报到', '第一天', '加入公司', '就职'],
                 'employment_end': ['离职', '辞职', '辞退', '被裁', '最后一天'],
                 'purchase': ['买车', '购车', '提车', '买房', '购房', '买了', '购买', '花了'],
                 'relocation': ['搬到', '搬家', '迁到', '搬到', '换了城市'],
                 'education': ['毕业', '考上', '入学', '录取', '考试'],
                 'preference': ['喜欢', '偏好', '推荐', '建议', '认为最好', '选择', '换成', '改成', '改为'],
                 'health': ['看病', '体检', '住院', '手术', '诊断'],
-                'travel': ['去旅游', '旅line', '去了', '飞', '出国'],
+                'travel': ['去旅游', '旅行', '去了', '飞', '出国'],
                 'meeting': ['开会', '面试', '约了', '面谈'],
             }
 
@@ -754,7 +754,7 @@ class CognitiveResolver:
     def recall_via_facts(self, query, fact_index, turns_list):
         """via  Fact Layer 检索：matches  Fact → returns  source_turn_id 对应的原始 Turn。
 
-        关Key区别：returns 的是原始 Turn 内容，不是 Fact 本身。
+        关键区别：返回的是原始 Turn 内容，不是 Fact 本身。
         这样 recalled_content[:60] in original_turn 依然成立。
         """
         import re as _re
@@ -814,9 +814,9 @@ class CognitiveResolver:
     # ---- 方案3: Session Timeline Index ----
 
     def build_timeline(self, turns_list, session_dates):
-        """BuildTimeline Index：abs_date → turn_id 映射Table。
+        """构建 Timeline Index：abs_date → turn_id 映射表。
 
-        writes 时把相对Timeparses 为绝对Date，Query时可快速定位。
+        写入时把相对时间解析为绝对日期，查询时可快速定位。
         """
         timeline = []
         sd = session_dates or []
@@ -836,7 +836,7 @@ class CognitiveResolver:
         return timeline
 
     def recall_via_timeline(self, query, timeline, turns_list):
-        """Retrieve via timeline：Query含Time相关词时，matches Time线中的Date。"""
+        """Retrieve via timeline：查询含时间相关词时，匹配时间线中的日期。"""
         import re as _re
         # 提取Query中的Time信号
         year_match = _re.search(r'(\d{4})', query)
@@ -868,10 +868,10 @@ class CognitiveResolver:
     def rewrite_query(self, query):
         """Query Rewriting：同义词扩展。
 
-        "什么时候入职？" → ["入职", "开始Work", "第一天上班", "加入公司", "就职"]
+        "什么时候入职？" → ["入职", "开始工作", "第一天上班", "加入公司", "就职"]
         """
         synonym_map = {
-            '入职': ['开始Work', '第一天上班', '加入公司', '报到', '就职'],
+            '入职': ['开始工作', '第一天上班', '加入公司', '报到', '就职'],
             '离职': ['辞职', '辞退', '被裁', '离开公司'],
             '买车': ['购车', '提车', '购买车辆'],
             '买房': ['购房', '买房子', '置业'],
@@ -879,9 +879,9 @@ class CognitiveResolver:
             '喜欢': ['偏好', '觉得好', '推荐'],
             '花了': ['花了', '消费', '支出', '买了'],
             '毕业': ['完成学业', '拿到学位', '考上'],
-            '体检': ['身体checks ', 'checks 身体'],
+            '体检': ['身体检查', '检查身体'],
             '开会': ['会议', '面谈', '约了'],
-            '旅游': ['旅line', '去了', '游玩'],
+            '旅游': ['旅行', '去了', '游玩'],
         }
         import re as _re
         expanded = [query]

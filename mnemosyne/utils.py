@@ -85,7 +85,7 @@ def _unique_salt():
 
 
 def _stable_id(content, salt=""):
-    return hashlib.sha256((salt + "|" + (content or "")).encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256((salt + "|" + (content or "")).encode("utf-8", errors="surrogatepass")).hexdigest()[:16]
 
 
 def _fail(msg, hint=None, fix=None, code=1):
@@ -103,7 +103,7 @@ def _ok(msg):
 
 
 def _softmax(scores, temp=1.0):
-    """Softmax归一化，temp<1 增强区分度。"""
+    """Softmax 归一化，temp<1 增强区分度。"""
     if not scores:
         return []
     mx = max(scores)
@@ -120,7 +120,7 @@ def _softmax(scores, temp=1.0):
 
 # Step 1: 分词预processes  — Date标准化 + 语义词仿英文伪装
 def _tokenize_preprocess(text):
-    """在 N-gram 切分前做正则预processes ，使Date和语义词能完整命中现有模式。"""
+    """在 N-gram 切分前做正则预处理，使日期和语义词能完整命中现有模式。"""
     # 1.1 Date归一化
     text = re.sub(
         r'(\d{4})年(\d{1,2})月(\d{1,2})日',
@@ -135,7 +135,7 @@ def _tokenize_preprocess(text):
     # 1.2 核心语义词 → 英文伪装（使其被 \w{2,} 完整抓取，不被 N-gram 碎切）
     surrogate_map = {
         "什么时候": " __WH_TIME__ ",
-        "什么Time": " __WH_TIME__ ",
+        "什么时间": " __WH_TIME__ ",
         "几月几号": " __WH_TIME__ ",
         "今天": " __T_TODAY__ ",
         "昨天": " __T_YESTERDAY__ ",
@@ -155,7 +155,7 @@ def _tokenize_preprocess(text):
 from datetime import datetime as _dt_pre, timedelta as _td_pre
 
 def inject_time_expressions(turn_text, session_date_str):
-    """parses  Session Date，将相对Time词扩展为多种格式的绝对Date附加在文本后。"""
+    """解析 Session 日期，将相对时间词扩展为多种格式的绝对日期附加在文本后。"""
     if not session_date_str or not isinstance(session_date_str, str):
         return turn_text
     try:
@@ -229,7 +229,7 @@ def fuse_session_and_turn_scores(session_scores, turn_scores_map, session_weight
 _STOPWORDS_PRF = {"的","了","在","是","我","有","和","就","不","人","都","一","上","也","很","到","说","要","去","你","会","着","没有","看","好","这","哪","什么","怎么","哪","知道","记得","请问","那"}
 
 def expand_query_prf(query, top_session_turns_text, top_k=3):
-    """从 Top-1 Session 提取高频词扩展Query。"""
+    """从 Top-1 Session 提取高频词扩展查询。"""
     from collections import Counter
     words = []
     for text in top_session_turns_text:
@@ -247,9 +247,9 @@ def expand_query_prf(query, top_session_turns_text, top_k=3):
 # Step 6: Index/Output解耦 + 上下文窗口拼接
 def format_retrieval_output(top_turn_indices, session_raw_turns):
     """
-    Index用增强文本，Output用原始文本 + 前后 Turn 拼接。
+    索引用增强文本，输出用原始文本 + 前后 Turn 拼接。
 
-    top_turn_indices: 检索 Top-K 的 turn Index列Table
+    top_turn_indices: 检索 Top-K 的 turn 索引列表
     session_raw_turns: [{raw_text: ...}, ...] per  Turn 的原始文本
     """
     formatted = []
@@ -271,9 +271,9 @@ def format_retrieval_output(top_turn_indices, session_raw_turns):
 # Step 7: 会话内两阶段局域精排 (In-Session Reranking)
 def rerank_in_session(query, top_session_ids, session_turns_map, top_k_turns=10):
     """
-    针对 Top Session 内部的 Turn 进line：
+    针对 Top Session 内部的 Turn 进行：
       A) 角色对齐加权 (User vs Assistant)
-      B) 连续 N-gram 硬matches 加分
+      B) 连续 N-gram 硬匹配加分
     纯标准库，无外部依赖。
 
     session_turns_map: {session_id: [{'turn_id': int, 'text': str, 'role': str, 'raw_score': float}, ...]}
@@ -388,7 +388,7 @@ def compress_text(text, level=2):
 
 @functools.lru_cache(maxsize=512)
 def _tokenize(text):
-    """多语言分词 + 预processes Optimize。
+    """多语言分词 + 预处理优化。
 
     LRU 仅保留最近 512 次结果（内存优化：10k 级缓存占 ~40MB，512 级 <2MB）。
     """
@@ -482,7 +482,7 @@ _ENTITY_STOP_WORDS = {
     # 中文
     "我们", "你们", "他们", "这", "那", "什么", "怎么", "可以", "需要",
     "时候", "一", "没有", "不是", "自己", "现在", "已经", "因为", "所以",
-    "如果", "但是", "还是", "就是", "这样", "那样", "进line", "via ", "对于",
+    "如果", "但是", "还是", "就是", "这样", "那样", "进行", "通过", "对于",
     "关于", "以及", "或者", "能够", "必须", "可能", "应该", "已经", "正在",
     "一种", "这些", "那些", "所有", "per ", "任何", "其他", "其中", "之后",
     "之前", "之间", "之后", "以后", "以上", "以下", "以内",
@@ -523,8 +523,58 @@ _ENTITY_STOP_WORDS = {
 }
 
 
+# ============================================================================
+# Part 1.5: 编码单一收口（v7.0.2 P2-4）
+# ============================================================================
+# 【为什么需要】7.0.1 之前全库有 36 处裸 `.encode("utf-8")`，只有 8 处带 `errors=`。
+# dsh 侧会传来含孤立代理项的文本（实测 `\udcac`），裸 encode 直接抛
+# UnicodeEncodeError → 写入路径整条崩。当时的兜法是"入口钉死 PYTHONUTF8=1 +
+# 两处 _sanitize 闸口"，能兜住，但**没有单一收口**，任何新写路径都可能重新破口。
+#
+# 【一个容易踩的坑】CPython 的 `errors="replace"` 在**编码**与**解码**两侧不对称：
+#   解码 → U+FFFD（`\ufffd`）；编码 → `?`（U+003F）。
+#   所以"非法字符被替换成 U+FFFD"这句注释是错的（7.0.1 已订正两处）。
+#   `?` 是**有损**的：`\udcac` 与 `\udcad` 会被替换成同一个字符。
+#   因此本函数只用于**存储/传输**路径；**身份派生（哈希）**必须继续用
+#   `errors="surrogatepass"`（保序、无碰撞），两者不可互换。
+_ENCODE_REPLACED = collections.Counter()
+
+
+def sanitize_str(text, counter="unknown"):
+    """返回一个可安全编码为 UTF-8 的等价字符串。
+
+    - 正常文本：先试 `encode()`，成功即返回（fast path，零额外开销）。
+    - 含非法码点：走 `errors="replace"`（U+003F），并把替换次数记账 + 周期性告警。
+      旧实现是**静默**替换 —— 数据被有损改写而无人知道，这是把"没崩"误当"没问题"。
+    """
+    if text is None:
+        return ""
+    if not isinstance(text, str):
+        text = str(text)
+    try:
+        text.encode("utf-8")
+        return text
+    except UnicodeEncodeError:
+        _ENCODE_REPLACED[counter] = _ENCODE_REPLACED[counter] + 1
+        total = sum(_ENCODE_REPLACED.values())
+        if total <= 20 or total % 100 == 0:
+            logger.warning("非法 Unicode 码点已按 U+003F 替换（第 %d 次，来源=%s，"
+                           "该替换有损，请检查上游输入）", total, counter)
+        return text.encode("utf-8", errors="replace").decode("utf-8")
+
+
+def to_utf8_safe(text, counter="unknown"):
+    """把文本安全编码为 UTF-8 bytes（写路径统一入口）。"""
+    return sanitize_str(text, counter=counter).encode("utf-8")
+
+
+def encode_replaced_stats():
+    """返回 {来源: 替换次数}，供 doctor / 监控读取（P2-2 / P2-4）。"""
+    return {"total": sum(_ENCODE_REPLACED.values()), "by_source": dict(_ENCODE_REPLACED)}
+
+
 def _extract_entities(text):
-    """增强实体抽取：多模式+关系推断+停用词filters 。returns  {entity, type, positions}。"""
+    """增强实体抽取：多模式+关系推断+停用词过滤。返回 {entity, type, positions}。"""
     entities = []
     seen = set()
 
@@ -554,7 +604,7 @@ def _extract_entities(text):
 
 
 def _extract_entity_names(text):
-    """兼容1.x接口：returns 实体Name列Table。
+    """兼容1.x接口：返回实体名称列表。
 
     直接正则抽取实体名（不构建 entities_detailed dict），
     快速写入路径（fast=True）的实体内存/CPU 关键优化。
@@ -578,7 +628,7 @@ def _extract_entity_names(text):
     return names[:30]
 
 
-# 关系动词规则（关系名, 动词列表, 强度）
+# 关系动词规则（关系名, 动词列表, 强度）——仅作兜底，主路径见 _RELATION_PATTERNS
 _RELATION_VERBS = [
     ("responsible_for", ["负责"], 0.6),
     ("participates_in", ["参与", "参加"], 0.5),
@@ -589,8 +639,47 @@ _RELATION_VERBS = [
     ("is_a", ["是"], 0.3),
 ]
 
+# ---- v7.0.2 (P1-1): 中文偏好 / 事实句的三元组模式 ----
+# 【旧实现的两个硬缺陷（实测）】
+#   ① 主语把定语一起吃掉：`用户的显卡是 RTX 4090` 抽出的主语是 `用户的显卡`
+#      而不是 `用户`（Python 里 `的`.isalnum() 为 True，`_subject_before` 一路
+#      吃到句首）。于是图节点成了"用户的显卡"，`graph_query("用户")` 恒空 ——
+#      5 路融合里权重 0.10 的图通道**长期空转**（"记忆图谱"名义存在、实际不可用）。
+#   ② 偏好/居所类句子一个动词都不命中（兜底词表只有 负责/参与/属于/领导/创建/
+#      管理/是），`用户喜欢喝大窑汽水` 连一条边都产生不了。
+# 【修法】模式化正则优先：`A 的 B 是 C` → 主语取 A、属性 B 记进 qualifier；
+#   补 偏好 / 居所 两类模式；兜底动词法保留，且主语统一做"去定语"归一。
+_RELATION_PATTERNS = [
+    # A 的 B 是/为 C  —— 例：用户的显卡是 RTX 4090 / 用户的时区是 UTC+8
+    (re.compile(r"^(?P<subj>[^的\s，。；：,]{1,24}?)的(?P<qual>[^\s，。；：,]{1,16}?)"
+                r"(?:是|为)(?P<obj>.+)$"), "is_a", 0.60),
+    # A 在/于 B 工作|生活|居住|就职|定居  —— 例：用户在上海工作
+    (re.compile(r"^(?P<subj>[^，。；：,]{1,24}?)(?:现在)?(?:在|于)"
+                r"(?P<obj>[^，。；：,]{1,24}?)(?:工作|上班|生活|居住|就职|定居)"),
+     "located_in", 0.60),
+    # A 喜欢/爱/偏好/讨厌 [吃喝用玩看读听做去] B  —— 例：用户喜欢喝大窑汽水
+    (re.compile(r"^(?P<subj>[^，。；：,]{1,24}?)(?:喜欢|喜爱|偏好|爱|讨厌|习惯)"
+                r"(?:喝|吃|用|玩|看|读|听|做|去)?(?P<obj>.+)$"), "prefers", 0.50),
+    # A 是/为 B（兜底）
+    (re.compile(r"^(?P<subj>[^，。；：,]{1,24}?)(?:是|为)(?P<obj>.+)$"), "is_a", 0.45),
+]
+
+_OBJ_MAX_LEN = 60
+
 # 助词/语气词（宾语提取时跳过）
 _RELATION_PARTICLES = "了着过呢吧吗啊呀嘛的地得"
+
+
+def _head_entity(text):
+    """去定语归一：`用户的显卡` → `用户`；无 `的` 时原样返回。"""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    if "的" in t:
+        head = t.split("的", 1)[0].strip()
+        if head:
+            return head
+    return t
 
 
 def _subject_before(clause, v_start):
@@ -622,17 +711,52 @@ def _object_after(clause, v_end):
 
 
 def _extract_relationships(entities, text):
-    """从文本提取动词引导的关系三元组（零依赖规则法）。
+    """从文本提取关系三元组（零依赖规则法）。
 
-    在每个子句（以标点分隔）内，对每个关系动词取动词前紧邻实体为主语、
-    动词后紧邻实体为宾语。覆盖：负责/参与/属于/领导/创建/管理/是 等。
+    v7.0.2（P1-1）起分两段：
+      1. 模式化正则优先 —— 覆盖 `A的B是C` / `A在B工作` / `A喜欢B` / `A是B`；
+         `A的B是C` 的主语取 A（`用户`），属性 B 记进边的 ``qualifier``；
+      2. 动词法兜底 —— 保留 7.0.0 的 负责/参与/属于/领导/创建/管理/是，
+         主语统一走 `_head_entity()` 去定语。
+
+    `entities` 形参保留以兼容既有调用（写入路径传 `entities_detailed`）；
+    当前实现只依赖文本本身，不依赖该形参。
+    返回 ``[{"from","to","relation","strength","memory_id"[,"qualifier"]}]``。
     """
     rels = []
     seen = set()
     clauses = re.split(r"[，。！？；：,\n]", text or "")
     for clause in clauses:
-        if not clause.strip():
+        clause = clause.strip()
+        if not clause:
             continue
+        matched = False
+        for pat, rel_name, strength in _RELATION_PATTERNS:
+            m = pat.match(clause)
+            if not m:
+                continue
+            subj = _head_entity(m.group("subj") or "")
+            obj = (m.group("obj") or "").strip()
+            qual = (m.groupdict().get("qual") or "").strip()
+            if not subj or len(obj) < 2 or subj == obj:
+                continue
+            if len(obj) > _OBJ_MAX_LEN:
+                obj = obj[:_OBJ_MAX_LEN]
+            key = (subj, rel_name, obj)
+            if key in seen:
+                continue
+            seen.add(key)
+            edge = {"from": subj, "to": obj, "relation": rel_name,
+                    "strength": strength, "memory_id": None}
+            if qual:
+                edge["qualifier"] = qual
+            rels.append(edge)
+            matched = True
+            break
+        if matched:
+            continue
+
+        # ---- 动词法兜底（保留既有行为；主语去定语归一）----
         for rel_name, verbs, strength in _RELATION_VERBS:
             for verb in verbs:
                 start = 0
@@ -641,7 +765,7 @@ def _extract_relationships(entities, text):
                     if idx == -1:
                         break
                     v_start, v_end = idx, idx + len(verb)
-                    subject = _subject_before(clause, v_start)
+                    subject = _head_entity(_subject_before(clause, v_start))
                     object_ = _object_after(clause, v_end)
                     if subject and object_ and subject != object_:
                         key = (subject, rel_name, object_)
@@ -656,6 +780,169 @@ def _extract_relationships(entities, text):
                             })
                     start = v_end
     return rels
+
+
+# ============================================================================
+# Part 3.5: 内容原子（v7.0.2）—— "绝不可改写/丢失"的最小信息单元
+# ============================================================================
+# 【为什么需要这一层】它是 7.0.2 两个核心目标的共同地基：
+#
+#  ① 精准记忆（P2-3 写入侧去重）：
+#     7.0.2 引入语义去重后，两条**只差一个数字**的记忆会有 0.98+ 的 cosine：
+#         "用户的年假是 5 天"  vs  "用户的年假是 15 天"
+#         "会议定在 3 月 1 日"  vs  "会议定在 3 月 2 日"
+#     若只看相似度就合并，**后者会把前者覆盖掉** —— 这是"越用越不准"的
+#     最恶劣形态：数据没丢，但事实被改错了，而且无痕。因此去重必须附加
+#     硬约束：**原子集合不同 → 绝不合并**，相似度再高也不行。
+#
+#  ② 极限上下文精确压缩（capsule.py）：
+#     预算小到装不下原文时必须降级。降级可以丢"修饰语"，但**绝不能丢原子**
+#      —— 用户问"多少钱/什么时候/哪个型号"时，答案就是一个原子。
+#     原子守恒 = 在所有压缩层级下，"可被追问的事实"都还在。
+#
+# 【原子的定义】凡"改一个字就是另一个事实"的片段：数字、日期、时间、百分比、
+#   金额、版本号、型号、文件路径、URL、邮箱、长十六进制 id、引号内文本。
+#   它们要么是**取值**（改了就是错），要么是**标识**（改了就对不上）。
+# 【为什么用 Counter 而不是 set】"3 个 5 分钟"与"5 个 3 分钟"原子集合相同但
+#   多重集不同；重复次数本身携带信息，必须参与比较。
+_ATOM_PATTERNS = [
+    # URL（先于数字，避免 URL 里的数字被单独拆走）
+    ("url", re.compile(r"https?://[^\s，。；：、）)】\"'<>]+", re.IGNORECASE), 0),
+    # 邮箱
+    ("email", re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+", re.IGNORECASE), 0),
+    # 日期：2026-09-15 / 2026/9/15 / 2026年9月15日 / 9月15日 / 9-15
+    ("date", re.compile(r"\d{4}\s?[-/年]\s?\d{1,2}\s?([-/月]\s?\d{1,2}\s?日?)?"
+                        r"|\d{1,2}\s?月\s?\d{1,2}\s?日"
+                        r"|\d{1,2}[-/]\d{1,2}\b", re.IGNORECASE), 0),
+    # 时间：12:30 / 12:30:45
+    ("time", re.compile(r"\b\d{1,2}:\d{2}(:\d{2})?\b", re.IGNORECASE), 0),
+    # 版本号：v1.2 / 7.0.2 / 1.2.3-beta
+    ("version", re.compile(r"\bv?\d+\.\d+(\.\d+)*(-[A-Za-z0-9.]+)?\b",
+                           re.IGNORECASE), 0),
+    # 百分比 / 千分比
+    ("percent", re.compile(r"\d+(\.\d+)?\s?[%‰]", re.IGNORECASE), 0),
+    # 金额（符号前置）
+    ("money", re.compile(r"[¥$€£]\s?\d[\d,]*(\.\d+)?", re.IGNORECASE), 0),
+    # 数字 + 单位：中文单位不接 \b（"5天前" 后面还有字，"5天" 同样是事实）；
+    # ASCII 单位需要 \b 兜住（避免 "5 g" 命中 "5 gramxyz" 之类）。
+    ("quantity", re.compile(
+        r"\d[\d,]*(\.\d+)?\s?(元|万元|亿|万|千|百|天|周|个月|月|年|小时|分钟|秒|"
+        r"核|寸|人|次|台|件|米|公里)"
+        r"|\d[\d,]*(\.\d+)?\s?([KMGTP]?B|[KMG]?Hz|km|kg|ml|L|g)\b",
+        re.IGNORECASE), 0),
+    # 计数词（"3 个" / "5 条" —— 条数本身是事实，不能当修饰语丢掉）
+    ("count", re.compile(r"\d+\s?(个|条|张|份|名|位|套|组|页|层|款|种|封|笔)",
+                         re.IGNORECASE), 0),
+    # 型号：RTX 4090 / i7-13700K / B650M / iPhone15 / 4090
+    ("model", re.compile(r"[A-Za-z]{1,8}[\s_-]?\d{2,}[A-Za-z0-9]*"
+                         r"|\d{3,}[A-Za-z]{1,4}\b", re.IGNORECASE), 0),
+    # 含字母+数字的标识串：bge-m3 / gpt-4o / H100 / GB200 / A-1024
+    # 【为什么单独一条】"bge-m3" 里只有 1 位数字，上面的 model 规则（要求 \d{2,}）
+    # 够不着，于是"嵌入模型叫什么"这个**最有价值的身份事实**反而不算原子。
+    # 约束：整串 ≥4 字符、必须**同时**含字母与数字、必须以字母开头
+    #（排除 6333 / 7.0.2 这类，它们由数字/版本规则负责）。
+    ("ident", re.compile(r"\b(?=[A-Za-z0-9_-]{4,}\b)(?=[A-Za-z0-9_-]*[A-Za-z])"
+                         r"(?=[A-Za-z0-9_-]*\d)[A-Za-z][A-Za-z0-9_-]*\b",
+                         re.IGNORECASE), 0),
+    # 3~4 位裸数字：端口 6333 / 维度 1024 / 年份 2026 / 数量 100
+    # 【为什么需要】"嵌入模型是多少维"的答案是 `1024`，`\b\d{5,}\b` 够不着 ——
+    # 事实明明在库里，却不算"必须守恒的原子"。3 位起、排除 1~2 位（"第 2 条"
+    # 这类序数噪声太多），是"覆盖关键取值"与"控制原子数量"的折中。
+    ("num3", re.compile(r"\b\d{3,}\b", re.IGNORECASE), 0),
+    # 长十六进制 id / 哈希
+    ("id", re.compile(r"\b[0-9a-fA-F]{16,}\b", re.IGNORECASE), 0),
+    # 长纯数字（订单号/手机号/卡号：≥5 位）
+    ("number", re.compile(r"\b\d{5,}\b", re.IGNORECASE), 0),
+    # 引号内文本（用户明确强调过的原话）—— 取引号内层，引号本身不是原子
+    ("quoted", re.compile(r"[\"“”'‘’]([^\"“”'‘’]{2,40})[\"“”'‘’]",
+                          re.IGNORECASE), 1),
+]
+
+
+def _dedupe_atoms(counter):
+    """去掉"被更长原子包含"的冗余原子（如 ``15999`` ⊂ ``15999元``）。
+
+    理由：写作 `15999 元` 时同时命中「纯数字」与「数字+单位」两条规则，
+    两个原子信息重叠，但渲染进上下文要各占一份 token。保留**更长**的那个
+    （它携带更多信息，且天然蕴含短的），既省 token 又不丢事实。
+    注意方向：只在严格包含时丢弃，绝不做"近似归并"（那会引入不确定性）。
+    """
+    if len(counter) < 2:
+        return counter
+    keys = list(counter.keys())
+    keep = {}
+    for k in keys:
+        if any(k != other and k in other for other in keys):
+            continue
+        keep[k] = counter[k]
+    return collections.Counter(keep)
+
+
+def _content_atoms(text):
+    """抽取内容原子，返回 ``collections.Counter``（多重集，已去冗余）。
+
+    原子 = "改一个字就是另一个事实"的片段（数字/日期/金额/型号/URL 等）。
+    用途（v7.0.2）：
+      • 写入侧去重的**硬约束** —— 原子集合不同则不合并（防"被覆盖成错事实"）；
+      • 极限压缩的**守恒对象** —— 任何压缩层级都必须完整保留全部原子。
+    纯规则、零依赖，同一输入恒返回同一多重集。
+    """
+    atoms = collections.Counter()
+    if not text:
+        return atoms
+    t = str(text)
+    for _kind, pat, _grp in _ATOM_PATTERNS:
+        for m in pat.finditer(t):
+            try:
+                frag = m.group(_grp)
+            except (IndexError, AttributeError):
+                frag = m.group(0)
+            frag = (frag or "").strip().replace(" ", "")
+            if frag:
+                atoms[frag.casefold()] += 1
+    # ---- 计数归一（必须做，否则会产生"假丢失"）----
+    # 多条规则会命中同一片段（如 `6333` 同时被 num3 与 number 命中、
+    # `2026-12-31` 同时被 date 与 version 命中）。若直接累加，该键的计数会是 2，
+    # 而渲染进胶囊后 `atoms_preserved` 用「子串出现次数」核对 → 1 < 2 →
+    # **守恒校验假报丢失**。因此把每个原子的计数统一校正为"它在原文里
+    # 字面出现的次数"（大小写与空白不敏感），与守恒校验口径完全一致。
+    flat = "".join(t.casefold().split())
+    for k in list(atoms.keys()):
+        atoms[k] = flat.count(k)
+    atoms = collections.Counter({k: v for k, v in atoms.items() if v > 0})
+    return _dedupe_atoms(atoms)
+
+
+def atoms_signature(text):
+    """原子的**稳定指纹**（排序后的 ``frag×n`` 串），用于相等比较与缓存键。"""
+    a = _content_atoms(text)
+    if not a:
+        return ""
+    return "|".join("%s×%d" % (k, a[k]) for k in sorted(a))
+
+
+def atoms_preserved(source_text, produced_text):
+    """检查 *produced_text* 是否完整保留了 *source_text* 的全部原子。
+
+    这是极限压缩的**硬不变量**：返回 ``(ok, missing)``，``missing`` 为缺失
+    原子的多重集（Counter）。
+
+    【判定口径】用**原子文本是否原样在场**（大小写与空白均不敏感的子串计数），
+    而不是"对产物再抽一次原子" —— 后者有不对称性：原文写 `60Hz`（被 `Hz` 规则
+    抽中），而产物里规范化为小写 `60hz` 时，再抽取会因为规则大小写敏感而**漏掉**，
+    于是"守恒"被误判为破坏。同理，原子键已去掉内部空格（`15999 元` → `15999元`），
+    而原文里有空格，直接子串匹配也会误判。所以两边都做「大小写折叠 + 去空白」，
+    再比次数。语义直白：原子要么在场，要么不在场。
+    """
+    need = _content_atoms(source_text)
+    if not need:
+        return True, collections.Counter()
+    low = "".join((produced_text or "").casefold().split())
+    have = collections.Counter()
+    for k in need:
+        have[k] = low.count(k)
+    missing = need - have
+    return (not missing), missing
 
 
 # ============================================================================
@@ -994,8 +1281,8 @@ class EmbeddingEngine:
     """零依赖向量嵌入引擎。
 
     基于 Johnson-Lindenstrauss 引理，固定种子的随机投影矩阵将 TF-IDF
-    高维稀疏向量投影到低维稠密空间（默认128维），保留Cosine similarity结构。
-    内存Cache投影矩阵，首 times初始化约 0.5s 后即实时。
+    高维稀疏向量投影到低维稠密空间（默认128维），保留余弦相似度结构。
+    内存缓存投影矩阵，首次初始化约 0.5s 后即实时。
     """
 
     def __init__(self, dim=EMBEDDING_DIM, seed=42):
@@ -1022,7 +1309,7 @@ class EmbeddingEngine:
         return int.from_bytes(h[:4], 'little') % PROJ_BUCKETS
 
     def encode(self, text_or_tokens):
-        """将文本或token列Table编码为稠密向量。"""
+        """将文本或 token 列表编码为稠密向量。"""
         if isinstance(text_or_tokens, str):
             tokens = _tokenize(text_or_tokens)
         else:
@@ -1265,12 +1552,12 @@ class StatsTracker:
         print(f"|------|------|------|------|")
         print(f"| 📝写入Token | {s['session_write_tokens']} | {s['today_write_tokens']} | {s['write_tokens']} |")
         print(f"| 🔍召回Token | {s['session_recall_tokens']} | {s['today_recall_tokens']} | {s['recall_tokens']} |")
-        print(f"| 🤖送入LLM | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
+        print(f"| 🤖 送入 LLM | {s['session_sent_to_llm_tokens']} | {s['today_sent_to_llm_tokens']} | {s['sent_to_llm_tokens']} |")
         print(f"| 🛡️拦截Token | {s['session_saved_tokens']} | {s['today_saved_tokens']} | {s['saved_tokens']} |")
         print(f"| 🔢检索总次数 | {s['session_recall']} | {s['today_recall']} | {s['total_recall']} |")
         print(f"| 🎯命中(次) | {s['session_hit']} | {s['today_hit']} | {s['total_hit']} |")
         print(f"| ✅命中率 | {s['session_hit_rate']:.0%} | {s['today_hit_rate']:.0%} | {s['total_hit_rate']:.0%} |")
-        print(f"| 📈LLM送入比例 | {s['session_llm_feed_pct']:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
+        print(f"| 📈 LLM 送入比例 | {s['session_llm_feed_pct']:.1f}% | {s['today_llm_feed_pct']:.1f}% | {s['llm_feed_pct']:.1f}% |")
         print(f"| 📦压缩率 | {100-s['session_llm_feed_pct']:.1f}% | {100-s['today_llm_feed_pct']:.1f}% | {100-s['llm_feed_pct']:.1f}% |")
         print()
 

@@ -45,7 +45,7 @@ def _intern(table, token):
 # dict。所以这里少一个键，对应字段在工具返回里就会**静默变成 null/默认值**，
 # 而且没有任何报错。历史上就踩过两次：
 #   - verification（已补）：少了它，模型分不清哪条说法已被取代；
-#   - superseded_by / version / flags（7.0.2 补）：`superseded_by` 恒为 null，
+#   - superseded_by / version / flags（7.0.1 勘误补）：`superseded_by` 恒为 null，
 #     尽管库里该列有值；`version` 恒为 1，`flags` 恒为 []。
 # 三个字段都是小标量（None / int / 短列表），对内存的影响可忽略（大头的
 # content 本来就在清单里），因此并入白名单而不是在输出层回查数据库。
@@ -81,9 +81,9 @@ def _slim_record(r):
 
 
 class RetrievalEngine:
-    """5-Way Fusion检Index擎（v3.0 Inverted Index加速版）。
+    """5-Way Fusion 检索引擎（v3.0 倒排索引加速版）。
 
-    五路：BM25关Key词 + 随机投影向量 + Knowledge Graph + Time衰减 + 可信度加权
+    五路：BM25 关键词 + 随机投影向量 + 知识图谱 + 时间衰减 + 可信度加权
     v3.0 新增：Inverted IndexCache，BM25 检索从 O(n) 降至 O(q·log(n))。
     v7.0.0 内存优化：token 字符串全局驻留（intern）+ posting 用 array('I') 紧凑存储，
     100k 规模索引内存从 ~800MB 降至 ~50MB。
@@ -114,6 +114,76 @@ class RetrievalEngine:
         # v7.0.0: 查询 TTL 缓存（相同查询 10 秒内复用，减少重复计算）
         self._query_cache = {}          # cache_key → (timestamp, result_list)
         self._query_cache_ttl = 10.0    # 秒
+        # v7.0.2 (P2-2): 最近一次 retrieve 的质量指标（brain 侧累积成 recall_health）
+        self.last_recall_metrics = {}
+        # v7.0.2 (P0-2 修正)：上一次打分写在记录 dict 上的置信带引用。
+        # 【为什么需要】`_cached_records` 里的 dict 是**跨调用共享**的（同一批对象
+        # 每次检索都复用，这正是索引加速的关键）。而 `_relevance_band` 是"这一轮
+        # 查询对这个记录"的判断，必须挂在 dict 上才能被 MCP 输出层读到（结果元组
+        # 是三元素，cli.py/web_server.py 有精确解包，不能扩）。两者叠加就产生别名
+        # 缺陷：调用方拿到结果 A，随后又发了一次**无关**查询 B，B 的打分把这批共享
+        # dict 全部标成 low —— 调用方手里的 A 结果置信带被静默改写（实测复现：
+        # 相关查询返回的 3 条全部变成 band=low、_relevance=0.0）。
+        # 修法：每轮打分前清掉上一轮打过标记的记录，保证"标记只属于最近一次调用"。
+        # 代价 O(k)（标记数 = 候选数上限），不进任何热循环。
+        self._band_marked = []
+
+    # ---- v7.0.2 (P0-2 修正)：置信带标记的跨调用隔离 ----
+
+    def _clear_band_marks(self):
+        """清掉上一轮写在共享记录 dict 上的置信带标记（O(上一轮候选数)）。"""
+        marks = self._band_marked
+        if not marks:
+            return
+        for _r in marks:
+            try:
+                _r.pop("_relevance_band", None)
+                _r.pop("_relevance", None)
+            except (AttributeError, TypeError):
+                pass
+        self._band_marked = []
+
+    def _apply_bands(self, items, bands):
+        """把缓存里的置信带重新贴回记录（查询缓存命中路径用）。
+
+        【为什么缓存命中也要贴】缓存条目里的记录 dict 与 `_cached_records` 是同一批
+        对象；在此期间任何一次打分都会先 `_clear_band_marks()` 把它们清空。若命中
+        缓存时不重贴，调用方就会看到 `confidence_band=None`（等于能力静默消失）。
+        """
+        if not bands:
+            return
+        marked = []
+        for it in items:
+            rec = it[1] if isinstance(it, (tuple, list)) and len(it) > 1 else None
+            if not isinstance(rec, dict):
+                continue
+            b = bands.get(rec.get("id"))
+            if b:
+                rec["_relevance_band"] = b
+                marked.append(rec)
+        self._band_marked = marked
+
+    @staticmethod
+    def _snapshot(items):
+        """输出边界快照：把共享记录 dict 复制一份再交给调用方。
+
+        【为什么必须复制】`_cached_records` 里的 dict 是索引的一部分，**跨调用共享**
+        （这正是倒排索引能把检索压到 O(q·log n) 的原因）。而 MCP/CLI 的输出层是
+        "拿到结果 → 稍后再读字段"，两者叠加就会出现**别名污染**：调用方持有结果 A，
+        之后又发了一次无关查询 B，B 的打分把同一批共享 dict 改写成
+        `band=low / _relevance=0.0` —— 调用方手里的 A 结果被静默篡改（实测复现）。
+        复制一份（k≤20，微秒级）就把"索引对象"与"输出对象"彻底分开，
+        顺带让"本次调用的结果"成为不可变快照。
+        """
+        out = []
+        for it in items:
+            try:
+                s, r, *rest = it
+            except (TypeError, ValueError):
+                out.append(it)
+                continue
+            out.append((s, dict(r) if isinstance(r, dict) else r, *rest))
+        return out
 
     def _ensure_index(self, store):
         """增量更新检索索引：
@@ -312,20 +382,54 @@ class RetrievalEngine:
 
     def retrieve(self, store, query, k=5, layer=None, mtype=None, tag=None,
                  date_from=None, date_to=None, use_vector=True, use_graph=True,
-                 multi_hop=False, boost_recency=0.6, candidate_n=500, project=None):
-        """5-Way Fusion检索主入口。"""
+                 multi_hop=False, boost_recency=0.6, candidate_n=500, project=None,
+                 tags=None, apply_floor=True):
+        """5-Way Fusion 检索主入口。
+
+        结构化过滤：
+        - mtype: 单类型过滤（如 "preference"）
+        - tag:   单标签过滤
+        - tags:  多标签 OR 过滤（命中任一 tag 即保留；与 mtype 为 AND 关系）。
+          兼容 tag 传单值/列表：tag 为列表时按 tags 语义处理。
+        - apply_floor: 是否应用 v7.0.2 的**相关性下限**（默认 True）。
+          【为什么需要这个开关】"下限"解决的是"**回答问题**时别把无关记忆当证据
+          塞给模型"。但另有一类调用是"**定位目标**"—— forget / update / dedup
+          要问"用户说的那条记忆是哪条"，此时判据完全不同：
+            • 用户的描述天然含糊（"把那个 bge 维度的事忘掉"），语义距离本来就远；
+            • 返回空 = 操作直接失败，而返回"最像的几条 + 分数"再由人确认
+              （所有目标解析都走 dry_run 先行）才是正确姿势。
+          同一个阈值套两种语义必然有一边是错的，所以把它做成显式参数而不是
+          隐式全局行为，并写进查询缓存键避免两种结果互相污染。
+        """
         self._ensure_index(store)
         records = self._cached_records  # ← 复用 _ensure_index 的缓存，消灭二次全量扫描
+
+        # ---- 归一化 tag/tags（单值或列表均支持，多 tag 为 OR 语义）----
+        tag_list = []
+        for _val in (tag, tags):
+            if _val is None:
+                continue
+            if isinstance(_val, (list, tuple)):
+                tag_list.extend(t for t in _val if t)
+            elif _val:
+                tag_list.append(_val)
+        tag_set = set(tag_list)
 
         # ---- v7.0.0: 查询 TTL 缓存（相同查询 10 秒内复用，避免重复计算）----
         # key 含 store 指纹与记录数：数据变化时自动失效，避免返回陈旧结果
         cache_key = (query, k, layer, mtype, tag, date_from, date_to, project,
                      use_vector, use_graph, multi_hop, boost_recency, candidate_n,
+                     tuple(sorted(tag_set)), bool(apply_floor),
                      self._indexed_fingerprint, self._indexed_record_count)
         _cache_now = _utcnow_ts()
         _cached = self._query_cache.get(cache_key)
         if _cached is not None and (_cache_now - _cached[0]) < self._query_cache_ttl:
-            return list(_cached[1])  # 浅拷贝，避免调用方修改污染缓存
+            _hit = list(_cached[1])  # 浅拷贝，避免调用方修改污染缓存
+            # v7.0.2 (P0-2 修正)：重贴置信带（记录 dict 的标记可能已被后续打分清掉）
+            self._apply_bands(_hit, _cached[2] if len(_cached) > 2 else None)
+            self.last_recall_metrics = _recall_metrics(query, k, None, None, _hit, 0,
+                                                       cache_hit=True)
+            return self._snapshot(_hit)
 
         # 过滤已删除/已合并的记录（v7.0.0）
         records = [r for r in records if r.get("status") in (None, "active")]
@@ -335,12 +439,15 @@ class RetrievalEngine:
             records = [r for r in records if r.get("layer") == layer]
         if mtype:
             records = [r for r in records if r.get("type") == mtype]
-        if tag:
-            records = [r for r in records if tag in (r.get("tags") or [])]
+        if tag_set:
+            # 多标签 OR：记录的 tags 与 tag_set 有交集即保留
+            records = [r for r in records
+                       if set(r.get("tags") or []) & tag_set]
         if date_from or date_to:
             records = [r for r in records if _in_date_range(r, date_from, date_to)]
 
         if not records:
+            self.last_recall_metrics = _recall_metrics(query, k, 0, 0, [], 0)
             return []
 
         # ---- Query Expansion (v7.0.0 Module 1) ----
@@ -350,8 +457,24 @@ class RetrievalEngine:
         # query token 驻留（与索引 token 同字符串对象，保证倒排/IDF 命中）
         q_tokens = [self._tok_intern.get(t, t) for t in _tokenize(query)]
         q_tf = _tf_vector(q_tokens)
+        # v7.0.2 (P0-2)：词面兜底用的"查询内容词"（剥掉泛问词与单字噪声）
+        q_content_tokens = {t for t in q_tokens if _is_content_token(t)}
         n = len(records)
         now = _utcnow_ts()
+
+        # ---- Path6: tags 自动命中通道（v7.0.2 混合检索默认行为）----
+        # 设计目标：即使调用方不显式传 tags，也按 query 里的实体词自动匹配
+        # 全库 tags，命中记录直接进候选并给高分 boost，结构性保证"问荔枝大窑
+        # 必中 tags=汽水/大窑"的记忆不被 Top-K 挤占。
+        # 触发条件：query 非纯泛词（含 2+ CJK 实体字符或 1+ 英文词）且
+        # 调用方未显式传 tag/tags（显式传了走过滤通道，不叠加自动通道避免双重收窄）。
+        tag_boost = {}   # idx → boost 分数
+        tag_hit_reasons = {}  # idx → 命中的 tag 描述
+        if not tag_set:
+            auto_tag_hits = _auto_tag_match(query, records, self._topic_index)
+            for idx, hit_tags in auto_tag_hits.items():
+                tag_boost[idx] = 0.30
+                tag_hit_reasons[idx] = "tags:" + "/".join(hit_tags[:3])
 
         # ---- Path1: BM25 关键词 ----
         # 轻量模式（sqlite+FTS5）：候选与 BM25 排序均由 FTS5 提供（bm25() 排序 + 排名分数）；
@@ -390,9 +513,18 @@ class RetrievalEngine:
                     bm25_scores[i] = -rank if rank is not None else 0.0
                     candidate_indices.add(i)
                 if not candidate_indices:
-                    # 与完整模式一致的回退：候选不足时全量候选（如加密内容场景，
-                    # FTS 无法命中密文，交由融合路径按其他信号排序）
-                    candidate_indices = set(range(n))
+                    # 无 FTS 命中时：保持候选池为空（score 全 0），
+                    # 让下游 Path2a 向量通道 / Path3b 图通道自行补候选。
+                    # 若 records 已经过 tag/mtype/project 过滤，全量回退会把
+                    # 被过滤掉的记录重新放进候选，绕过结构化过滤——
+                    # 因此绝不在该场景下全量回退。
+                    _any_filter = bool(project or layer or mtype or tag_set
+                                       or date_from or date_to)
+                    if _any_filter:
+                        candidate_indices = set()
+                        bm25_scores = [0.0] * n
+                    else:
+                        candidate_indices = set(range(n))
             except Exception as exc:
                 logger.debug("FTS5 候选获取失败，回退全量候选：%s", exc)
                 candidate_indices = set(range(n))
@@ -435,37 +567,43 @@ class RetrievalEngine:
                         if q_tok in self._inverted_index:
                             candidate_indices.update(self._inverted_index[q_tok])
 
-            if candidate_indices:
-                candidate_indices = {i for i in candidate_indices if i < n}
-                # v5.2: 候选过大时（常见词 query），用 IDF 最高的词截断，避免 O(N) 扫描
-                if len(candidate_indices) > candidate_n * 10:
-                    rarest = max(q_tf.keys(), key=lambda t: idf_dict.get(t, 0))
-                    rare_postings = self._inverted_index.get(rarest, array('I'))
-                    candidate_indices = {i for i in rare_postings if i < n}
-                    # 进一步截断：rarest 词 postings 仍过大时，按该词 TF 取 top candidate_n*2，
-                    # 确保 BM25 计算仅在有限候选中进行（避免 10k+ 候选的 BM25 计算，100k 宽泛查询关键）
-                    if len(candidate_indices) > candidate_n * 2:
-                        candidate_indices = set(
-                            sorted(candidate_indices,
-                                   key=lambda i: doc_tfs[i].get(rarest, 0),
-                                   reverse=True)[:candidate_n * 2]
-                        )
-                for i in candidate_indices:
-                    # Score with original query TF (primary) + expanded queries (secondary)
-                    primary_score = _bm25_score(q_tf, doc_tfs[i], idf_dict, avg_len)
-                    bm25_scores[i] = primary_score
-                    # Add small boost from expanded queries
-                    for alt_query in expanded_queries[1:3]:  # Only first 2 expansions
-                        alt_tokens = [self._tok_intern.get(t, t)
-                                      for t in _tokenize(alt_query)]
-                        alt_tf = _tf_vector(alt_tokens)
-                        alt_score = _bm25_score(alt_tf, doc_tfs[i], idf_dict, avg_len)
-                        if alt_score > primary_score * 0.5:
-                            bm25_scores[i] = max(bm25_scores[i], primary_score + alt_score * 0.3)
             else:
-                # 回退：全量扫描
-                bm25_scores = [_bm25_score(q_tf, t, idf_dict, avg_len) for t in doc_tfs]
-                candidate_indices = set(range(n))
+                if candidate_indices:
+                    candidate_indices = {i for i in candidate_indices if i < n}
+                    # v5.2: 候选过大时（常见词 query），用 IDF 最高的词截断，避免 O(N) 扫描
+                    if len(candidate_indices) > candidate_n * 10:
+                        rarest = max(q_tf.keys(), key=lambda t: idf_dict.get(t, 0))
+                        rare_postings = self._inverted_index.get(rarest, array('I'))
+                        candidate_indices = {i for i in rare_postings if i < n}
+                        # 进一步截断：rarest 词 postings 仍过大时，按该词 TF 取 top candidate_n*2，
+                        # 确保 BM25 计算仅在有限候选中进行（避免 10k+ 候选的 BM25 计算，100k 宽泛查询关键）
+                        if len(candidate_indices) > candidate_n * 2:
+                            candidate_indices = set(
+                                sorted(candidate_indices,
+                                       key=lambda i: doc_tfs[i].get(rarest, 0),
+                                       reverse=True)[:candidate_n * 2]
+                            )
+                    for i in candidate_indices:
+                        # Score with original query TF (primary) + expanded queries (secondary)
+                        primary_score = _bm25_score(q_tf, doc_tfs[i], idf_dict, avg_len)
+                        bm25_scores[i] = primary_score
+                        # Add small boost from expanded queries
+                        for alt_query in expanded_queries[1:3]:  # Only first 2 expansions
+                            alt_tokens = [self._tok_intern.get(t, t)
+                                          for t in _tokenize(alt_query)]
+                            alt_tf = _tf_vector(alt_tokens)
+                            alt_score = _bm25_score(alt_tf, doc_tfs[i], idf_dict, avg_len)
+                            if alt_score > primary_score * 0.5:
+                                bm25_scores[i] = max(bm25_scores[i], primary_score + alt_score * 0.3)
+                else:
+                    # 无候选（query token 全部未命中倒排索引）。
+                    # 若已启用结构化过滤，必须保持候选为空——全量回退会把
+                    # 被 tag/mtype 过滤掉的记录重新放进候选，绕过过滤。
+                    # 未过滤时回退全量扫描（保持旧行为）。
+                    if project or layer or mtype or tag_set or date_from or date_to:
+                        candidate_indices = set()
+                    else:
+                        candidate_indices = set(range(n))
 
         # ---- 粗筛候选（v5.2: heapq 取 top-K，避免全量排序 O(candidate log candidate)）----
         if isinstance(candidate_indices, set):
@@ -494,7 +632,28 @@ class RetrievalEngine:
                 try:
                     id_to_idx_full = {r["id"]: i for i, r in enumerate(records)}
                     existing = set(candidate_indices)
-                    for _mid, _sim in self.embed_engine.search(q_vec, top_k=candidate_n):
+                    # 混合检索第二路：向量通道透传结构化过滤（tags OR / mtype）。
+                    # 仅当向量插件的 search 支持 tags/mtype kwargs 时传递
+                    # （Qdrant 插件支持；内置随机投影 / numpy_vector 不支持，
+                    # 此时靠 retrieve 入口的 Python 记录过滤兜底，行为不变）。
+                    _search_kw = {}
+                    if tag_set:
+                        _search_kw["tags"] = list(tag_set)
+                    if mtype:
+                        _search_kw["mtype"] = mtype
+                    # 能力探测：插件 search 接受 tags/mtype kwargs 才透传；
+                    # 内置随机投影 / numpy_vector 的 search 不接受 → TypeError，
+                    # 退化纯向量召回（行为不变，靠 retrieve 入口记录过滤兜底）。
+                    _probe = None
+                    if _search_kw:
+                        try:
+                            _probe = self.embed_engine.search(q_vec, top_k=candidate_n,
+                                                             **_search_kw)
+                        except TypeError:
+                            _probe = None
+                    if _probe is None:
+                        _probe = self.embed_engine.search(q_vec, top_k=candidate_n)
+                    for _mid, _sim in _probe:
                         _i = id_to_idx_full.get(_mid)
                         if _i is not None and _i not in existing:
                             candidate_indices.append(_i)
@@ -506,47 +665,71 @@ class RetrievalEngine:
                 if rec.get("embedding"):
                     vec_scores[i] = self.embed_engine.similarity(q_vec, rec["embedding"])
 
+        # ---- Path6 候选补入：tags 自动命中的记录必须进候选池，否则 boost 无效 ----
+        if tag_boost:
+            _existing = set(candidate_indices)
+            for _idx in tag_boost:
+                if _idx < n and _idx not in _existing:
+                    candidate_indices.append(_idx)
+                    _existing.add(_idx)
+
         # ---- Path3: Knowledge Graph（v3.1 增强：多跳扩展 + 图遍历boost）----
+        # v7.0.2（P1-1）修复三处，使图通道真正参与打分（原先 0.10 权重长期空转）：
+        #   ① 查询侧代词归一：`我/我的` → `用户`（记忆以第三人称书写）；
+        #   ② 记录侧节点 = entities ∪ graph_edges 端点（含 qualifier），
+        #      并用包含式匹配（`RTX` 与 `RTX 4090` 视为同一实体）；
+        #   ③ 多跳改为在归一化后的邻接图上展开，而不是 `qe in adj` 的精确命中。
+        # 邻居扩展结果一次性预计算，避免在候选循环里做 O(候选 × 邻居) 的重复匹配。
         graph_scores = [0.0] * n
         q_entities = set(_extract_entity_names(query))
+        for _pron, _ent in _QUERY_PRONOUN_ENTITIES.items():
+            if _pron in query:
+                q_entities.add(_ent)
         graph_expanded_entities = set(q_entities)  # 扩展后的实体集合
+        _hop1_nodes, _hop2_nodes = set(), set()
         if use_graph and self.graph_store and self.graph_store.exists:
-            # Step A: 从 query 实体出发做图扩展（2跳），finds 关联实体
-            for qe in list(q_entities)[:10]:
-                try:
-                    neighbors = self.graph_store.get_neighbors(qe, max_depth=2)
-                    for depth_key in ['depth_1', 'depth_2']:
-                        for nb in neighbors.get(depth_key, []):
-                            graph_expanded_entities.add(nb)
-                except Exception as exc:
-                    logger.debug("图邻居扩展失败：%s", exc)
-            
-            # Step B: 用扩展后的实体集合重新computes 图谱分数
-            all_edges = self.graph_store.all_edges()
+            try:
+                all_edges = self.graph_store.all_edges()
+            except Exception as exc:
+                logger.debug("图边读取失败：%s", exc)
+                all_edges = []
             adj = {}
             for e in all_edges:
-                frm, to = e.get('from',''), e.get('to','')
-                if frm not in adj: adj[frm] = set()
-                if to not in adj: adj[to] = set()
-                adj[frm].add(to); adj[to].add(frm)
-            
+                frm, to = e.get('from', ''), e.get('to', '')
+                if not frm or not to:
+                    continue
+                adj.setdefault(frm, set()).add(to)
+                adj.setdefault(to, set()).add(frm)
+
+            # Step A: 查询实体（含代词归一）→ 归一化匹配到图节点 → 展开 2 跳
+            _seed_nodes = _match_adj_nodes(q_entities, adj)
+            for s in _seed_nodes:
+                _hop1_nodes |= adj.get(s, set())
+            for h in _hop1_nodes:
+                _hop2_nodes |= adj.get(h, set())
+            _hop2_nodes -= _hop1_nodes
+            graph_expanded_entities |= _seed_nodes | _hop1_nodes | _hop2_nodes
+
+            # Step B: 候选级节点集合（只覆盖候选池，避免 O(N) 全库扫描）
+            _r_nodes = {}
             for i in candidate_indices:
-                r = records[i]
-                r_ent = set(r.get("entities") or [])
-                # 直接实体重叠
-                direct = len(graph_expanded_entities & r_ent)
+                ns = _record_graph_nodes(records[i])
+                if ns:
+                    _r_nodes[i] = ns
+
+            for i in candidate_indices:
+                ns = _r_nodes.get(i)
+                if not ns:
+                    continue
+                # 直接节点重叠（query 实体 ∪ 多跳扩展 对 记录节点）
+                direct = _node_overlap(graph_expanded_entities, ns)
                 graph_scores[i] = direct * 0.5
-                # 图Path连接（核心新增：即使无直接重叠，走图Path也能加分）
-                if direct == 0 and q_entities:
-                    for qe in q_entities:
-                        for re_ent in r_ent:
-                            if qe in adj and re_ent in adj.get(qe, set()):
-                                graph_scores[i] += 0.3  # 1跳邻居 +0.3
-                            elif qe in adj:
-                                for mid in adj[qe]:
-                                    if re_ent in adj.get(mid, set()):
-                                        graph_scores[i] += 0.15  # 2跳 +0.15
-                                        break
+                if direct == 0:
+                    # 图路径连接：即使无直接重叠，1 跳 / 2 跳可达也加分
+                    if _hop1_nodes and _node_overlap(_hop1_nodes, ns):
+                        graph_scores[i] += 0.30
+                    elif _hop2_nodes and _node_overlap(_hop2_nodes, ns):
+                        graph_scores[i] += 0.15
         
         # ---- Path3b: 候选池图扩展（v3.1 新增）----
         # 把图关联但BM25低分的Record也加入候选池
@@ -626,6 +809,9 @@ class RetrievalEngine:
         # 随机投影核心保持关键词主导（阶段3 修复：原向量权重仅 0.15-0.20，
         # 高质量语义模型下改写对排不到前位，MRR/NDCG 不达标）
         _semantic_backend = hasattr(self.embed_engine, "search")
+        # v7.0.2 (P0-2 修正)：清掉上一轮的置信带标记，避免"后一次查询改写前一次
+        # 已返回结果的 band"（详见 __init__ 里 `_band_marked` 的说明）。
+        self._clear_band_marks()
         scored = []
         for i in candidate_indices:
             r = records[i]
@@ -635,7 +821,17 @@ class RetrievalEngine:
             n_graph = graph_scores[i] / graph_max if graph_max > 0 else 0.0
             n_time = time_scores[i] / time_max if time_max > 0 else 0.0
             imp = (r.get("importance") or 3) / 5.0
-            access_boost = min(r.get("access_count") or 0, 10) * 0.02
+            # ---- v7.0.2 (P0-1): access_boost 由「加性 + 上限 0.20」改为「乘性 + 上限 5%」----
+            # 旧行为 `min(access_count, 10) * 0.02`：加性、上限 +0.20，与一个完整通道
+            # 权重（0.10~0.55）同量级；而 access_count 由 `_touch_recalled()` 在每次召回后
+            # 对"进入结果列表"的记录累加 —— 不问它是否真的是用户要的那条。
+            # 实测（对照实验）：同一批记忆、同一句提问，仅因"先前问过 6 个无关问题"，
+            # 干扰项分数 +0.12（= 6 × 0.02，与公式逐位吻合），把正确答案从 rank1 挤到 rank3。
+            # 会话越长偏置越强 —— 这是"长会话越聊越偏"的直接机制，且上下文再大也救不了
+            # （问题在打分层，不在上下文窗口）。
+            # 新行为：乘性且封顶 +5%，数学上不可能越级反超；计数语义同步收窄，
+            # 见 `brain._touch_recalled()`：只有"高分命中"才 +1。
+            access_boost = 1.0 + 0.01 * min(int(r.get("access_count") or 0), 5)
             conf = conf_weights[i]
             if unfiltered and r.get('id') in superseded_ids:
                 conf *= 0.3  # superseded 惩罚（缓存 conf 不含此惩罚）
@@ -671,7 +867,46 @@ class RetrievalEngine:
                 n_graph * graph_weight +
                 n_time * time_weight +
                 conf * conf_weight
-            ) * (0.6 + 0.4 * imp) + access_boost + ngram_boost_score + syn_equiv
+            ) * (0.6 + 0.4 * imp) * access_boost + ngram_boost_score + syn_equiv
+            # Path6: tags 自动命中通道（query 实体词命中记录 tags → 强 boost，
+            # 结构性保证精准记忆不被 Top-K 挤占；即使 FTS5/向量都没排到前位也进）
+            total += tag_boost.get(i, 0.0)
+
+            # ---- v7.0.2 (P0-2): 相关性下限判定（未归一化信号，见 Part 6.4 注释）----
+            # 通过条件（OR）：Path6 结构性命中 / 同义等价 / n-gram 字面重合 /
+            #                原始 cosine ≥ REL_MIN_SEMANTIC / 词面内容词有交集。
+            # 未通过者标 low，排序后统一剔除 —— 允许返回空结果：对 Agent 而言
+            # "没找到相关记忆"比"给 5 条无关记忆"安全得多（旧行为是 100% 返回满 5 条，
+            # 且无关查询 top1 可达 1.0200，高于相关查询的 0.6922）。
+            raw_sem = vec_scores[i] if (use_vector and self.embed_engine) else 0.0
+            band = "high" if (syn_equiv > 0 or raw_sem >= REL_HIGH_SEMANTIC
+                              or ngram_sim >= REL_HIGH_SEMANTIC) else "medium"
+            passes = (bool(i in tag_boost) or syn_equiv > 0
+                      or ngram_sim >= REL_MIN_NGRAM or raw_sem >= REL_MIN_SEMANTIC)
+            if not passes:
+                # 词面兜底（零依赖）：标签词与查询同形、或内容内容词有交集。
+                # 只在不通过前几项时才付分词成本（慢路径）。
+                _rt = {t for t in _tokenize(r.get("content", "") or "")
+                       if _is_content_token(t)}
+                for _tg in (r.get("tags") or []):
+                    _tg = str(_tg).strip().lower()
+                    if _tg:
+                        _rt.add(_tg)
+                if q_content_tokens and (q_content_tokens & _rt):
+                    passes = True
+                    band = "medium"
+                else:
+                    band = "low"
+            # 挂在记录 dict 上（而不是加长结果元组）：cli.py / web_server.py 里有
+            # 精确的 `for score, rec, reasons in results` 三元组解包，扩元组会直接炸。
+            # 写库走 `_MEMORIES_COLUMNS` 白名单，多余键不会被持久化。
+            r["_relevance_band"] = band
+            r["_relevance"] = round(raw_sem, 4)
+            # 登记本轮标记，供下一次打分前清理（v7.0.2 P0-2 修正）。
+            # 上限 5000：候选数不会超过这个量级（candidate_n 通常 20~200），
+            # 设上限纯粹是防"有人把 candidate_n 调到 10 万"时标记表无限膨胀。
+            if len(self._band_marked) < 5000:
+                self._band_marked.append(r)
 
             reasons = []
             if n_bm25 > 0.3: reasons.append("关键词")
@@ -682,10 +917,19 @@ class RetrievalEngine:
             if ngram_sim > 0.5: reasons.append("N-gram相似")
             if syn_equiv > 0: reasons.append("同义改写")
             if r.get('id') in superseded_ids: reasons.append("已更新")
+            if i in tag_hit_reasons: reasons.append(tag_hit_reasons[i])
+            if band == "low": reasons.append("低于相关性下限")
 
             scored.append((total, r, reasons))
 
         scored.sort(key=lambda x: x[0], reverse=True)
+        # ---- v7.0.2 (P0-2): 相关性下限过滤（P0-2 的核心，见上方判定段）----
+        # 位置：排序之后。过滤器只剔除输出项，不动候选下标 —— records /
+        # _doc_tf_cache / 倒排 posting 必须同序同长，候选阶段增删会让下标错位。
+        _n_before_floor = len(scored)
+        if apply_floor:
+            scored = [it for it in scored if it[1].get("_relevance_band") != "low"]
+        _floor_dropped = _n_before_floor - len(scored)
         # ---- v7.0.0-MCP：置信度归零 = 已撤回（"忘记"的语义），输出前硬过滤 ----
         # 为什么放在这个位置：候选池的构建、doc_tf / 倒排 / _conf_weights 都按下标
         # 与 _cached_records 对齐（records 与 _doc_tf_cache 必须同序同长），在候选阶段
@@ -730,12 +974,60 @@ class RetrievalEngine:
         if len(self._query_cache) > 512:
             self._query_cache = {kk: vv for kk, vv in self._query_cache.items()
                                  if (_cache_now - vv[0]) < self._query_cache_ttl}
-        self._query_cache[cache_key] = (_cache_now, top)
+        # 缓存条目第三位 = 本轮置信带快照，供命中时重贴（v7.0.2 P0-2 修正）
+        _band_snapshot = {it[1].get("id"): it[1].get("_relevance_band")
+                          for it in top
+                          if isinstance(it[1], dict) and it[1].get("_relevance_band")}
+        self._query_cache[cache_key] = (_cache_now, top, _band_snapshot)
 
-        return top
+        # v7.0.2 (P2-2): 落本次召回的质量指标（P0-2 是否触发下限看这里）
+        self.last_recall_metrics = _recall_metrics(
+            query, k, len(records), len(candidate_indices), top, _floor_dropped)
+        # v7.0.2 (P0-2 修正)：输出边界快照 —— 交给调用方的是副本，不是索引对象
+        return self._snapshot(top)
+
+    def sync_record(self, memory_id, updates):
+        """把字段更新同步回**共享检索索引记录**（v7.0.2）。
+
+        为什么需要：`retrieve()` 现在返回记录副本（消除别名污染），于是
+        `brain._touch_recalled()` 对返回值的就地修改（access_count 等）不再影响
+        索引里的那份 —— 那会让"访问计数"在会话内不生效（要等索引重建）。
+        这里按 id 定位共享记录并同步同一批字段，恢复"会话内即时生效 + 跨进程靠
+        落库"的一致性。命中下标走 `_id_map`（O(1)）；退化路径只在记录数不大时
+        线性扫描，避免百万级库上出现 O(N) 热点。
+        """
+        if not memory_id or not updates:
+            return False
+        recs = self._cached_records
+        if not recs:
+            return False
+        idx = None
+        try:
+            if self._id_map:
+                idx = self._id_map.get(memory_id)
+        except Exception:
+            idx = None
+        if idx is None or idx >= len(recs) \
+                or not isinstance(recs[idx], dict) \
+                or recs[idx].get("id") != memory_id:
+            if len(recs) > 5000:
+                return False
+            idx = None
+            for i, r in enumerate(recs):
+                if isinstance(r, dict) and r.get("id") == memory_id:
+                    idx = i
+                    break
+            if idx is None:
+                return False
+        rec = recs[idx]
+        try:
+            rec.update(updates)
+        except Exception:
+            return False
+        return True
 
     def _multi_hop_enhance(self, store, query, scored, k):
-        """多跳推理：从第一跳Result中抽取实体，再做一 times图扩展检索，merges Result。"""
+        """多跳推理：从第一跳结果中抽取实体，再做一次图扩展检索，合并结果。"""
         first_entities = set()
         for _, rec, _ in scored[:3]:
             for e in (rec.get("entities") or [])[:5]:
@@ -905,6 +1197,162 @@ def _compute_pair_similarity(record_a, record_b):
     return min(similarity, 1.0)
 
 
+# ============================================================================
+# Part 6.4: 相关性判定基础设施（v7.0.2 P0-2 / P1-1 / P1-3）
+# ============================================================================
+
+# ---- P0-2：相关性下限 ----
+# 【为什么不能用融合分做阈值】五路（BM25/向量/图/时间/可信度）每一路都做了
+# `x / max(x)` 归一化，于是**最高分那条永远拿 1.0** —— 融合分因此没有绝对含义。
+# 实测：无关查询「怎样给汽车换轮胎」top1 = 1.0200，**高于**相关查询
+# 「我的显卡是什么」的 0.6922。任何"融合分 ≥ τ"的写法要么形同虚设、
+# 要么先把正确答案滤掉。
+# 【可行信号】未归一化的原始 cosine 有绝对含义（BGE-M3 实测，8 条记忆）：
+#     相关（查询 → 其对应记忆，n=8）：min = 0.5222
+#     无关（3 条无关查询 × 8 条记忆，n=33）：max = 0.4064
+#   → 阈值取 0.45，正落在两簇之间的空档里（脚本：_diag/p0_measure.py）。
+REL_MIN_SEMANTIC = float(os.environ.get("MNEMOSYNE_REL_MIN_SEMANTIC", "0.45"))
+# 字符 n-gram 相似度下限（0~1）：字面高度重合（改写 / 引用原句）视为强证据
+REL_MIN_NGRAM = float(os.environ.get("MNEMOSYNE_REL_MIN_NGRAM", "0.34"))
+# 语义"高置信"档下限：实测相关簇下界 0.5222，取 0.60 作为 high 档门槛
+REL_HIGH_SEMANTIC = float(os.environ.get("MNEMOSYNE_REL_HIGH_SEMANTIC", "0.60"))
+
+# ---- P1-1：代词 → 实体归一 ----
+# 记忆以第三人称书写（主语多为 `用户`），而提问是"我 / 我的"。
+# 不做这层归一，图通道的查询侧永远找不到 `用户` 这个节点 → 0.10 权重空转。
+_QUERY_PRONOUN_ENTITIES = {"我": "用户", "我的": "用户", "自己": "用户", "咱": "用户"}
+
+# ---- P1-3：查询词 → 标签 同义映射 ----
+# Path6 的实体词抽取是纯规则/词表命中，**查询词与标签不同形就完全失效**：
+# 「我的显卡是什么」的标签是 `硬件`，两者不同形 → 拿不到 0.30 boost，
+# 分数只有 0.6922，反被无关查询的 1.0200 反超。
+_QUERY_TAG_SYNONYMS = {
+    "显卡": ("硬件",), "gpu": ("硬件",), "显存": ("硬件",), "cpu": ("硬件",),
+    "主板": ("硬件",), "硬盘": ("硬件",), "内存条": ("硬件",), "电脑": ("硬件",),
+    "咖啡": ("咖啡", "饮品"), "卡布基诺": ("咖啡", "饮品"), "卡布奇诺": ("咖啡", "饮品"),
+    "拿铁": ("咖啡", "饮品"), "汽水": ("汽水", "饮品"), "大窑": ("汽水", "饮品"),
+    "乌龙茶": ("茶", "饮品"), "奶茶": ("茶", "饮品"), "茶": ("茶", "饮品"),
+    "时区": ("环境",), "utc": ("环境",), "操作系统": ("环境",),
+    "城市": ("地点",), "在哪": ("地点",), "住在": ("地点",), "工作地": ("地点",),
+    "代号": ("项目",), "项目名": ("项目",), "仓库": ("项目",),
+    "沟通": ("沟通",), "表达方式": ("沟通",), "说话": ("沟通",),
+}
+
+# ---- P1-3：泛问词灰名单 ----
+# 「什么 / 怎么 / 多少」这类泛问 2 字子串会被 `_query_entity_words` 当成实体词，
+# 再拿去和全库 tags 做双向子串匹配 → 制造噪声命中，把无关项抬进 top-k。
+_GENERIC_QUERY_WORDS = frozenset({
+    "什么", "什么时", "怎么", "怎样", "如何", "为什么", "为啥", "哪个", "哪些",
+    "哪里", "哪儿", "多少", "几个", "多久", "谁", "是不是", "有没有", "是否",
+    "可以", "能不能", "要不要", "请问", "告诉", "知道", "记得", "时候",
+    "我的", "我在", "我有", "我想", "我要", "这个", "那个", "一个",
+})
+
+# 图邻接表包含式匹配的规模上限（超过则只做精确匹配，保护 P99 延迟）
+_GRAPH_ADJ_MATCH_LIMIT = 5000
+
+
+def _recall_metrics(query, k, n_records, n_candidates, top, floor_dropped,
+                    cache_hit=False):
+    """装配一次 retrieve 的质量指标（v7.0.2 P2-2：召回质量监控的输入）。
+
+    纯记账，无副作用。通道分布来自每条结果自带的 `reasons`，
+    分档分布来自 P0-2 写在记录上的 `_relevance_band`。
+    """
+    channels = {}
+    bands = {}
+    for it in top:
+        try:
+            for rsn in (it[2] or ()):
+                channels[rsn] = channels.get(rsn, 0) + 1
+            _b = str(it[1].get("_relevance_band"))
+            bands[_b] = bands.get(_b, 0) + 1
+        except (IndexError, TypeError, AttributeError):
+            continue
+    return {
+        "query_len": len(query or ""),
+        "k": k,
+        "records": n_records,
+        "candidates": n_candidates,
+        "returned": len(top),
+        "top1": round(float(top[0][0]), 4) if top else None,
+        "top1_band": (top[0][1].get("_relevance_band") if top else None),
+        "empty": not top,
+        "floor_dropped": floor_dropped,
+        "bands": bands,
+        "channels": channels,
+        "cache_hit": cache_hit,
+    }
+
+
+def _is_content_token(token):
+    """词面兜底用的"内容词"判定：≥2 字符且不在泛问词灰名单里。"""
+    if not token or len(token) < 2:
+        return False
+    t = str(token).strip().lower()
+    if not t or t in _GENERIC_QUERY_WORDS:
+        return False
+    return True
+
+
+def _record_graph_nodes(record):
+    """记录在图里的节点集合：`entities` ∪ `graph_edges` 的 from/to/qualifier。
+
+    v7.0.2（P1-1）：旧实现只看 `entities`，而边存的是"对象字符串"
+    （`RTX 4090`），实体存的是分词碎片（`RTX`、`4090`），两边对不上 ——
+    即使图里真有边，打分也用不上。把边的端点也当节点，再配 `_node_overlap`
+    的包含式匹配，图通道才真正参与打分。
+    """
+    nodes = set()
+    for e in (record.get("entities") or []):
+        if e:
+            nodes.add(str(e))
+    for e in (record.get("graph_edges") or []):
+        if isinstance(e, dict):
+            for k in ("from", "to", "qualifier"):
+                v = e.get(k)
+                if v:
+                    nodes.add(str(v))
+        elif isinstance(e, (list, tuple)) and len(e) >= 2:
+            nodes.add(str(e[0]))
+            nodes.add(str(e[1]))
+    return nodes
+
+
+def _node_overlap(a_nodes, b_nodes):
+    """包含式节点交集数：`RTX` 与 `RTX 4090` 视为同一实体，避免分词粒度差异漏配。"""
+    hits = set()
+    for a in a_nodes:
+        if not a:
+            continue
+        for b in b_nodes:
+            if not b:
+                continue
+            if a == b or a in b or b in a:
+                hits.add(a if len(a) <= len(b) else b)
+    return len(hits)
+
+
+def _match_adj_nodes(nodes, adj):
+    """在邻接表键里找与 *nodes* 包含式匹配的节点名（P1-1 归一化 + 规模保护）。"""
+    out = set()
+    if not nodes or not adj:
+        return out
+    allow_fuzzy = len(adj) <= _GRAPH_ADJ_MATCH_LIMIT
+    for n in nodes:
+        if not n:
+            continue
+        if n in adj:
+            out.add(n)
+            continue
+        if not allow_fuzzy:
+            continue
+        for key in adj:
+            if n in key or key in n:
+                out.add(key)
+    return out
+
+
 def _ngram_boost(query, record, max_grams=50):
     """Compute character n-gram (bigram + trigram) similarity boost.
     
@@ -931,6 +1379,121 @@ def _ngram_boost(query, record, max_grams=50):
     tri_overlap = len(q_tri & c_tri) / len(q_tri) if q_tri else 0.0
     
     return 0.6 * bi_overlap + 0.4 * tri_overlap
+
+
+# ============================================================================
+# Part 6.5: 自动 tags 命中通道（v7.0.2 混合检索默认行为）
+# ============================================================================
+
+# query 实体词长度下限（CJK 字符数）：过短（如单字"喝"）噪音大，不触发
+_AUTO_TAG_MIN_CJK = 2
+_AUTO_TAG_MAX_HITS = 30  # 单次查询最多补多少个 tags 命中候选（防全库误命中爆炸）
+
+
+def _query_entity_words(query):
+    """从 query 抽实体词用于 tags 自动匹配。
+
+    策略（零分词依赖，纯规则）：
+    1. CJK 连续片段 → 取其中的 2/3 字子串作为候选实体词
+       （"荔枝味大窑汽水" → "大窑""汽水""荔枝"等子串，匹配 tags 里的
+        "大窑"/"汽水"/"荔枝口味"）
+    2. 英文/数字词 → 整词（"cappuccino" 匹配 tag "卡布基诺/cappuccino"）
+    3. 同义词扩展（复用 _expand_query_terms 的语义组，覆盖"喜欢/爱/要"等）
+    返回 (实体词 set, 实体词的 bigram set)。
+    """
+    words = set()
+    bigrams = set()
+    if not query:
+        return words, bigrams
+    low = (query or "").lower()
+
+    # 英文/数字整词
+    import re as _re
+    for m in _re.findall(r"[a-z0-9]+", low):
+        if len(m) >= 2 and m not in _GENERIC_QUERY_WORDS:
+            words.add(m)
+
+    # CJK 连续片段 → 2/3 字子串
+    for m in _re.findall(r"[\u4e00-\u9fff]+", low):
+        L = len(m)
+        if L < _AUTO_TAG_MIN_CJK:
+            continue
+        for wlen in (2, 3):
+            if wlen <= L:
+                for i in range(L - wlen + 1):
+                    sub = m[i:i + wlen]
+                    # v7.0.2 (P1-3)：泛问词不参与实体词/bigram —— 否则「什么」「多少」
+                    # 这类 2 字子串会被当成实体词去撞全库 tags，制造噪声命中，
+                    # 把无关记忆抬进 top-k。
+                    if sub in _GENERIC_QUERY_WORDS:
+                        continue
+                    words.add(sub)
+                    if wlen == 2:
+                        bigrams.add(sub)
+    return words, bigrams
+
+
+def _auto_tag_match(query, records, topic_index):
+    """按 query 实体词自动匹配全库 tags，返回 {idx: [命中的 tags]}。
+
+    用 topic_index（tag→idx 集合）反查，避免 O(N×tags) 全库扫描：
+      1. query 实体词 W → 候选 tag 集合 C = {tag ∈ topic_index : tag 是 W 中某词子串，
+         或 W 中某词是 tag 子串，或 tag 的 bigram 与 query bigram 重叠}
+      2. 对 C 里每个 tag 取 topic_index[tag]（idx 集合），命中的 idx 记入结果
+    限制：单查询最多补 _AUTO_TAG_MAX_HITS 个候选（按命中 tag 数降序截断）。
+    """
+    words, q_bigrams = _query_entity_words(query)
+    if not words:
+        return {}
+
+    # ---- v7.0.2 (P1-3): 查询词 → 标签 同义映射 ----
+    # 「我的显卡是什么」的标签是 `硬件`，字面完全不同形；没有这层映射，Path6
+    # 对这类记忆**完全失效**（实测分数 0.6922，反被无关查询「怎样给汽车换轮胎」
+    # 的 1.0200 反超）。把同义标签名并入实体词集合，让下面的"双向子串"判定
+    # 能直接命中 topic_index 的 tag 键。
+    _syn_extra = set()
+    for _w in list(words):
+        for _t in _QUERY_TAG_SYNONYMS.get(_w, ()):
+            _syn_extra.add(str(_t).lower())
+    if _syn_extra:
+        words = words | _syn_extra
+
+    # 1) 候选 tag 集合（子串双向 + bigram 重叠）
+    cands = set()
+    for tag in topic_index.keys():
+        tl = str(tag).lower()
+        if not tl:
+            continue
+        hit = False
+        # 双向子串（"大窑" 命中 tag "大窑"；"汽水" 命中 tag "大窑汽水"；
+        # "荔枝味" 命中 tag "荔枝口味" 需 bigram 重叠兜底）
+        for w in words:
+            wl = w.lower()
+            if wl in tl or tl in wl:
+                hit = True
+                break
+        if not hit and q_bigrams:
+            # tag 的 bigram 与 query bigram 有重叠（覆盖"荔枝味"↔"荔枝口味"）
+            tag_bigrams = {tl[i:i + 2] for i in range(max(1, len(tl) - 1))}
+            if tag_bigrams & q_bigrams:
+                hit = True
+        if hit:
+            cands.add(tag)
+
+    if not cands:
+        return {}
+
+    # 2) 反查 idx（topic_index: tag → set(doc_idx)），按命中 tag 数排序截断
+    hits = {}  # idx → [tag, ...]
+    for tag in cands:
+        for idx in (topic_index.get(tag) or ()):
+            hits.setdefault(idx, []).append(tag)
+
+    # 截断：命中 tag 多的优先（更精准），控制候选爆炸
+    if len(hits) > _AUTO_TAG_MAX_HITS:
+        ranked = sorted(hits.items(), key=lambda kv: len(kv[1]), reverse=True)
+        hits = dict(ranked[:_AUTO_TAG_MAX_HITS])
+    return hits
 
 
 # ============================================================================

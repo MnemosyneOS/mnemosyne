@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.1** — ゼロ依存（サードパーティライブラリ不要）、ローカル優先の AI 記憶システムです。多層型忘却（忘却の経済学）、ハッシュチェーン台帳、プラグイン SDK、ローカル Web ダッシュボード、および MCP（Model Context Protocol／モデルコンテキストプロトコル）に対応しています。
+**Mnemosyne OS 7.0.2** — ゼロ依存（サードパーティライブラリ不要）、ローカル優先の AI 記憶システムです。多層型忘却（忘却の経済学）、ハッシュチェーン台帳、プラグイン SDK、ローカル Web ダッシュボード、および MCP（Model Context Protocol／モデルコンテキストプロトコル）に対応しています。
 
 > コアが**サードパーティの依存関係を一切必要としない**唯一の AI 記憶エンジンです（Python 標準ライブラリ 3.8+ のみに依存）。ベクトルデータベース不要、LLM（大規模言語モデル）ランタイム不要、クラウドへのロックインもありません。ノート PC、サーバー、サーバーレス基盤のいずれでも動作します。
 
@@ -48,7 +48,7 @@
 <tr><td><b>多層型メモリ</b></td><td>ホット／ウォーム／コールドの階層と「忘却の経済学」を備え、低価値な記憶は移行し、決して黙って削除されることはありません。</td></tr>
 <tr><td><b>ハッシュチェーン台帳</b></td><td>SHA-256 で連鎖した台帳 — <code>verify_chain()</code> は改ざんを検出し、破損したレコードを特定します。</td></tr>
 <tr><td><b>プラグイン SDK</b></td><td><code>VectorBackendPlugin</code>／<code>CryptoPlugin</code>／<code>RerankerPlugin</code> ＋ 公式プラグイン（<code>numpy_vector</code>、<code>crypto</code>、<code>reranker</code>、<code>hrr</code>、<code>async</code>、<code>context-engine</code>）。</td></tr>
-<tr><td><b>MCP サーバー</b></td><td>stdio 経由の JSON-RPC で 14 のツールを提供。トークン認証とマルチテナント名前空間分離に対応。</td></tr>
+<tr><td><b>MCP サーバー</b></td><td>stdio 経由の JSON-RPC で 17 のツールを提供。トークン認証とマルチテナント名前空間分離に対応。</td></tr>
 <tr><td><b>Web ダッシュボード</b></td><td>テック系のローカル暗色ダッシュボード。外部 CDN に非依存 — <code>web_server.py</code> から配信されます。</td></tr>
 <tr><td><b>非同期 API</b></td><td>高スループットな取り込みのための <code>AsyncMemoryBrain</code> asyncio ラッパー。</td></tr>
 <tr><td><b>中国語最適化</b></td><td>バイグラム（二文字）トークナイゼーション ＋ FTS5 ＋ 内蔵同義語辞書。</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP サーバーは **14 のツール** を提供します：
+MCP サーバーは **17 のツール** を提供します：
 
 | Tool | Description |
 | --- | --- |
@@ -191,6 +191,9 @@ MCP サーバーは **14 のツール** を提供します：
 | `memory/import-v1` | Memory Exchange Protocol 経由のインポート |
 | `memory/claim` | 外部エクスポートからの記憶の取得 |
 | `forget` | 記憶を忘却 — 信頼度を 0 にしてソフト削除 (`memory_id`、または自然言語の `query` を受け付け) |
+| `consolidate` | 圧縮エンジン・記憶統合 — 高度に類似／同義の記憶を集約し 1 件の代表記憶に統合、元の記憶は `consolidated` としてマーク（`min_similarity` / `max_group` / `generate_summary` / `dry_run`） |
+| `reflect` | 圧縮エンジン・拡張リフレクション — 記憶の総量、タイプ／層／ファクト種別／信頼度分布、頻出エンティティ、ファクト矛盾の検出、時系列密度を集計；`deep=true` で認知パターン発見を追加 |
+| `dedup` | 圧縮エンジン・重複排除 — 内容フィンガープリント＋ベクトル／語頻度類似度で重複・近似重複を検出；`dry_run=true` は報告のみ |
 
 上記の stdio コマンドを指定することで、どの MCP ホスト（Claude Desktop、Hermes Agent など）からでも接続できます。
 
@@ -222,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## プロジェクト構成
 
 ```
-Mnemosyne7.0.1/
+Mnemosyne7.0.2/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -251,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — 中国語の説明（中国語版 README）
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — DeepSeek Harness との統合（MCP 経由）
-- `docs/KNOWN_DEFECTS.md` — 7.0.1 メモリスタックで確認された欠陥：事実・実測・影響・修正
+- `docs/KNOWN_DEFECTS.md` — 7.0.2 メモリスタックで確認された欠陥：事実・実測・影響・修正
 - `docs/RECALL_STRATEGY.md` — 想起メカニズムとターンごとの注入戦略の評価
 - `docs/ACCEPTANCE_GUIDE.md` — 受け入れガイド（`scripts/verify_memory_lifecycle.py` を含む）
 - `docs/` — 完全なドキュメント：アーキテクチャ、データモデル、モジュール解説、プラグイン解説、API／CLI／MCP リファレンス、デプロイ、統合

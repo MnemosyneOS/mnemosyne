@@ -8,7 +8,7 @@ from .utils import (_fail, _ok,)
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.1"
+VERSION = "7.0.2"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -27,7 +27,7 @@ VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "supersed
 
 
 def _build_parser():
-    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.1")
+    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.2")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
     p.add_argument("--no-embeddings", action="store_true", help="禁用向量检索")
     p.add_argument("--no-graph", action="store_true", help="禁用知识图谱")
@@ -189,7 +189,7 @@ def main(argv=None):
             print(f"记忆库目录：{brain.base_dir}")
             print(f"命名空间：{info.get('namespace')} | 后端：{info.get('backend')}")
             print(f"记忆总数：{info.get('total_memories')}（活跃 {info.get('active_count')}）")
-            print(f"引擎Version：{VERSION}")
+            print(f"引擎版本：{VERSION}")
             print(f"容量：{info.get('percentage')}% (limit={info.get('limit')})")
         return 0
     elif args.command == "stats":
@@ -209,7 +209,7 @@ def main(argv=None):
         return 0
     elif args.command == "retain":
         if not args.content or not args.content.strip():
-            return _fail("记忆内容不能为空。", fix="--content 参数必须contains 有效文本。")
+            return _fail("记忆内容不能为空。", fix="--content 参数必须包含有效文本。")
         _expire_old(brain.store)
         mid = brain.retain(
             args.content, mtype=args.type, layer=args.layer,
@@ -264,7 +264,7 @@ def main(argv=None):
             print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
             if not hits:
-                print("（无matches 记忆）")
+                print("（无匹配记忆）")
             for score, rec, reasons in hits:
                 print(f"[{score:.3f}] ({rec['type']}/{rec.get('fact_type', '?')}) {rec['content'][:80]}")
                 print(f"      命中: {'+'.join(reasons)} | 可信度: {rec.get('confidence', '?')} "
@@ -276,14 +276,14 @@ def main(argv=None):
             print(json.dumps(ref, ensure_ascii=False, indent=2))
         else:
             print(f"记忆总数：{ref['total']}")
-            print(f"Type分布：{ref.get('by_type', {})}")
-            print(f"事实Type分布：{ref.get('by_fact_type', {})}")
+            print(f"类型分布：{ref.get('by_type', {})}")
+            print(f"事实类型分布：{ref.get('by_fact_type', {})}")
             print(f"ValidateStatus分布：{ref.get('by_verification', {})}")
             if ref.get("top_entities"):
                 print(f"高频主题：{', '.join(e['entity'] for e in ref['top_entities'][:8])}")
             if ref.get("confidence_stats"):
                 cs = ref["confidence_stats"]
-                print(f"可信度：均Value {cs['mean']} | 最低 {cs['min']} | 最高 {cs['max']}")
+                print(f"可信度：均值 {cs['mean']} | 最低 {cs['min']} | 最高 {cs['max']}")
             if ref.get("conflicts"):
                 print(f"⚠ 潜在冲突：{len(ref['conflicts'])} ")
                 for c in ref["conflicts"][:5]:
@@ -313,7 +313,7 @@ def main(argv=None):
             if path:
                 print(f"Path：{' -> '.join(path)}")
             else:
-                print(f"未finds 从 {args.entity} 到 {args.to} 的Path")
+                print(f"未找到 从 {args.entity} 到 {args.to} 的路径")
         elif args.entity:
             result = brain.graph_query(args.entity, depth=args.depth)
             nodes = result.get("nodes", [])
@@ -367,7 +367,7 @@ def main(argv=None):
     elif args.command == "dedup":
         result = brain.dedup(dry_run=args.dry_run)
         if args.dry_run:
-            print(f"预检：可merges  {result['merged']} 条；相似对 {len(result['similar_pairs'])} 组")
+            print(f"预检：可合并 {result['merged']} 条；相似对 {len(result['similar_pairs'])} 组")
         else:
             print(f"✓ 去重完成：merges  {result['merged']} 条")
         return 0
@@ -375,15 +375,15 @@ def main(argv=None):
         if not args.yes:
             rec = brain.store.find_by_id(args.memory_id)
             if rec:
-                print(f"将deletes ：{rec.get('content', '')[:60]}")
+                print(f"将删除：{rec.get('content', '')[:60]}")
                 print("请加 --yes confirms ")
                 return 0
-            return _fail(f"未finds 记忆 {args.memory_id}")
+            return _fail(f"未找到记忆 {args.memory_id}")
         ok = brain.forget(args.memory_id)
-        return _ok(f"已deletes ：{args.memory_id}") if ok else _fail(f"未finds ：{args.memory_id}")
+        return _ok(f"已删除：{args.memory_id}") if ok else _fail(f"未找到：{args.memory_id}")
     elif args.command == "export":
         out = brain.export(fmt=args.format, out_path=args.out or None)
-        return _ok(f"已exports ：{out}")
+        return _ok(f"已导出：{out}")
     elif args.command == "import":
         if not os.path.exists(args.path):
             return _fail(f"imports File not found：{args.path}")

@@ -33,7 +33,7 @@ __all__ = ["SqliteBackend"]
 # ---------------------------------------------------------------------------
 INDEX_NAME = "index.jsonl"
 META_NAME = "meta.json"
-VERSION = "7.0.1"
+VERSION = "7.0.2"
 
 
 def _m():
@@ -91,6 +91,81 @@ def _ft_content(text):
     return " ".join(tokens)
 
 
+def _sanitize(text):
+    """把文本收敛成可安全交给 sqlite3 的合法 UTF-8（v7.0.2 P2-4 单一收口）。
+
+    实测背景（2026-09-14）：``str.encode("utf-8", errors="replace")`` 用
+    ``?``（U+003F）作替换字符，**不是** U+FFFD —— 编码器与解码器的 replace
+    处理并不对称（解码用 U+FFFD，编码用 ``?``）。两条路径产出的都是合法
+    UTF-8，损失仅限非法输入本身。
+
+    v7.0.2 起**不再各写一份**：实现体收敛到 ``mnemosyne.utils.sanitize_str``
+    （全局唯一收口，带按来源计数 + 告警），本函数只做 None / 非 str 的
+    后端语义适配（None 原样返回，非 str 原样返回 —— SQLite 绑定层自己处理）。
+
+    为什么要收口：此前同一段"非法码点替换"逻辑在 `mnemosyne/utils.py`、
+    `storage/sqlite_backend.py`（本函数）等处各存一份，替换策略一旦需要调整
+    （例如改记日志、改替换字符）就会有分支被漏改；且**无法全局统计**
+    到底丢了多少数据。收口后 ``recall_health()["encoding_replacements"]``
+    能直接读出 lossy 替换的累计次数与来源分布。
+    """
+    if text is None:
+        return None
+    if not isinstance(text, str):
+        return text
+    # Fast path: most strings have no surrogates
+    try:
+        text.encode("utf-8")
+        return text
+    except UnicodeEncodeError:
+        pass
+    try:
+        from mnemosyne.utils import sanitize_str
+    except Exception:
+        # 兜底：mnemosyne 包不可导入时（例如 storage 被单独使用）保持旧行为，
+        # 绝不能因为"统计不到"而让数据本身写不进去。
+        return text.encode("utf-8", errors="replace").decode("utf-8")
+    return sanitize_str(text, counter="sqlite_backend")
+
+
+def _sanitize_deep(val):
+    """Recursively apply :func:`_sanitize` to every string inside *val*.
+
+    Needed because a lone surrogate can hide inside a list/dict that is later
+    handed to ``json.dumps(..., ensure_ascii=False)`` **or** bound directly to
+    SQLite — both of which then fail with ``UnicodeEncodeError`` at a place
+    that has nothing to do with the offending field.  Values that contain no
+    surrogates come back byte-identical, so this is a pure safety net: no
+    stored hash, no serialized payload and no round-trip result changes.
+    """
+    if isinstance(val, str):
+        return _sanitize(val)
+    if isinstance(val, dict):
+        return {_sanitize(k) if isinstance(k, str) else k: _sanitize_deep(v)
+                for k, v in val.items()}
+    if isinstance(val, (list, tuple)):
+        return [_sanitize_deep(v) for v in val]
+    return val
+
+
+def _json_safe(val):
+    """JSON-encode *val* for a TEXT column, guaranteed UTF-8 safe.
+
+    Historical implementation used ``ensure_ascii=False``, which leaves a lone
+    surrogate verbatim inside the produced string; binding that string to
+    SQLite then raises ``UnicodeEncodeError`` (same class of failure as the one
+    documented on :func:`_sanitize`).  ``ensure_ascii=True`` writes such code
+    points as JSON escapes instead — valid ASCII, lossless on the way back out.
+
+    Cost: non-ASCII text is stored escaped.  That is safe here because every
+    reader goes through ``json.loads`` — no SQL in this codebase does a
+    ``LIKE`` match against the raw ``tags`` / ``entities`` JSON text.
+    """
+    if val is None:
+        return None
+    return json.dumps(_sanitize_deep(val), ensure_ascii=True)
+
+
 def _record_to_row(record):
     """Convert a memory record dict to a tuple matching _MEMORIES_COLUMNS."""
     # Embedding: pack as float32 struct if list, else store as text bytes
@@ -103,19 +178,17 @@ def _record_to_row(record):
                     f"{len(emb)}f", *[float(x) for x in emb]
                 )
             elif isinstance(emb, str):
-                emb_blob = emb.encode("utf-8")
+                emb_blob = _sanitize(emb).encode("utf-8")
             elif isinstance(emb, (bytes, bytearray)):
                 emb_blob = bytes(emb)
         except Exception:
-            emb_blob = str(emb).encode("utf-8")
+            emb_blob = _sanitize(str(emb)).encode("utf-8")
 
-    content = record.get("content", "")
+    content = _sanitize(record.get("content", ""))
     ft = _ft_content(content)
 
     def _j(val):
-        if val is None:
-            return None
-        return json.dumps(val, ensure_ascii=False)
+        return _json_safe(val)
 
     # template_hash may be in meta dict or top-level
     th = record.get("template_hash")
@@ -153,6 +226,12 @@ def _record_to_row(record):
             val = record.get("status") or "active"
         else:
             val = record.get(col)
+        # 单一收口：任何文本列在写入前净化。上面各分支已分别处理过 content /
+        # ft_content / JSON 列，这里是兜底 —— 否则 source / context / summary /
+        # topic_tag / project 等"直通"列里的孤立代理项会一路走到 sqlite3 绑定
+        # 才炸，而报错指向 SQL 而不是出错字段。对合法数据恒等，无行为变化。
+        if isinstance(val, str):
+            val = _sanitize(val)
         row.append(val)
     return tuple(row)
 
@@ -389,10 +468,22 @@ class SqliteBackend:
                     relation    TEXT,
                     memory_id   TEXT,
                     strength    REAL DEFAULT 0.5,
-                    created_at  TEXT
+                    created_at  TEXT,
+                    qualifier   TEXT
                 )
                 """
             )
+            # 3b) Migrate pre-7.0.2 databases: edges 表原先没有 qualifier 列。
+            #     为什么补：v7.0.2 的 P1-1 让 `A的B是C` 抽出三元组时把属性 B
+            #     记进边的 qualifier（`用户 --is_a--> RTX 4090 (qualifier=显卡)`），
+            #     graph_query 若不带出该列，"用户的显卡是什么"这类**按属性反问**
+            #     就只能看到 `用户 is_a RTX 4090`，丢掉"显卡"这个关键限定词。
+            existing_edge_cols = {row[1] for row in cur.execute("PRAGMA table_info(edges)")}
+            if "qualifier" not in existing_edge_cols:
+                try:
+                    cur.execute("ALTER TABLE edges ADD COLUMN qualifier TEXT")
+                except sqlite3.OperationalError:
+                    pass  # column may already exist in a race
 
             # 4) audit_log
             cur.execute(
@@ -513,16 +604,29 @@ class SqliteBackend:
                 "CREATE INDEX IF NOT EXISTS idx_edges_to ON edges(to_entity)"
             )
             # Unique index for edge de-duplication (guarded: no-op if dupes exist).
-            # Note: (from, to, relation) is the natural key — the same
-            # relationship should not be stored twice regardless of how many
-            # memories mention it.  memory_id is intentionally excluded.
+            # Natural key = (from, to, relation, qualifier)。
+            # v7.0.2：**qualifier 必须进键**。7.0.1 的键只有前三列，于是
+            # `用户的备用机是 iPhone 15`（qualifier=备用机）与
+            # `用户的主机是 iPhone 15`（qualifier=主机）在库里被视为同一条边，
+            # 后来者被 INSERT OR IGNORE **静默丢弃** —— 属性信息不可逆丢失。
+            # 4 列键是 3 列键的细化（更少碰撞），因此旧键无重复时新键必然也无重复。
+            # memory_id 仍刻意排除：同一关系无论多少条记忆提到都只存一条。
             try:
+                conn.execute("DROP INDEX IF EXISTS idx_edges_unique")
                 conn.execute(
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique "
-                    "ON edges(from_entity, to_entity, relation)"
+                    "ON edges(from_entity, to_entity, relation, qualifier)"
                 )
             except Exception:
-                pass  # pre-existing duplicates — skip; write-time dedup still applies
+                # 存在历史重复行 → 退回旧的 3 列键（写入侧去重仍生效），
+                # 绝不因为索引建不上而让 edges 表整体不可写。
+                try:
+                    conn.execute(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique "
+                        "ON edges(from_entity, to_entity, relation)"
+                    )
+                except Exception:
+                    pass
 
             conn.commit()
             self._initialized = True
@@ -622,7 +726,7 @@ class SqliteBackend:
                     time.sleep(0.05 * attempt)
         else:
             raise OSError(
-                f"sqlite 写存记忆失败（已Retry {retries} 次）：{last_err}"
+                f"sqlite 写入记忆失败（已重试 {retries} 次）：{last_err}"
             )
         self._invalidate_cache()
         self._update_meta_count(delta=1)
@@ -668,9 +772,9 @@ class SqliteBackend:
         ent_rows = []
         for e in ent_col:
             if isinstance(e, str):
-                ent_rows.append((e, record["id"]))
+                ent_rows.append((_sanitize(e), record["id"]))
             elif isinstance(e, dict):
-                ent_rows.append((e.get("entity", ""), record["id"]))
+                ent_rows.append((_sanitize(e.get("entity", "")), record["id"]))
         if ent_rows:
             conn.executemany(
                 "INSERT OR IGNORE INTO entities(entity, memory_id) VALUES (?, ?)",
@@ -775,9 +879,15 @@ class SqliteBackend:
                     else:
                         update_fields[col] = v
                 elif isinstance(v, (list, dict)):
-                    update_fields[col] = json.dumps(v, ensure_ascii=False)
+                    update_fields[col] = _json_safe(v)
                 else:
-                    update_fields[col] = v
+                    update_fields[col] = _sanitize(v)
+
+        # 单一收口（与 _record_to_row 对称）：任何文本值在 UPDATE 前净化。
+        # embedding 分支的"原样透传"与 JSON 分支的转义串都在此兜住。
+        for _k, _v in list(update_fields.items()):
+            if isinstance(_v, str):
+                update_fields[_k] = _sanitize(_v)
 
         # Recompute ft_content if content changed
         if "content" in update_fields:
@@ -1020,14 +1130,15 @@ class SqliteBackend:
                 e.get("memory_id", memory_id),
                 float(e.get("strength", 1.0)),
                 e.get("created_at") or _now_iso(),
+                e.get("qualifier") or None,
             ))
         with self._lock:
             conn.execute("BEGIN")
             try:
                 conn.executemany(
                     """
-                    INSERT OR IGNORE INTO edges(from_entity, to_entity, relation, memory_id, strength, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT OR IGNORE INTO edges(from_entity, to_entity, relation, memory_id, strength, created_at, qualifier)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     rows,
                 )
@@ -1079,6 +1190,7 @@ class SqliteBackend:
                 "memory_id": r["memory_id"],
                 "strength": r["strength"],
                 "created_at": r["created_at"],
+                "qualifier": r["qualifier"],
             }
             for r in rows
         ]
@@ -1131,7 +1243,7 @@ class SqliteBackend:
 
             edge_rows = conn.execute(
                 """
-                SELECT from_entity, to_entity, relation, memory_id, strength, created_at
+                SELECT from_entity, to_entity, relation, memory_id, strength, created_at, qualifier
                 FROM edges
                 WHERE from_entity IN (SELECT entity FROM _gq_nodes)
                    OR to_entity  IN (SELECT entity FROM _gq_nodes)
@@ -1143,6 +1255,7 @@ class SqliteBackend:
                     "from": r[0], "to": r[1],
                     "relation": r[2], "memory_id": r[3],
                     "strength": r[4], "created_at": r[5],
+                    "qualifier": r[6],
                 }
                 for r in edge_rows
             ]
@@ -1372,9 +1485,9 @@ class SqliteBackend:
                 (
                     entry.get("ts", _now_iso()),
                     entry.get("actor", "system"),
-                    entry.get("action", ""),
-                    entry.get("target_id", ""),
-                    json.dumps(entry.get("details", {}), ensure_ascii=False),
+                    _sanitize(entry.get("action", "")),
+                    _sanitize(entry.get("target_id", "")),
+                    json.dumps(entry.get("details", {}), ensure_ascii=True),
                 ),
             )
             conn.commit()
@@ -1440,11 +1553,17 @@ class SqliteBackend:
                 data_summary = json.loads(data_summary)
             except (json.JSONDecodeError, TypeError):
                 data_summary = {"raw": data_summary}
-        data_summary = data_summary or {}
+        # 净化：data_summary 里的孤立代理项会在下面 json.dumps(ensure_ascii=False)
+        # 之后、SQLite 绑定时才炸（报错位置与出错字段无关，极难定位）。
+        # 注意：**不能**把下面的 ensure_ascii 改成 True —— ledger_verify_chain()
+        # 是从库内 payload 反序列化后按同一套参数重算哈希的，一旦改动序列化形式，
+        # 历史哈希链会整体判为断裂。递归净化对合法数据是恒等变换，故不改变任何
+        # 既有哈希，只堵住崩溃路径。
+        data_summary = _sanitize_deep(data_summary) or {}
 
         payload = {
-            "memory_id": memory_id,
-            "action": action,
+            "memory_id": _sanitize(memory_id),
+            "action": _sanitize(action),
             "timestamp": _now_iso(),
             "data_summary": data_summary,
         }

@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-14%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.1** — ein vollständig abhängigkeitsfreies (zero-dependency), lokal-zentriertes (local-first) KI-Gedächtnissystem mit mehrstufigem Vergessen (multi-tier forgetting), einem Hash-Chain-Ledger (hash-chain ledger), einem Plugin-SDK (plugin SDK), einem lokalen Web-Dashboard (local web dashboard) und MCP-Unterstützung (Model Context Protocol / 模型上下文协议).
+**Mnemosyne OS 7.0.2** — ein vollständig abhängigkeitsfreies (zero-dependency), lokal-zentriertes (local-first) KI-Gedächtnissystem mit mehrstufigem Vergessen (multi-tier forgetting), einem Hash-Chain-Ledger (hash-chain ledger), einem Plugin-SDK (plugin SDK), einem lokalen Web-Dashboard (local web dashboard) und MCP-Unterstützung (Model Context Protocol / 模型上下文协议).
 
 > Die einzige KI-Gedächtnis-Engine, deren **Kern keine externen Drittanbieter-Abhängigkeiten benötigt** (nur die Python-Standardbibliothek 3.8+) — keine Vektordatenbank (vector DB), keine LLM-Laufzeitumgebung (Large Language Model), kein Cloud-Vendor-Lock-in. Läuft auf einem Laptop, einem Server oder serverloser Infrastruktur (serverless).
 
@@ -48,7 +48,7 @@ Nutzen Sie es als **Python-Bibliothek (Python library)**, als **CLI (Kommandozei
 <tr><td><b>Mehrstufiges Gedächtnis (multi-tier memory)</b></td><td>Hot-/Warm-/Cold-Ebenen mit ökonomischem Vergessen (forgetting economics) — migrieren Sie wertarme Erinnerungen, löschen Sie sie niemals stillschweigend.</td></tr>
 <tr><td><b>Hash-Chain-Ledger (hash-chain ledger)</b></td><td>SHA-256 verkettetes Ledger — <code>verify_chain()</code> erkennt Manipulationen und lokalisiert den exakten beschädigten Datensatz.</td></tr>
 <tr><td><b>Plugin-SDK (plugin SDK)</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + offizielle Plugins (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP-Server (MCP server)</b></td><td>14 Werkzeuge über stdio JSON-RPC, mit Token-Authentifizierung (token auth) und mandantenfähigen Namensräumen (multi-tenant namespaces).</td></tr>
+<tr><td><b>MCP-Server (MCP server)</b></td><td>20 Werkzeuge über stdio JSON-RPC, mit Token-Authentifizierung (token auth) und mandantenfähigen Namensräumen (multi-tenant namespaces).</td></tr>
 <tr><td><b>Web-Dashboard (web dashboard)</b></td><td>Lokal betriebenes, technisch gestaltetes dunkles Dashboard (local dark dashboard), kein externes CDN — ausgeliefert über <code>web_server.py</code>.</td></tr>
 <tr><td><b>Async-API (async API)</b></td><td><code>AsyncMemoryBrain</code> asyncio-Wrapper für die Aufnahme mit hohem Durchsatz.</td></tr>
 <tr><td><b>Chinesisch optimiert (Chinese-optimized)</b></td><td>Bigramm-Tokenisierung (bigram tokenization) + FTS5 + eingebautes Synonymwörterbuch (built-in synonym dictionary).</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-Der MCP-Server stellt **14 Werkzeuge (14 tools)** bereit:
+Der MCP-Server stellt **20 Werkzeuge (20 tools)** bereit:
 
 | Werkzeug | Beschreibung |
 | --- | --- |
@@ -191,6 +191,9 @@ Der MCP-Server stellt **14 Werkzeuge (14 tools)** bereit:
 | `memory/import-v1` | Import über das Memory Exchange Protocol (memory exchange protocol import) |
 | `memory/claim` | Externe Erinnerungen aus einem Export übernehmen (claim external memories) |
 | `forget` | Eine Erinnerung vergessen — Konfidenz auf 0 setzen und Soft-Delete (akzeptiert `memory_id` oder eine `query` in natürlicher Sprache) |
+| `consolidate` | Kompression · Gedächtniskonsolidierung — stark ähnliche / synonyme Erinnerungen zu einer repräsentativen Erinnerung zusammenführen; Originale werden als `consolidated` markiert (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
+| `reflect` | Kompression · erweiterte Reflexion — Summen nach Typ / Ebene / Fakten-Typ / Konfidenz, Top-Entitäten, Faktenkonflikt-Erkennung, zeitliche Dichte; `deep=true` ergänzt die Erkennung kognitiver Muster |
+| `dedup` | Kompression · Deduplizierung — Duplikate und Fast-Duplikate über Inhaltsfingerabdruck + Vektor-/Termfrequenz-Ähnlichkeit erkennen; `dry_run=true` meldet nur |
 
 Verbinden Sie einen beliebigen MCP-Host (Claude Desktop, Hermes Agent usw.), indem Sie ihn auf den obigen stdio-Befehl verweisen.
 
@@ -222,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Projektstruktur
 
 ```
-Mnemosyne7.0.1/
+Mnemosyne7.0.2/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -251,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — Chinesische Dokumentation (Chinese README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Bereitstellung mit DeepSeek Harness (über MCP)
-- `docs/KNOWN_DEFECTS.md` — Bestätigte Defekte im 7.0.1-Speicher-Stack: Fakten, Messungen, Auswirkungen und Korrekturen
+- `docs/KNOWN_DEFECTS.md` — Bestätigte Defekte im 7.0.2-Speicher-Stack: Fakten, Messungen, Auswirkungen und Korrekturen
 - `docs/RECALL_STRATEGY.md` — Recall-Mechanik und Injektionsstrategie pro Runde
 - `docs/ACCEPTANCE_GUIDE.md` — Abnahmeleitfaden (mit `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Vollständige Dokumentation: Architektur, Datenmodell, Moduldokumentation, Plugin-Dokumentation, API-/CLI-/MCP-Referenzen, Bereitstellung, Integration
