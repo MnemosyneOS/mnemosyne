@@ -1795,13 +1795,32 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         if self.graph_store is None or not self.enable_graph:
             self._graph_backfilled = True
             return {"skipped": "graph_disabled"}
-        marker = os.path.join(self.base_dir, ".graph_edges_backfilled_v702")
+        marker = os.path.join(self.base_dir, ".graph_edges_backfilled_v702b")
         if not force:
             if self._graph_backfilled:
                 return {"skipped": "done_in_process"}
             if os.path.exists(marker):
                 self._graph_backfilled = True
                 return {"skipped": "marker_present"}
+
+        # 0) v7.0.2（D9）修存量脏边：7.0.1 及以前写入的边 `memory_id` 全为 null。
+        #    必须先清掉，否则唯一索引 (from,to,relation,qualifier) 会让下面重建的
+        #    "带正确 memory_id 的同一条边"被 INSERT OR IGNORE 静默忽略 ——
+        #    脏数据把正确数据挡在门外，且不报错。边是派生索引，删除安全。
+        purged = 0
+        try:
+            purged += int(self.graph_store.purge_edges_without_memory_id() or 0)
+        except Exception as exc:
+            logger.debug("图边回填：清理 graph.jsonl 脏边失败：%s", exc)
+        if hasattr(self.store, "purge_edges_without_memory_id") \
+                and self.store is not self.graph_store:
+            try:
+                purged += int(self.store.purge_edges_without_memory_id() or 0)
+            except Exception as exc:
+                logger.debug("图边回填：清理 edges 表脏边失败：%s", exc)
+        if purged:
+            logger.info("图边回填：清理了 %d 条 memory_id 为空的旧边（7.0.1 遗留）",
+                        purged)
 
         # 1) 已有边的 memory_id 集合（判定"这条记忆是否已被图覆盖"）
         try:
@@ -1876,15 +1895,18 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         try:
             with open(marker, "w", encoding="utf-8") as f:
                 f.write(json.dumps({"at": _now_iso(), "edges": written,
-                                    "scanned": scanned, "covered": covered},
+                                    "scanned": scanned, "covered": covered,
+                                    "purged_stale": purged},
                                    ensure_ascii=False))
         except Exception as exc:
             logger.debug("图边回填：标记写入失败：%s", exc)
         self._graph_backfilled = True
         if written:
             logger.info("图边回填完成：扫描 %d 条记录，补齐 %d 条边"
-                        "（原已覆盖 %d 条）", scanned, written, covered)
-        return {"scanned": scanned, "covered": covered, "edges_written": written}
+                        "（原已覆盖 %d 条，清理旧边 %d 条）",
+                        scanned, written, covered, purged)
+        return {"scanned": scanned, "covered": covered, "edges_written": written,
+                "purged_stale": purged}
 
     # ---- v7.0.2 (AIC)：记忆胶囊与精确展开 ----
 

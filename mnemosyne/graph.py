@@ -59,12 +59,24 @@ class MemoryGraphStore:
         return os.path.exists(self.graph_path)
 
     def add_edges(self, edges, memory_id=None):
-        """添加边：[(from, to, relation, strength, memory_id), ...]"""
+        """添加边：`[(from, to, relation, strength, memory_id), ...]` 或 dict 列表。
+
+        v7.0.2（D9）修复：**dict 型边过去完全忽略 `memory_id` 形参**。
+        旧实现对 dict 直接 `e = edge` 后原样落盘，而 `_extract_relationships()`
+        产出的正是 dict 且其 `memory_id` 恒为 `None`（抽取器不知道记录 id）——
+        于是正常写入路径产生的**每一条边**在 graph.jsonl 里都是
+        `"memory_id": null`（实测确认），只有回填路径显式赋值过。
+        后果：任何"按记录查它连了哪些节点"的能力都拿不到数据，
+        图通道只能退化成比对 `entities` 中文滑窗碎片（见 retrieval 的 D8 说明）。
+        修法：dict 分支也补上 `memory_id`（不原地改调用方的 dict）。
+        """
         self.ensure_init()
         with open(self.graph_path, "a", encoding="utf-8") as f:
             for edge in edges:
                 if isinstance(edge, dict):
-                    e = edge
+                    e = dict(edge)  # 复制，不污染调用方对象
+                    if not e.get("memory_id"):
+                        e["memory_id"] = memory_id
                 else:
                     e = {
                         "from": edge[0], "to": edge[1],
@@ -87,6 +99,42 @@ class MemoryGraphStore:
                     yield json.loads(line)
                 except json.JSONDecodeError:
                     continue
+
+    def purge_edges_without_memory_id(self):
+        """删掉 `memory_id` 为空的边，返回删除条数（v7.0.2 D9 修存量）。
+
+        【为什么必须删而不是留着】`edges` 有唯一索引
+        `(from_entity, to_entity, relation, qualifier)`，且**不含 memory_id**。
+        7.0.1 及以前写入的边 `memory_id` 全是 null；若不先清掉，回填时重新写入
+        的"带正确 memory_id 的同一条边"会被 `INSERT OR IGNORE` 直接忽略 ——
+        等于脏数据把正确数据挡在门外，且**不报错**。
+        边是**派生索引**（权威数据在 memories 里，随时可由正文重算），
+        所以删除是安全的：紧接着的回填会把它们按当前抽取规则重建。
+        """
+        if not self.exists:
+            return 0
+        kept, dropped = [], 0
+        with open(self.graph_path, "r", encoding="utf-8") as f:
+            for line in f:
+                s = line.strip()
+                if not s:
+                    continue
+                try:
+                    e = json.loads(s)
+                except json.JSONDecodeError:
+                    dropped += 1
+                    continue
+                if not e.get("memory_id"):
+                    dropped += 1
+                    continue
+                kept.append(s)
+        if dropped:
+            tmp = self.graph_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                for s in kept:
+                    f.write(s + "\n")
+            os.replace(tmp, self.graph_path)
+        return dropped
 
     def all_edges(self):
         return list(self.iter_edges())

@@ -427,8 +427,9 @@ class RetrievalEngine:
             _hit = list(_cached[1])  # 浅拷贝，避免调用方修改污染缓存
             # v7.0.2 (P0-2 修正)：重贴置信带（记录 dict 的标记可能已被后续打分清掉）
             self._apply_bands(_hit, _cached[2] if len(_cached) > 2 else None)
-            self.last_recall_metrics = _recall_metrics(query, k, None, None, _hit, 0,
-                                                       cache_hit=True)
+            self.last_recall_metrics = _recall_metrics(
+                query, k, None, None, _hit, 0, cache_hit=True,
+                sem_stats=(_cached[3] if len(_cached) > 3 else None))
             return self._snapshot(_hit)
 
         # 过滤已删除/已合并的记录（v7.0.0）
@@ -686,6 +687,7 @@ class RetrievalEngine:
             if _pron in query:
                 q_entities.add(_ent)
         graph_expanded_entities = set(q_entities)  # 扩展后的实体集合
+        _rec_nodes_by_id = {}   # memory_id → 该记录在图里的节点集合（v7.0.2 D8）
         _hop1_nodes, _hop2_nodes = set(), set()
         if use_graph and self.graph_store and self.graph_store.exists:
             try:
@@ -700,9 +702,58 @@ class RetrievalEngine:
                     continue
                 adj.setdefault(frm, set()).add(to)
                 adj.setdefault(to, set()).add(frm)
+                # v7.0.2 (D8b)：**限定词也是图节点**。
+                # `用户的显卡是 RTX 4090` 抽出的边是
+                # `用户 --is_a--> RTX 4090 (qualifier=显卡)` —— 属性名 `显卡` 只出现在
+                # qualifier 里。若邻接表只用 from/to 建，`显卡` 就**不是**任何节点，
+                # 用户问"我用的什么显卡"时它在图里根本不存在，图通道无法区分
+                # `显卡`（精确）与 `备用显卡`（包含）。把 qualifier 作为连接
+                # 「主体 ↔ 取值」的中间节点加入，属性反问才能被图通道看见。
+                _ql = e.get("qualifier")
+                if _ql:
+                    _ql = str(_ql)
+                    adj.setdefault(_ql, set()).add(frm)
+                    adj.setdefault(_ql, set()).add(to)
+                    adj.setdefault(frm, set()).add(_ql)
+                    adj.setdefault(to, set()).add(_ql)
+                # v7.0.2 (D8)：按 memory_id 建"这条记录在图里有哪些节点"的映射。
+                # 【为什么要从边表取而不是从 record["entities"] 取】两条硬理由：
+                #   ① `graph_edges` 不在 `_RECORD_KEYS` 轻量记录白名单里（它是
+                #      dict 列表，物化到 100k 记录代价高、SQLite 也没有该列）——
+                #      于是 `_record_graph_nodes()` 实际**只能看到 entities**，
+                #      P1-1 声称的"含 qualifier 端点"从未真正生效；
+                #   ② entities 是**中文滑窗切分**的产物（`[\u4e00-\u9fff]{2,6}`），
+                #      同一句话切出什么碎片高度依赖字数对齐 —— 实测
+                #      `用户的备用嵌入模型…` 恰好切出 `入模型` 从而匹配上查询，
+                #      而 `用户的嵌入模型是 bge-m3` 切出的是 `用户的嵌入模`+`型`，
+                #      反而**匹配不上**。这不是"信号弱"，是**抽签**：
+                #      正确答案因为多了一个字而丢掉图通道的分。
+                #   边表带 memory_id，天然给出"这条记录连了哪些节点"，精确且对称。
+                _mid = e.get("memory_id")
+                if _mid:
+                    ns = _rec_nodes_by_id.setdefault(_mid, set())
+                    ns.add(frm)
+                    ns.add(to)
+                    _ql = e.get("qualifier")
+                    if _ql:
+                        ns.add(str(_ql))
 
             # Step A: 查询实体（含代词归一）→ 归一化匹配到图节点 → 展开 2 跳
-            _seed_nodes = _match_adj_nodes(q_entities, adj)
+            # v7.0.2 (D8b)：播种方式改为"**扫图节点，问它是否出现在查询里**"，
+            # 而不是"扫查询实体，问它是否长得像某个节点"：
+            #   • 旧方向依赖 `_extract_entity_names` 的**中文滑窗**产物，而滑窗会
+            #     把词切碎（`我用的什么显卡` → `我用的什么显`+`卡`，`显卡` 消失）；
+            #   • 新方向是 `key in query`，只要图里有 `显卡` 这个节点，查询里出现
+            #     `显卡` 就能对上一一 与分词无关，且天然对短查询更稳。
+            # 代价同为 O(E)（本来就要遍历 all_edges 建邻接表），远优于
+            # 旧的 O(|查询实体| × |图节点|) 嵌套包含判断。
+            _seed_nodes = set()
+            for _key in adj:
+                if not _key:
+                    continue
+                if _key in query:
+                    _seed_nodes.add(_key)
+            _seed_nodes |= _match_adj_nodes(q_entities, adj)
             for s in _seed_nodes:
                 _hop1_nodes |= adj.get(s, set())
             for h in _hop1_nodes:
@@ -710,26 +761,34 @@ class RetrievalEngine:
             _hop2_nodes -= _hop1_nodes
             graph_expanded_entities |= _seed_nodes | _hop1_nodes | _hop2_nodes
 
-            # Step B: 候选级节点集合（只覆盖候选池，避免 O(N) 全库扫描）
-            _r_nodes = {}
             for i in candidate_indices:
-                ns = _record_graph_nodes(records[i])
-                if ns:
-                    _r_nodes[i] = ns
-
-            for i in candidate_indices:
-                ns = _r_nodes.get(i)
+                rid = records[i].get("id")
+                ns = _rec_nodes_by_id.get(rid)
+                # 边表里没有这条记录（例如尚未回填的存量数据）→ 退化为实体串匹配，
+                # 并**降权一半**：模糊信号不该与结构信号同权。
+                _fuzzy = False
+                if not ns:
+                    ns = _record_graph_nodes(records[i])
+                    _fuzzy = True
                 if not ns:
                     continue
-                # 直接节点重叠（query 实体 ∪ 多跳扩展 对 记录节点）
-                direct = _node_overlap(graph_expanded_entities, ns)
-                graph_scores[i] = direct * 0.5
+                _w = 0.5 if _fuzzy else 1.0
+                # v7.0.2 (D8c)：**直接匹配只算"查询自己提到的节点"**
+                # (`_seed_nodes ∪ q_entities`)，不再把 2 跳可达集合塞进来。
+                # 【为什么】旧实现用 `graph_expanded_entities`（= 查询实体 ∪ 1 跳 ∪ 2 跳）
+                # 做直接匹配，而 `用户` 是几乎每条记忆都连的**枢纽节点** ——
+                # 于是 hop1/hop2 覆盖了全库节点，"直接匹配"退化成
+                # "你是不是也连着这个库里的某样东西"，几乎所有记录都拿到 1~2 分，
+                # 图通道彻底失去区分力（实测：8 条候选**全部**标成"实体图"）。
+                # 跳达改为**独立的弱加分**，只在无直接匹配时才给。
+                direct = _node_overlap(_seed_nodes | q_entities, ns)
+                graph_scores[i] = direct * 0.5 * _w
                 if direct == 0:
                     # 图路径连接：即使无直接重叠，1 跳 / 2 跳可达也加分
                     if _hop1_nodes and _node_overlap(_hop1_nodes, ns):
-                        graph_scores[i] += 0.30
+                        graph_scores[i] += 0.30 * _w
                     elif _hop2_nodes and _node_overlap(_hop2_nodes, ns):
-                        graph_scores[i] += 0.15
+                        graph_scores[i] += 0.15 * _w
         
         # ---- Path3b: 候选池图扩展（v3.1 新增）----
         # 把图关联但BM25低分的Record也加入候选池
@@ -768,15 +827,31 @@ class RetrievalEngine:
         
         for i in candidate_indices:
             r = records[i]
-            et = r.get("event_time") or r.get("created_at", "")
-            base_temporal = _temporal_score(et, now) * boost_recency
-            
+            # ---- v7.0.2 (D10)：时间先验改用「记忆自身的时效」，不再用正文里抽的 event_time ----
+            # 【旧行为】`et = event_time or created_at`，而 `event_time` 是
+            # `_extract_event_time(content, ...)` 从**正文里抽出来的日期**。
+            # 于是时间通道实际在惩罚"正文里带日期的记忆"：
+            #   `用户的显卡是 RTX 4090，购于 2026-03-15`  → event_time=2026-03-15
+            #        → 距今约 184 天 → 衰减 0.5^(184/90) ≈ 0.24
+            #   `用户的备用显卡是 RTX 3060`（无日期）      → 回落到 created_at=今天 → 1.00
+            # 结果：**记得越具体（连日子都写了）反而被扣分**，而且 time_weight=0.20
+            # 是向量通道权重 0.55 的 1/3 —— 补偿一个 0.02 的余弦差绰绰有余。
+            # 实测（真实 Qdrant + BGE-M3）：`我用的什么显卡` 的正确答案被"备用显卡"
+            # 与"显示器"挤到 rank3，而它的语义相似度其实**更高**（0.7075 > 0.6402）。
+            # 这是"越准确越排后面"的**系统性反向激励**，必须修。
+            # 【新行为】默认用 `updated_at → created_at`（记忆**何时被写下**）；
+            # 只有查询**显式**带时间意图（去年/以前/最近…）时，才把 event_time 纳入 ——
+            # 那时"事件何时发生"确实才是用户要的东西，也是时间通道的本来用途。
+            _recency = r.get("updated_at") or r.get("created_at") or ""
+            base_temporal = _temporal_score(_recency, now) * boost_recency
+            et = r.get("event_time") or _recency
+
             # v3.1: Time上下文适配
             if q_time_context == 'recent_update':
                 # 偏好"最新"的记忆：越新分越高
                 base_temporal *= 1.3
             elif q_time_context == 'past' and q_time_year:
-                # 偏好特定年份附近
+                # 偏好特定年份附近（此处**应当**用 event_time：用户在问"那次是哪年"）
                 try:
                     et_year = int(et[:4]) if et and len(et) >= 4 else None
                     if et_year and abs(et_year - q_time_year) <= 1:
@@ -805,6 +880,13 @@ class RetrievalEngine:
         vec_max = max(vec_scores) if vec_scores else 0.0
         graph_max = max(graph_scores) if graph_scores else 0.0
         time_max = max(time_scores) if time_scores else 0.0
+        # v7.0.2：语义背景统计（供 recall_health 判断绝对阈值是否仍适用于本库）。
+        # 只统计真正跑过语义通道的候选（vec_scores 对无 embedding 的记录留 0）。
+        _sem_vals = sorted(v for v in (vec_scores[i] for i in candidate_indices) if v > 0)
+        _sem_stats = {
+            "top1": round(_sem_vals[-1], 4) if _sem_vals else None,
+            "background": round(_sem_vals[len(_sem_vals) // 2], 4) if _sem_vals else None,
+        }
         # 语义后端（向量插件，具备 search 语义候选召回）时，向量为主导信号；
         # 随机投影核心保持关键词主导（阶段3 修复：原向量权重仅 0.15-0.20，
         # 高质量语义模型下改写对排不到前位，MRR/NDCG 不达标）
@@ -974,15 +1056,17 @@ class RetrievalEngine:
         if len(self._query_cache) > 512:
             self._query_cache = {kk: vv for kk, vv in self._query_cache.items()
                                  if (_cache_now - vv[0]) < self._query_cache_ttl}
-        # 缓存条目第三位 = 本轮置信带快照，供命中时重贴（v7.0.2 P0-2 修正）
+        # 缓存条目：第 3 位 = 本轮置信带快照（命中时重贴），
+        # 第 4 位 = 本轮语义背景统计（命中时复用，保证指标字段恒定存在）
         _band_snapshot = {it[1].get("id"): it[1].get("_relevance_band")
                           for it in top
                           if isinstance(it[1], dict) and it[1].get("_relevance_band")}
-        self._query_cache[cache_key] = (_cache_now, top, _band_snapshot)
+        self._query_cache[cache_key] = (_cache_now, top, _band_snapshot, _sem_stats)
 
         # v7.0.2 (P2-2): 落本次召回的质量指标（P0-2 是否触发下限看这里）
         self.last_recall_metrics = _recall_metrics(
-            query, k, len(records), len(candidate_indices), top, _floor_dropped)
+            query, k, len(records), len(candidate_indices), top, _floor_dropped,
+            sem_stats=_sem_stats)
         # v7.0.2 (P0-2 修正)：输出边界快照 —— 交给调用方的是副本，不是索引对象
         return self._snapshot(top)
 
@@ -1207,14 +1291,33 @@ def _compute_pair_similarity(record_a, record_b):
 # 实测：无关查询「怎样给汽车换轮胎」top1 = 1.0200，**高于**相关查询
 # 「我的显卡是什么」的 0.6922。任何"融合分 ≥ τ"的写法要么形同虚设、
 # 要么先把正确答案滤掉。
-# 【可行信号】未归一化的原始 cosine 有绝对含义（BGE-M3 实测，8 条记忆）：
-#     相关（查询 → 其对应记忆，n=8）：min = 0.5222
-#     无关（3 条无关查询 × 8 条记忆，n=33）：max = 0.4064
-#   → 阈值取 0.45，正落在两簇之间的空档里（脚本：_diag/p0_measure.py）。
-REL_MIN_SEMANTIC = float(os.environ.get("MNEMOSYNE_REL_MIN_SEMANTIC", "0.45"))
-# 字符 n-gram 相似度下限（0~1）：字面高度重合（改写 / 引用原句）视为强证据
+# 【可行信号】未归一化的原始 cosine 有绝对含义。**阈值必须实测标定，别随手改**：
+#
+#   标定集 A（8 条记忆，7.0.2 初版）：相关 min 0.5222 / 无关 max 0.4064 → 取 0.45
+#   标定集 B（24 条记忆，含同主题干扰项，7.0.2 终版复标）：
+#       相关查询·**正确答案**原始 cosine：min 0.5708 / max 0.8440 / 均 0.7393
+#       无关查询·top1      原始 cosine：min 0.3142 / max 0.5275
+#       阈值扫描：
+#         0.45 → 无关放过 **5** 条，相关保留 8/8   ← 初版取值，在干扰项密集时太松
+#         0.50 → 无关放过 2 条，   相关保留 8/8
+#         0.55 → 无关放过 **0** 条，相关保留 **8/8** ← 采用
+#         0.60 → 无关放过 0 条，   相关保留 7/8（丢掉 0.5708 那条真答案）
+#
+# 为什么标定集 A 不够：A 的"无关"项与查询毫无话题交集；B 故意放了**同主题干扰项**
+# （"备用显卡"/"病假天数"/"备用端口"），此时无关项能到 0.53 —— 0.45 会放 5 条进来。
+# 这正是用户实际会遇到的情形（库里全是围绕自己的记忆），所以以 B 为准。
+#
+# 【已知边界】0.5708 与 0.5275 只差 0.043，说明该阈值对**语料分布**敏感：
+# 若整库围绕同一主题（背景相似度整体偏高），绝对阈值会同时放过无关项。
+# 因此 `last_recall_metrics` 额外暴露 `sem_background`（候选原始余弦中位数）
+# 与 `sem_top1`，便于发现"整体偏高"的库后复标定。
+# 未采用"相对背景"判据的原因：实测 相关(top1-中位) min 0.1557 与
+# 无关(top1-中位) max 0.1458 仅差 0.010，单独使用更不可靠（会误杀相关项）。
+REL_MIN_SEMANTIC = float(os.environ.get("MNEMOSYNE_REL_MIN_SEMANTIC", "0.55"))
+# 字符 n-gram 相似度下限（0~1）：字面高度重合（改写 / 引用原句）视为强证据。
+# 实测无关项全部 < 0.34，故它作为"向量弱但字面强"的兜底通道，不随语义阈值调整。
 REL_MIN_NGRAM = float(os.environ.get("MNEMOSYNE_REL_MIN_NGRAM", "0.34"))
-# 语义"高置信"档下限：实测相关簇下界 0.5222，取 0.60 作为 high 档门槛
+# 语义"高置信"档下限：正确答案实测均值 0.7393，0.60 稳在其下沿之下
 REL_HIGH_SEMANTIC = float(os.environ.get("MNEMOSYNE_REL_HIGH_SEMANTIC", "0.60"))
 
 # ---- P1-1：代词 → 实体归一 ----
@@ -1236,6 +1339,24 @@ _QUERY_TAG_SYNONYMS = {
     "城市": ("地点",), "在哪": ("地点",), "住在": ("地点",), "工作地": ("地点",),
     "代号": ("项目",), "项目名": ("项目",), "仓库": ("项目",),
     "沟通": ("沟通",), "表达方式": ("沟通",), "说话": ("沟通",),
+    # ---- v7.0.2 (D11)：偏好 / 意图类 ----
+    # 【为什么必须补这一类】它是记忆系统被问得**最多**的一类问题，而且提问**天然是改写**：
+    #   提问「我喜欢什么样的表达方式」
+    #   记忆「用户偏好先把结论说清楚，再给依据。」（tags=['偏好','项目']）
+    # 实测这一对的原始余弦只有 **0.4900**，而无关查询的 top1 可达 **0.5275** ——
+    # 两条分布**重叠**，任何单一语义阈值都无法既保住它、又挡住无关项
+    # （详见下方 REL_MIN_SEMANTIC 的标定表）。
+    # 结论：这类问题不能只靠语义通道，必须由**结构化标签**兜住 ——
+    # 这正是 Path6 的既有设计目的（"结构性保证精准记忆不被 Top-K 挤占"）：
+    # 命中 tag 即视为结构性证据，直接通过相关性下限。
+    "喜欢": ("偏好",), "我喜欢": ("偏好",), "偏好": ("偏好",), "讨厌": ("偏好",),
+    "习惯": ("偏好",), "爱好": ("偏好",), "喜好": ("偏好",), "偏爱": ("偏好",),
+    "中意": ("偏好",), "倾向": ("偏好",), "口味": ("偏好", "饮品"),
+    "表达": ("沟通",), "语气": ("沟通",), "风格": ("沟通",), "措辞": ("沟通",),
+    "身份": ("身份",), "名字": ("身份",), "称呼": ("身份",),
+    "待办": ("待办",), "要做": ("待办",), "任务": ("待办",),
+    "反思": ("反思",), "总结": ("反思",), "复盘": ("反思",),
+    "教训": ("教训",), "踩坑": ("教训",),
 }
 
 # ---- P1-3：泛问词灰名单 ----
@@ -1253,11 +1374,15 @@ _GRAPH_ADJ_MATCH_LIMIT = 5000
 
 
 def _recall_metrics(query, k, n_records, n_candidates, top, floor_dropped,
-                    cache_hit=False):
+                    cache_hit=False, sem_stats=None):
     """装配一次 retrieve 的质量指标（v7.0.2 P2-2：召回质量监控的输入）。
 
     纯记账，无副作用。通道分布来自每条结果自带的 `reasons`，
     分档分布来自 P0-2 写在记录上的 `_relevance_band`。
+
+    v7.0.2：新增 `sem_top1` / `sem_background`（候选原始余弦的 top1 与中位数）。
+    用途：相关性下限是**绝对**阈值，对"整库同一主题"（背景相似度整体偏高）的库会失准；
+    运维可通过这两个值判断是否需要复标定（top1 与 background 贴得很近 = 该库整体偏高）。
     """
     channels = {}
     bands = {}
@@ -1269,7 +1394,7 @@ def _recall_metrics(query, k, n_records, n_candidates, top, floor_dropped,
             bands[_b] = bands.get(_b, 0) + 1
         except (IndexError, TypeError, AttributeError):
             continue
-    return {
+    m = {
         "query_len": len(query or ""),
         "k": k,
         "records": n_records,
@@ -1283,6 +1408,10 @@ def _recall_metrics(query, k, n_records, n_candidates, top, floor_dropped,
         "channels": channels,
         "cache_hit": cache_hit,
     }
+    if sem_stats:
+        m["sem_top1"] = sem_stats.get("top1")
+        m["sem_background"] = sem_stats.get("background")
+    return m
 
 
 def _is_content_token(token):
@@ -1320,17 +1449,35 @@ def _record_graph_nodes(record):
 
 
 def _node_overlap(a_nodes, b_nodes):
-    """包含式节点交集数：`RTX` 与 `RTX 4090` 视为同一实体，避免分词粒度差异漏配。"""
-    hits = set()
+    """**分级**节点匹配得分：精确命中记 1.0，包含式命中记 0.5。
+
+    【为什么要分级（v7.0.2 D8）】旧实现把"精确命中"与"包含式命中"同等计 1 分，
+    于是这两条记录在图通道上**得分完全相同**：
+        `用户的显卡是 RTX 4090`   ← 限定词正是查询词 `显卡`（精确）
+        `用户的备用显卡是 RTX 3060` ← 限定词是 `备用显卡`，只是**包含** `显卡`
+    图通道因此无法区分"用户问的那个属性"与"带额外修饰的近邻属性"。
+    实测（真实 Qdrant + BGE-M3）：`我用的什么显卡` 的正确答案一度被"备用显卡"
+    挤到 rank3 —— 用户视角就是"它把备用件当成我在用的了"。
+
+    【为什么还需要包含式】分词粒度差异确实存在（`RTX` vs `RTX 4090`、
+    `嵌入模型` vs `用户的嵌入模型`），完全改精确匹配会漏配。故保留但降权。
+    """
+    score = 0.0
     for a in a_nodes:
         if not a:
             continue
+        best = 0.0
         for b in b_nodes:
             if not b:
                 continue
-            if a == b or a in b or b in a:
-                hits.add(a if len(a) <= len(b) else b)
-    return len(hits)
+            if a == b:
+                best = 1.0
+                break
+            if a in b or b in a:
+                if best < 0.5:
+                    best = 0.5
+        score += best
+    return score
 
 
 def _match_adj_nodes(nodes, adj):

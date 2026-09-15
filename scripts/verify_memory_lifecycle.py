@@ -55,8 +55,14 @@ import sys
 FAIL = []
 
 
-def check(cond, label):
-    print(('  [PASS] ' if cond else '  [FAIL] ') + label)
+def check(cond, label, detail=None):
+    """断言并打印。`detail` 可选：失败时把现场数据一起打出来，便于定位。
+
+    为什么加第三个参数：断言失败时"只知道失败、不知道失败成什么样"会让排查
+    多花一轮；把相关字段一起打印，一次就能看清（这也是两套验收脚本的统一签名）。
+    """
+    print(('  [PASS] ' if cond else '  [FAIL] ') + label
+          + ('' if detail is None else '   | ' + str(detail)[:200]))
     if not cond:
         FAIL.append(label)
 
@@ -180,8 +186,14 @@ def main():
           'retain_batch 报告真实命名空间（恒报 default -> 命中 F10）')
 
     # ---------- 2. 召回：必须回传 memory_id 与 verification（F9）----------
+    # v7.0.2 说明：这条查询是**纯改写**（`我喜欢什么样的表达方式` ↔ 记忆
+    # `用户偏好先把结论说清楚，再给依据。`），实测原始余弦仅 0.49 —— 低于
+    # 相关性下限（0.55，标定见 docs/ACCEPTANCE_GUIDE.md 第 8 节）。它能被召回
+    # 靠的是 **Path6 结构化标签通道**（`喜欢` → 标签 `偏好`），这正是该通道的
+    # 设计用途：语义阈值负责"宁缺勿滥"，标签通道负责"结构性保证偏好类记忆可达"。
+    # 因此本步同时验证了这两条路径的协同，而不是只验语义。
     r2 = m.tool('recall', {'query': '我喜欢什么样的表达方式', 'k': 3})
-    show('recall', r2)
+    show('recall（纯改写查询，靠标签通道命中）', r2)
     top = (r2.get('results') or [{}])[0]
     check(bool(top.get('memory_id')), 'recall 回传 memory_id（否则 forget/更正无法定位）')
     check('verification' in top, 'recall 回传 verification（否则分不清旧说法是否已被取代）')
@@ -271,8 +283,13 @@ def main():
     check('capsule' in tools6, '存在 capsule 工具（取单条记忆胶囊）')
     check('expand' in tools6, '存在 expand 工具（按指针精确取回原文）')
 
+    # v7.0.2：**加长**这段样本，确保 40 token 的预算一定装不下正文 ——
+    # 否则"降级为胶囊/精准索引"这条断言可能因为"恰好装得下"而**空转通过**
+    # （第一版就踩了这个坑：原文 45 字正好 40 token，`truncated=false`、
+    #  capsule_count/indexed_count 都是 0，断言失去意义）。
     CAP_TEXT = ('用户的生产库端口是 6333，嵌入模型是 bge-m3 共 1024 维，'
-                '预算上限 15000 元，交付日期 2026-12-31。')
+                '稀疏向量维度是 30522，预算上限 15000 元，交付日期 2026-12-31，'
+                '联系人 <your-user>ngkun@qq.com，部署区域 cn-hangzhou，延迟 12ms。')
     r7 = m.tool('retain', {'content': CAP_TEXT, 'mtype': 'semantic',
                            'tags': ['验收'], 'confidence': 0.9})
     capid = r7.get('memory_id')
@@ -281,7 +298,7 @@ def main():
     capr = m.tool('capsule', {'memory_id': capid, 'budget_tokens': 40})
     show('capsule(budget_tokens=40)', capr)
     ctext = capr.get('text') or ''
-    need_atoms = ('6333', 'bge-m3', '1024', '15000元', '2026-12-31')
+    need_atoms = ('6333', 'bge-m3', '1024', '15000元', '2026-12-31', 'cn-hangzhou')
     flat = ''.join(ctext.casefold().split())
     check(capr.get('selfcheck_ok') is True,
           '胶囊自检通过（原子守恒 + 抽取式 + 指针在场）')
@@ -289,6 +306,9 @@ def main():
           '胶囊保留全部关键原子（预算 40 token，实际 %s）' % capr.get('tokens'))
     check(bool(capr.get('ref')) and capr['ref'].startswith('m:'),
           '胶囊带稳定指针 ref（可逆的凭据）')
+    check(capr.get('level') != 'full' and capr.get('lossless') is False,
+          '原文超预算 → 确实发生了分层降级（不是无损直通）：level=%s tokens=%s/%s'
+          % (capr.get('level'), capr.get('tokens'), capr.get('original_tokens')))
 
     exr = m.tool('expand', {'ref': capr.get('ref')})
     show('expand(ref)', {'verified': exr.get('verified'),
@@ -320,8 +340,15 @@ def main():
           '预算被真正遵守（或已如实标注未能遵守）')
     check('1024' in _flat or '1024' in _idx,
           '极短预算下关键数值仍可见（正文胶囊或精准索引二者之一）')
-    check(bool(cr.get('capsule_count') or cr.get('indexed_count')),
-          '放不下原文时降级为胶囊/精准索引（信息未消失）')
+    # v7.0.2 修订：这条原本无条件要求"必须有胶囊/索引项"，但只要本次**没有发生截断**
+    # （候选本来就少、或都装得下），降级路径就无需触发 —— 无条件断言会变成假失败。
+    # 改为**条件断言**：发生了截断 ⇒ 必须有胶囊或精准索引兜底，信息不消失。
+    # 降级路径本身的确定性验证在上面的 `capsule(level != 'full')` 与
+    # `scripts/verify_precision_recall.py` 的"分层阶梯"用例里（那里必然触发）。
+    check((not cr.get('truncated'))
+          or bool(cr.get('capsule_count') or cr.get('indexed_count')),
+          '发生截断时必有胶囊/精准索引兜底（信息未消失）',
+          (cr.get('truncated'), cr.get('capsule_count'), cr.get('indexed_count')))
 
     con.close()
     m.stop()

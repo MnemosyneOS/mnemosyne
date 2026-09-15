@@ -1108,7 +1108,14 @@ class SqliteBackend:
                 return False
 
     def add_edges(self, edges, memory_id=None):
-        """Add graph edges (compatible with MemoryGraphStore.add_edges)."""
+        """Add graph edges (compatible with MemoryGraphStore.add_edges).
+
+        v7.0.2（D9）：dict 型边必须补上 `memory_id`。旧实现写的是
+        `e.get("memory_id", memory_id)` —— 而 dict 里**存在**该键且值为 `None`
+        时，`.get` 会返回 `None` 而不是 fallback，于是正常写入路径的每条边的
+        `memory_id` 列都是 NULL（`MemoryGraphStore.add_edges` 有同一个缺陷）。
+        后果：无法回答"这条记忆连了哪些图节点"，图通道退化为实体碎片比对。
+        """
         self.ensure_init()
         conn = self._get_conn()
         rows = []
@@ -1127,7 +1134,7 @@ class SqliteBackend:
                 e.get("from", ""),
                 e.get("to", ""),
                 e.get("relation", "related_to"),
-                e.get("memory_id", memory_id),
+                e.get("memory_id") or memory_id,
                 float(e.get("strength", 1.0)),
                 e.get("created_at") or _now_iso(),
                 e.get("qualifier") or None,
@@ -1194,6 +1201,30 @@ class SqliteBackend:
             }
             for r in rows
         ]
+
+    def purge_edges_without_memory_id(self):
+        """删掉 `memory_id` 为空的边，返回删除条数（v7.0.2 D9 修存量）。
+
+        【为什么必须删】唯一索引 `idx_edges_unique` 建在
+        `(from_entity, to_entity, relation, qualifier)` 上，**不含 memory_id**。
+        7.0.1 及以前写入的边 memory_id 全是 NULL；不先清掉的话，回填写入的
+        "带正确 memory_id 的同一条边"会被 `INSERT OR IGNORE` 静默忽略，
+        脏数据把正确数据挡在门外且不报错。
+        边是派生索引（可由正文重算），删除安全，紧随其后的回填会重建。
+        """
+        self.ensure_init()
+        conn = self._get_conn()
+        with self._lock:
+            conn.execute("BEGIN")
+            try:
+                cur = conn.execute(
+                    "DELETE FROM edges WHERE memory_id IS NULL OR memory_id = ''")
+                n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+        return int(n)
 
     # -- graph query (multi-hop, indexed) --------------------------------------
     def graph_query(self, entity, max_depth=2):
