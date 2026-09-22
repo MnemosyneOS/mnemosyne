@@ -1,0 +1,22 @@
+{
+  "name": "mnemosyne",
+  "version": "8.0.0",
+  "description": "Mnemosyne OS memory for Cursor — persistent, local-first memory with graph recall and lossless compression.",
+  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
+  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "license": "MIT",
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mnemosyne.webui.mcp_server",
+        "--brain-dir",
+        ".mnemosyne",
+        "--namespace",
+        "default"
+      ]
+    }
+  },
+  "skills": ["./skills/mnemosyne"]
+}

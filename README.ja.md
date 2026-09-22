@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.2** — ゼロ依存（サードパーティライブラリ不要）、ローカル優先の AI 記憶システムです。多層型忘却（忘却の経済学）、ハッシュチェーン台帳、プラグイン SDK、ローカル Web ダッシュボード、および MCP（Model Context Protocol／モデルコンテキストプロトコル）に対応しています。
+**Mnemosyne OS 8.0.0** — ゼロ依存（サードパーティライブラリ不要）、ローカル優先の AI 記憶システムです。多層型忘却（忘却の経済学）、ハッシュチェーン台帳、プラグイン SDK、ローカル Web ダッシュボード、および MCP（Model Context Protocol／モデルコンテキストプロトコル）に対応しています。
 
 > コアが**サードパーティの依存関係を一切必要としない**唯一の AI 記憶エンジンです（Python 標準ライブラリ 3.8+ のみに依存）。ベクトルデータベース不要、LLM（大規模言語モデル）ランタイム不要、クラウドへのロックインもありません。ノート PC、サーバー、サーバーレス基盤のいずれでも動作します。
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## プロジェクト構成
 
 ```
-Mnemosyne7.0.2/
+Mnemosyne8.0.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — 中国語の説明（中国語版 README）
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — DeepSeek Harness との統合（MCP 経由）
-- `docs/KNOWN_DEFECTS.md` — 7.0.2 メモリスタックで確認された欠陥：事実・実測・影響・修正
+- `docs/KNOWN_DEFECTS.md` — 8.0.0 メモリスタックで確認された欠陥：事実・実測・影響・修正
 - `docs/RECALL_STRATEGY.md` — 想起メカニズムとターンごとの注入戦略の評価
 - `docs/ACCEPTANCE_GUIDE.md` — 受け入れガイド（`scripts/verify_memory_lifecycle.py` を含む）
 - `docs/` — 完全なドキュメント：アーキテクチャ、データモデル、モジュール解説、プラグイン解説、API／CLI／MCP リファレンス、デプロイ、統合
@@ -267,6 +267,6 @@ python -m unittest tests.test_plugins -v
 
 MIT ライセンス — [LICENSE](LICENSE) を参照。
 
-作者：胡景产品负责人 (Jingkun Hu).
+作者：Mnemosyne OS contributors.
 
 > 本翻訳は機械翻訳です。英語版（README.md）が正典となります。

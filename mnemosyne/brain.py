@@ -23,7 +23,7 @@ from .utils import (EmbeddingEngine, StatsTracker, _content_atoms, _extract_rela
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.2"
+VERSION = "8.0.0"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -3133,7 +3133,7 @@ def _export(store, fmt="json", out_path=None):
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         suffix = ".json"
     else:
-        lines = ["# Mnemosyne v7.0.2 记忆库导出 ", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
+        lines = ["# Mnemosyne v8.0.0 记忆库导出 ", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
         for r in records:
             lines.append(f"## [{r.get('type')}] [{r.get('fact_type', 'fact')}] {r.get('created_at', '')}")
             lines.append("")
@@ -3176,7 +3176,7 @@ def _hindsights_bench(brain, test_count=200):
     仅输出本机实测指标（延迟、数量），不做任何打分自评。
     """
     print("=" * 64)
-    print("  Mnemosyne v7.0.2 — 流水线自测（实测指标，不打分）")
+    print("  Mnemosyne v8.0.0 — 流水线自测（实测指标，不打分）")
     print("=" * 64)
     brain.ensure_init()
 
@@ -3186,7 +3186,7 @@ def _hindsights_bench(brain, test_count=200):
     print("\n[1/6] 写入机制测试...")
     test_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构设计。", "semantic"),
-        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
+        ("Alex prefers conclusions first; answers must be brief.", "preference"),
         ("2026-08-07 完成了劳动仲裁一审起诉材料的提交至横琴法院。", "episodic"),
         ("教训：hermes config set 对含点的嵌套 key 会拆错，必须用 Python 直接改 config.yaml。", "procedural"),
         ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect 三种核心操作。", "semantic"),
@@ -3211,7 +3211,7 @@ def _hindsights_bench(brain, test_count=200):
     print("\n[2/6] 检索能力测试...")
     queries = [
         ("Alice 在哪里工作？", "semantic"),
-        ("产品负责人哥的回答偏好", "preference"),
+        ("Alex's answer preference", "preference"),
         ("劳动仲裁 横琴法院", "episodic"),
         ("hermes Config 教训", "procedural"),
         ("AI 记忆系统 架构", "semantic"),
@@ -3295,7 +3295,7 @@ def _hindsights_bench(brain, test_count=200):
 # ============================================================================
 
 def _benchmark(brain, count=2000):
-    print("\U0001f9ea Mnemosyne v7.0.2 性能基准测试")
+    print("\U0001f9ea Mnemosyne v8.0.0 性能基准测试")
     print("=" * 56)
     brain.ensure_init()
 
@@ -3338,13 +3338,13 @@ def _benchmark(brain, count=2000):
 # ============================================================================
 
 def _demo(brain):
-    print("\U0001f9ea Mnemosyne v7.0.2 演示模式")
+    print("\U0001f9ea Mnemosyne v8.0.0 演示模式")
     print("=" * 50)
     brain.ensure_init()
 
     demo_items = [
         ("Alice 是 Acme 公司的首席工程师，负责 AI 平台架构。", "semantic"),
-        ("产品负责人哥偏好结论先行的回答风格，回答必须简短。", "preference"),
+        ("Alex prefers conclusions first; answers must be brief.", "preference"),
         ("2026-08-07 完成了劳动仲裁一审起诉材料的提交。", "episodic"),
         ("Hindsight 是开源 Agent 记忆系统，supports  retain/recall/reflect。", "semantic"),
         ("我认为人 AI 记忆系统应该优先本地化、零依赖。", "belief"),

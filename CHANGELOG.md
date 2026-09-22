@@ -1,5 +1,180 @@
 # 更新记录（Release Notes）
 
+## 8.0.0（2026-09-22）
+
+这一版把"零依赖"从**口号**变成**可验证的架构约束**，同时让 Mnemosyne 的记忆 API
+能够与既有 Agent 记忆代码直接互操作。两件事同时成立，靠的是一条架构约束：
+**每一项需要外部服务的能力都做成可选插件，内核一行三方依赖都不加。**
+`install_requires` 仍然是空列表。
+
+验收：`python scripts/verify_api.py` —— **29 组检查全部通过**（全离线）。
+
+### 新增 —— 记忆 API（`mnemosyne/api/`）
+
+包顶层直接可 import：
+
+```python
+from mnemosyne import Memory
+
+m = Memory()
+m.add("I prefer dark mode and vim keybindings", user_id="alice")
+hits = m.search("what does alice prefer?", filters={"user_id": "alice"})
+```
+
+- **三个客户端类**：`Memory` / `AsyncMemory` / `MemoryClient`。方法面完整：
+  `add` `get` `get_all` `search` `update` `delete` `delete_all` `history`
+  `reset` `close` `from_config` `chat`。参数名、默认值、关键字限定、返回信封、
+  错误码均已固定为契约。
+- **四维作用域**：`user_id` / `agent_id` / `run_id` / `app_id`。这里做的是
+  **物理隔离** —— 每个组合一个目录、一个 SQLite 文件，而不是"共享行 + 过滤条件"。
+  命名空间由**排序后 + 长度前缀**哈希导出，因此 `(user=a, agent=bc)` 与
+  `(user=ab, agent=c)` 不碰撞，键顺序也不影响结果。
+- **过滤语言**：`eq` `ne` `gt` `gte` `lt` `lte` `in` `nin` `contains`
+  `icontains` `wildcard`，逻辑 `AND`/`OR`/`NOT` 任意嵌套；`*` 表示"字段存在且非空"。
+- **类型化选项对象**：`AddMemoryOptions` 等 6 个，接受 camelCase 别名
+  （`topK` / `userId`），使按 JS/TS 习惯书写调用代码的项目可直接使用。
+- **错误码**：`VALIDATION_003`~`008`、`NOT_FOUND_001`、`CONFLICT_001`、
+  `PROVIDER_001`，异常同时继承对应的内建类型（`ValueError` / `KeyError`），
+  因此既有的 `except` 分支无需改动。
+- **互操作**：方法名、参数名、默认值、关键字限定、返回信封与错误码均接受通行的
+  Agent 记忆调用形态，已有代码只需改一行 import 即可切换。见
+  `docs/COMPATIBILITY.md`。
+
+### 新增 —— 可选供应商注册表（`mnemosyne/providers/`）
+
+**72 个适配器，全部可选。** 关键设计：能走 HTTP 的一律用**标准库 `urllib`** 实现，
+所以主流供应商**不需要任何三方包**。
+
+| 类别 | 数量 | 覆盖 |
+|---|---|---|
+| LLM | 20 | 17 个标准库 HTTP + 2 个惰性 SDK + 零依赖的 `rules` 离线抽取器 |
+| 嵌入 | 13 | 8 个标准库 HTTP + 3 个惰性 SDK + `builtin`（128 维零依赖）+ `hashing`（任意维度离线） |
+| 向量库 | 28 | 3 个内嵌、7 个标准库 HTTP、18 个惰性 SDK |
+| 图数据库 | 6 | `builtin` 原生三元组 + neo4j / memgraph / neptune / kuzu / sparql |
+| 重排器 | 5 | 全部注册 |
+| **合计** | **72** | |
+
+- **降级可见**：某个供应商建不起来时退到内置等价物，并记入
+  `describe()["degraded"]`（含 `requested` / `used` / `reason` / `hint`）。
+  设 `strict_providers: true` 改回抛错（CI 适用）。
+- **维度一致性前置校验**：嵌入器维度与向量库维度不一致时**直接拒绝启动**。
+  维度漂移是向量记忆系统里最贵的失败模式 —— 它不报错，只是返回错的记忆。
+- **凭据脱敏**：`transport.py` 对所有出站 URL 与响应体做正则脱敏，
+  密钥不会被回显进日志。
+
+### 新增 —— 服务面
+
+- **REST `/v1` `/v2` `/v3`**（`mnemosyne/webui/api_routes.py`）：与**同一个**
+  控制台监听器共用端口。写操作默认异步返回 `event_id`。
+  API Key 只存 SHA-256 哈希，明文仅创建时返回一次；比较用 `hmac.compare_digest`。
+  支持 `Bearer` / `Token` / `X-API-Key` 三种写法。**未签发过 key 时开放运行，
+  一旦存在 key 立即对全部 `/v1`~`/v3` 强制鉴权** —— 不需要第二个开关。
+  `/v1/status/` 恒可读，使密钥轮换期间的存活探针仍然可用。
+- **MCP 工具 20 → 31**：新增 11 个沿用通行 Agent 记忆工具命名（`add_memory` /
+  `search_memories` / `get_memories` / `get_memory` / `update_memory` /
+  `delete_memory` / `delete_all_memories` / `delete_entities` / `list_entities` /
+  `list_events` / `get_event_status`），使已有的 MCP 客户端不必改写工具定义就能
+  直接指向 Mnemosyne。原生 20 个索引保持不变（追加在末尾），
+  已缓存 `tools/list` 的客户端不受影响。
+- **CLI 兼容命令面**：`add` / `search` / `list` / `get` / `update` / `delete` /
+  `config` / `entity` / `event`，含 `--agent`（`--json`）机器信封
+  `{status, command, duration_ms, scope, count, data}`，
+  错误以 JSON 输出到 stdout 并带非零退出码。
+  `delete --all` **要求至少一个作用域**，否则拒绝。
+- **Agent Skills 与插件清单**：`.claude-plugin/` `.codex-plugin/`
+  `.cursor-plugin/` `.kimi-plugin/` `.agents/plugins/marketplace.json`
+  `marketplace.json` `skills/mnemosyne{,-cli,-integrate}/`。
+- **集成适配**：`integrations/` —— LangChain / LlamaIndex / CrewAI 代码适配，
+  Dify / n8n / Vercel AI SDK 操作手册。
+
+### 新增 —— 多模态与检索
+
+- **多模态摄入**（`api/multimodal.py`）：解析 OpenAI / Anthropic /
+  Gemini 三种图片内容形态（含 `data:` URI、裸 base64、`inlineData`/`fileData`）
+  与音频。**一个附件成为一条独立记忆**，而不是把附件列表复制到每条文本记忆上。
+  配了视觉模型就存描述（可按语义检索），没配就存引用（不丢东西），
+  并在元数据标 `description_missing: true` 以便后续补。
+  **内联负载绝不进入正文**：base64 进正文会同时炸掉 token 数、全文索引和每次提示。
+- **零依赖 HTTP 传输层**（`providers/transport.py`）：统一重试策略
+  （指数退避 + 抖动，尊重 `Retry-After`）、超时策略、SSE 流式解析。
+- **字面兜底**：融合检索在**零词汇重叠**查询上会如实返回空 —— 内置嵌入器是
+  TF-IDF 的 JL 投影，没有跨词泛化能力（这正是配置真实嵌入器所换来的东西）。
+  但"查不到"与"没有这条记忆"不该无法区分，故在主检索为空时启用一次词面兜底：
+  要求至少一个共享词，且在 `explain=True` 时把来源标为 `lexical_fallback`，
+  绝不伪装成语义命中。
+
+### 修复 —— 实现过程中发现的真实缺陷（均带回归覆盖）
+
+1. **`meta` 字段从未落库**（`storage/sqlite_backend.py`）：`meta` 不在
+   `_MEMORIES_COLUMNS` 里，INSERT/UPDATE 时被静默丢弃；而 `_row_to_record`
+   还**伪造** `meta = {"template_hash": ...}`，让"丢了"看起来像"本来就空"。
+   进程内被 hot cache 掩盖，**只在跨进程读取（重启）时暴露**。
+   已加为真列并附幂等迁移（`ALTER TABLE ... ADD COLUMN meta TEXT`）。
+2. **确定性抽取器丢掉第三人称陈述句**：`"I moved to Berlin in 2023"`、
+   `"The invoice number is INV-2024-001"` 这类句子此前被丢弃 —— 恰好是
+   后续追问最需要的事实。已补两道判据：**事实信号**（数字/标识符/单位/URL/
+   日期/专有名词对）与**实质内容**（去停用词后 ≥3 个实词）。
+3. **`get()` 不查磁盘**，新进程读不到旧记忆，看起来像数据全丢。已改为
+   先查已打开作用域、再查全部命名空间目录。
+4. **immutable 守卫静默失效**：`update()` 读 `rec["immutable"]`（非列，恒 `None`）。
+   已改为同时查顶层与 `meta`。
+5. **`build_components` 只捕获自家异常类型**：存储构造期的网络错误会直接抛穿
+   整个引擎，而不是降级到内置实现。
+6. **Qdrant 适配器在 `__init__` 里做 I/O**：上游瞬时不可用导致该实例**永久**不可用。
+   已改为首次使用时惰性建集合。
+7. **选项对象的 `@dataclass` 覆盖了 `_Base.__init__`**：`topK` / `userId` 等
+   camelCase 别名失效，按 JS/TS 习惯书写的调用代码直接报错。
+8. **`expand()` 与 `capsule()` 字段名不一致**（`content` vs `text`）：
+   两个键都返回，调用方不必猜。
+9. **`add()` 的重复检测无上限**：改为有界扫描（默认 20000 条，
+   `dedup_scan_limit` 可调，0 关闭）。无上限扫描会让"记得越多越慢"。
+
+### 命名与结构整理
+
+- 记忆 API 落在 **`mnemosyne/api/`**，并在包顶层通过 `__getattr__`（PEP 562）
+  惰性导出，因此文档入口就是 `from mnemosyne import Memory`。
+- 异常类统一为 `Api*` 前缀：`ApiError` / `ApiValidationError` /
+  `ApiNotFoundError` / `ApiConflictError` / `ApiProviderError`。
+- 辅助模块与脚本更名，使文件名与职责一致：CLI 辅助模块、REST 路由模块、
+  MCP 兼容工具模块、以及验收脚本 `scripts/verify_api.py`。
+- 环境变量统一到 `MNEMOSYNE_*` 前缀；API 配置的两个覆盖点更名为
+  `MNEMOSYNE_API_CONFIG` 与 `MNEMOSYNE_API_CONFIG_JSON`。
+- REST 路由类更名为 `MemoryAPI`，MCP 工具注册表更名为 `_API_TOOLS`。
+- **破坏性变更**：旧版的 Python import 路径与环境变量别名不再可用。
+  记忆库格式、REST 路由与 MCP 工具名均不受影响。
+
+### 版本与文档
+
+- 版本声明全量升级至 **8.0.0**，用显式规则脚本
+  （`scripts/bump_version.py`）而非全局替换：代码里约 150 处
+  `v7.0.2 (P0-1)` 这类注释记录的是**修复何时落地**，属于历史，改掉就是伪造记录。
+  脚本对每条规则统计命中数，**命中 0 的规则会报出来**（通常意味着某个声明被搬走了）。
+- `README.md` / `README_CN.md` 重写：快速开始、基准表、功能表、供应商表、
+  MCP 工具表、REST 路由表、项目结构全部按 8.0.0 的实际形态更新。
+- 新增 `docs/COMPATIBILITY.md`：说明 API 与通行 Agent 记忆调用形态的对应关系、
+  Mnemosyne 的额外能力，以及"供应商失败时降级并上报"这一行为差异。
+- 新增 `scripts/verify_api.py`：29 组验收，全部离线可跑。
+
+### 回归对照
+
+既有四套验收脚本在**修改后的树**与**干净 7.0.2 备份树**上结果一致：
+
+| 脚本 | 结果 |
+|---|---|
+| `verify.py` | ✅ exit 0（两树一致） |
+| `scripts/verify_memory_lifecycle.py` | ✅ 失败项 0（两树一致） |
+| `scripts/verify_precision_recall.py` | ✅ 失败项 0（两树一致） |
+| `scripts/verify_recall_quality.py` | 2 项失败 —— **两棵树完全相同**（本机未运行 qdrant + 胶囊缓存命中率），既有环境问题，非本次引入 |
+
+### 向后兼容
+
+- 记忆库格式：**加法兼容**。新增 `meta` 列（可空），旧库首次打开自动补齐；
+  老读者按显式列名 SELECT，新增列不影响。
+- MCP 协议版本不变；原生 20 个工具的索引不变。
+- CLI 原生命令面不变；`import` 仅在传入作用域参数或 `--agent` 时才走记忆 API。
+- 配置文件字段不变；`MemoryConfig` 新增字段均有默认值。
+- **注意**：Python import 路径与环境变量别名属破坏性变更，见上。
+
 ## 7.0.2（2026-09-15）
 
 这一版的唯一目标是让"**精准记忆 / 精准召回 / 极短上下文下的精确压缩**"从**声称的能力**

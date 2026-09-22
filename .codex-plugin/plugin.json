@@ -1,0 +1,36 @@
+{
+  "name": "mnemosyne",
+  "version": "8.0.0",
+  "description": "Mnemosyne OS memory for Codex — local-first, zero-dependency AI memory with MCP tools and opt-in lifecycle hooks.",
+  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
+  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "license": "MIT",
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mnemosyne.webui.mcp_server",
+        "--brain-dir",
+        ".mnemosyne",
+        "--namespace",
+        "default"
+      ]
+    }
+  },
+  "skills": ["./skills/mnemosyne", "./skills/mnemosyne-cli"],
+  "hooks": [
+    {
+      "event": "session_start",
+      "command": "mnemosyne --agent list --top-k 20",
+      "optional": true,
+      "description": "Surface recent memories at the start of a session."
+    },
+    {
+      "event": "session_end",
+      "command": "mnemosyne --agent import --stdin",
+      "optional": true,
+      "description": "Ingest a transcript at the end of a session."
+    }
+  ]
+}

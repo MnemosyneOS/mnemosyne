@@ -19,12 +19,11 @@ def _read_long_desc():
 
 setup(
     name="mnemosyne-os",
-    version="7.0.2",
+    version="8.0.0",
     description="Zero-dependency AI Agent Memory Engine — L1 Lexical Cache",
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
-    author="胡景产品负责人 (Jingkun Hu)",
-    author_email="<your-user>ngkun@qq.com",
+    author="Mnemosyne OS contributors",
     url="https://github.com/FrankHu-HK/mnemosyne",
     license="MIT",
     packages=find_packages(exclude=("tests", "tests.*", "benchmarks", "quality_eval")),

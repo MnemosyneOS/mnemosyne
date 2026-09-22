@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne OS Engine v7.0.2 — Zero-Dependency AI Memory System
+Mnemosyne OS Engine v8.0.0 — Zero-Dependency AI Memory System
 ===============================================================
 """
 import os
@@ -12,8 +12,8 @@ _PARENT = os.path.dirname(_ROOT)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-__version__ = "7.0.2"
-VERSION = "7.0.2"
+__version__ = "8.0.0"
+VERSION = "8.0.0"
 
 # === Core classes ===
 from .brain import MemoryBrain
@@ -72,8 +72,25 @@ from .notary import MemoryNotary
 # === CLI ===
 from .cli import main
 
+# === Client API ===
+# Re-exported at the top level so the documented entry point is simply
+# ``from mnemosyne import Memory``.  Resolved lazily (PEP 562) rather than
+# imported eagerly: the API package also builds the provider registry, and a
+# bare ``import mnemosyne`` should stay cheap.
+_CLIENT_API_NAMES = ("Memory", "AsyncMemory", "MemoryClient", "MemoryItem")
+
+
+def __getattr__(name):
+    if name in _CLIENT_API_NAMES:
+        from . import api as _api
+
+        return getattr(_api, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 # === Public API ===
 __all__ = [
+    "Memory", "AsyncMemory", "MemoryClient", "MemoryItem",
     "MemoryBrain", "MnemosyneMemory",
     "__version__", "VERSION",
     "MEMORY_TYPES", "MEMORY_LAYERS", "FACT_TYPES",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Mnemosyne 7.0.2 — Web 管理端（深度优化版）。
+"""Mnemosyne 8.0.0 — Web 管理端（深度优化版）。
 
 零依赖：仅使用 Python 标准库（http.server / json / os / sqlite3 / hashlib 等），
 不引入 Flask、不使用任何 CDN，前端所有资源均为本地静态文件。
@@ -188,6 +188,71 @@ def _reset_brain():
         except Exception:
             pass
     _get_brain._brain = None
+
+
+# ---------------------------------------------------------------------------
+# client API REST surface (/v1, /v2, /v3)
+# ---------------------------------------------------------------------------
+# These routes are mounted on the same listener as the console's /api/* routes.
+# Keeping them here rather than in a second process means one port to expose, one
+# TLS certificate, and no way for the two surfaces to end up talking to different
+# memory stores.  They are resolved *before* the /api/* branch in each verb, so a
+# client using the compatible surface never has to know the console exists.
+_MEMORY_API = None
+
+
+def _memory_api():
+    """Lazily build the compatibility router.
+
+    Imported on first use so a deployment that never touches /v1..v3 does not pay
+    the import cost, and so an error in the compatibility layer cannot stop the
+    console from starting.
+    """
+    global _MEMORY_API
+    if _MEMORY_API is None:
+        from .api_routes import MemoryAPI
+        _MEMORY_API = MemoryAPI()
+    return _MEMORY_API
+
+
+def _is_api_path(path):
+    return (path.startswith("/v1/") or path.startswith("/v2/")
+            or path.startswith("/v3/"))
+
+
+def _flat_query(query):
+    """Convert ``parse_qs`` output into a dict of first values.
+
+    ``parse_qs`` maps every key to a list because HTTP permits repetition; the
+    compatibility API mostly wants scalars, and taking the first value is better
+    than handing an adapter a list where it expects a string.
+    """
+    out = {}
+    for key, value in (query or {}).items():
+        if isinstance(value, (list, tuple)):
+            out[key] = value[0] if value else None
+        else:
+            out[key] = value
+    return out
+
+
+def _handle_api_request(handler, method, path, query=None, body=None):
+    """Dispatch a /v1..v3 request.  Returns True when the path was handled."""
+    if not _is_api_path(path):
+        return False
+    if body is None and method in ("POST", "PUT", "PATCH"):
+        body = _get_body(handler)
+    result = _memory_api().handle(
+        method, path,
+        body=body if isinstance(body, dict) else {},
+        query=_flat_query(query),
+        headers=dict(handler.headers),
+    )
+    if result is None:
+        return False
+    payload, status = result
+    _send_json(handler, payload, status)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -1245,7 +1310,7 @@ def _sync_source_fetch(brain, source):
     if not url:
         return {"error": "数据源 URL 为空"}
     import urllib.request as _ur
-    req = _ur.Request(url, headers={"User-Agent": "MnemosyneWeb/7.0.2"})
+    req = _ur.Request(url, headers={"User-Agent": "MnemosyneWeb/8.0.0"})
     with _ur.urlopen(req, timeout=source.get("timeout", 10)) as resp:
         text = resp.read().decode("utf-8", "replace")
     written = _retain_from_text(brain, text, agent_proj)
@@ -1706,7 +1771,7 @@ _CONTENT_TYPES = {
 class MnemosyneWebHandler(BaseHTTPRequestHandler):
     """HTTP 请求处理器：静态资源 + 会话认证 + REST API。"""
 
-    server_version = "MnemosyneWeb/7.0.2"
+    server_version = "MnemosyneWeb/8.0.0"
 
     def log_message(self, format, *args):
         pass
@@ -1912,6 +1977,8 @@ class MnemosyneWebHandler(BaseHTTPRequestHandler):
                                                          ".woff2", ".ttf"):
             return self._serve_static(path)
 
+        if _handle_api_request(self, "GET", path, query):
+            return
         if path.startswith("/api/"):
             if not self._require_auth("GET", path):
                 return
@@ -1997,6 +2064,10 @@ class MnemosyneWebHandler(BaseHTTPRequestHandler):
             body = _get_body(self)
             return self._handle_login(body)
 
+        # 兼容 REST 面自带 API-Key 鉴权，必须在控制台会话鉴权之前分流。
+        if _handle_api_request(self, "POST", path):
+            return
+
         if not self._require_auth("POST", path):
             return
 
@@ -2064,6 +2135,8 @@ class MnemosyneWebHandler(BaseHTTPRequestHandler):
     def do_PUT(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if _handle_api_request(self, "PUT", path):
+            return
         if not self._require_auth("PUT", path):
             return
         body = _get_body(self)
@@ -2090,6 +2163,8 @@ class MnemosyneWebHandler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if _handle_api_request(self, "DELETE", path):
+            return
         if not self._require_auth("DELETE", path):
             return
         brain = _get_brain()
@@ -2145,7 +2220,7 @@ def run_server(port=9090, host="0.0.0.0", base_dir=None, namespace="default", au
     _ensure_users_file()
     brain = _get_brain()
 
-    print("Mnemosyne Web 管理端 v7.0.2")
+    print("Mnemosyne Web 管理端 v8.0.0")
     print(f"  Base dir:   {brain.base_dir}")
     print(f"  Namespace:  {getattr(brain, 'namespace', 'default')}")
     print(f"  Backend:    {brain.store_backend}")

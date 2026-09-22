@@ -1,0 +1,22 @@
+{
+  "name": "mnemosyne",
+  "version": "8.0.0",
+  "description": "Mnemosyne OS memory for Kimi — local-first AI memory over MCP.",
+  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
+  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "license": "MIT",
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mnemosyne.webui.mcp_server",
+        "--brain-dir",
+        ".mnemosyne",
+        "--namespace",
+        "default"
+      ]
+    }
+  },
+  "skills": ["./skills/mnemosyne", "./skills/mnemosyne-cli"]
+}

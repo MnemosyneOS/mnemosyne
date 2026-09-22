@@ -1,0 +1,37 @@
+{
+  "name": "Mnemosyne Plugins",
+  "owner": {
+    "name": "Mnemosyne OS contributors",
+    "url": "https://github.com/FrankHu-HK/mnemosyne"
+  },
+  "metadata": {
+    "description": "Agent plugins that give a coding assistant a persistent, local-first memory backed by Mnemosyne OS.",
+    "version": "8.0.0"
+  },
+  "plugins": [
+    {
+      "name": "Mnemosyne",
+      "source": "./.claude-plugin",
+      "description": "Memory tools, reference skills and opt-in lifecycle hooks. Registers the mnemosyne MCP server automatically.",
+      "tags": ["memory", "mcp", "context"]
+    },
+    {
+      "name": "Mnemosyne for Codex",
+      "source": "./.codex-plugin",
+      "description": "Codex-native plugin with the memory protocol skill and session hooks.",
+      "tags": ["memory", "mcp", "codex"]
+    },
+    {
+      "name": "Mnemosyne for Cursor",
+      "source": "./.cursor-plugin",
+      "description": "MCP server plus the SDK reference skill.",
+      "tags": ["memory", "mcp", "cursor"]
+    },
+    {
+      "name": "Mnemosyne for Kimi",
+      "source": "./.kimi-plugin",
+      "description": "MCP server plus reference skills.",
+      "tags": ["memory", "mcp", "kimi"]
+    }
+  ]
+}

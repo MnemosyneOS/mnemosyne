@@ -39,3 +39,34 @@ Mnemosyne_论文_中文版.pdf
 Mnemosyne_v3.2_精华提炼报告.pdf
 skillhub_publish/
 ~
+
+# ---------------------------------------------------------------------------
+# 运行期产物 —— 绝不入库（v8.0.0 补）
+# ---------------------------------------------------------------------------
+# 这些文件由程序在运行时生成，包含**凭据**或**真实记忆数据**。
+# 它们不属于源码，提交上去等于把控制台口令与用户记忆一起公开。
+#
+# web_config/users.json 是控制台账号库（口令哈希）—— v8.0.0 核对时发现它
+# 在本机存在且未被忽略，`git add -A` 会直接把它推上 GitHub。
+mnemosyne/webui/web_config/
+web_config/
+api_keys.json
+cli.config.json
+api.config.json
+
+# 记忆库本体与运行状态
+data/
+logs/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+stats.json
+graph.jsonl
+index.jsonl
+meta.json
+*_backfilled_v*
+cold/
+*.gz
+

@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 7.0.2** — ระบบความจำ AI แบบไม่ต้องพึ่งพาไลบรารีภายนอก (zero-dependency) ทำงานบนเครื่องเป็นหลัก (local-first) พร้อมการลืมข้อมูลแบบหลายระดับ (multi-tier forgetting) กระดาษบัญชีแบบโซ่แฮช (hash-chain ledger) ชุดพัฒนาปลั๊กอิน (plugin SDK) แดชบอร์ดเว็บบนเครื่อง (local web dashboard) และการรองรับ MCP (Model Context Protocol / โปรโตคอลบริบทแบบจำลอง)
+**Mnemosyne OS 8.0.0** — ระบบความจำ AI แบบไม่ต้องพึ่งพาไลบรารีภายนอก (zero-dependency) ทำงานบนเครื่องเป็นหลัก (local-first) พร้อมการลืมข้อมูลแบบหลายระดับ (multi-tier forgetting) กระดาษบัญชีแบบโซ่แฮช (hash-chain ledger) ชุดพัฒนาปลั๊กอิน (plugin SDK) แดชบอร์ดเว็บบนเครื่อง (local web dashboard) และการรองรับ MCP (Model Context Protocol / โปรโตคอลบริบทแบบจำลอง)
 
 > เอนจินความจำ AI แห่งเดียวที่**แกนกลางไม่ต้องพึ่งพาไลบรารีของบุคคลที่สามเลย** (พึ่งพาเพียงไลบรารีมาตรฐานของ Python 3.8+ เท่านั้น) — ไม่มีฐานข้อมูลเวกเตอร์ (vector database) ไม่มีรันไทม์ LLM (โมเดลภาษาขนาดใหญ่) และไม่มีการผูกมัดกับระบบคลาวด์ (cloud lock-in) ทำงานได้ทั้งบนแล็ปท็อป เซิร์ฟเวอร์ หรือโครงสร้างเซิร์ฟเวอร์เลส (serverless infra)
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## โครงสร้างโครงการ
 
 ```
-Mnemosyne7.0.2/
+Mnemosyne8.0.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — คำอธิบายภาษาจีน (Chinese README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — ติดตั้งร่วมกับ DeepSeek Harness (ผ่าน MCP)
-- `docs/KNOWN_DEFECTS.md` — ข้อบกพร่องที่ยืนยันแล้วในสแตกหน่วยความจำ 7.0.2 พร้อมหลักฐานและการแก้ไข
+- `docs/KNOWN_DEFECTS.md` — ข้อบกพร่องที่ยืนยันแล้วในหน่วยความจำเวอร์ชัน 8.0.0 พร้อมหลักฐานและการแก้ไข
 - `docs/RECALL_STRATEGY.md` — กลไกการเรียกคืนและกลยุทธ์การฉีดข้อมูลต่อรอบ
 - `docs/ACCEPTANCE_GUIDE.md` — คู่มือการตรวจรับ (พร้อม `scripts/verify_memory_lifecycle.py`)
 - `docs/` — เอกสารฉบับเต็ม: สถาปัตยกรรม, โมเดลข้อมูล, เอกสารโมดูล, เอกสารปลั๊กอิน, การอ้างอิง API / CLI / MCP, การติดตั้งใช้งาน, การบูรณาการ
@@ -267,6 +267,6 @@ python -m unittest tests.test_plugins -v
 
 MIT License — ดู [LICENSE](LICENSE)
 
-จัดทำโดย 胡景产品负责人 (Jingkun Hu)
+จัดทำโดย Mnemosyne OS contributors
 
 > การแปลนี้สร้างโดยเครื่องจักร ฉบับภาษาอังกฤษ (README.md) เป็นฉบับที่เชื่อถือได้

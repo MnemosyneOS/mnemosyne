@@ -33,7 +33,7 @@ __all__ = ["SqliteBackend"]
 # ---------------------------------------------------------------------------
 INDEX_NAME = "index.jsonl"
 META_NAME = "meta.json"
-VERSION = "7.0.2"
+VERSION = "8.0.0"
 
 
 def _m():
@@ -69,6 +69,14 @@ _MEMORIES_COLUMNS = [
     "summary",
     # Extended fields (stored for full record compatibility)
     "tags", "entities", "entities_detailed", "source", "context",
+    # v8.0.0: `meta` 成为真正的列。此前它不在列清单里，于是 _build_record 组装的
+    # meta（用户通过兼容层传的 metadata、实体作用域 user_id/agent_id/...、
+    # categories、expiration_date 等）在 INSERT 时被静默丢弃；_row_to_record 还
+    # 反过来伪造一个 meta={"template_hash": ...}，让"丢了"看起来像"本来就空"。
+    # 进程内被 hot cache 掩盖（缓存持有原始 dict），因此只在**跨进程读取**时才暴露
+    # —— 也就是重启后 metadata 全部消失。加列是可空加法，旧库由下面的迁移补齐，
+    # 对老读者完全无影响。
+    "meta",
     "expires_at", "version", "parent_id", "supersedes", "superseded_by",
     "topic_tag", "consolidated_from", "consolidated_at",
     "verification", "source_type", "tool_name",
@@ -218,6 +226,11 @@ def _record_to_row(record):
             val = _j(record.get(col))
         elif col == "source":
             val = _j(record.get(col)) if record.get(col) else None
+        elif col == "meta":
+            # 只存非空 dict；空/缺失一律写 NULL，避免把 "{}" 或 "null" 字符串
+            # 当成有效内容读回来（那会让 `if record["meta"]` 恒真）。
+            _meta_val = record.get("meta")
+            val = _j(_meta_val) if isinstance(_meta_val, dict) and _meta_val else None
         elif col == "entities_detailed":
             val = _j(record.get(col))
         elif col == "tier":
@@ -303,10 +316,23 @@ def _row_to_record(row, keys=None):
         else:
             d[col] = val
 
-    # Rebuild meta dict for compatibility with MemoryBrain
-    d["meta"] = {
-        "template_hash": d.get("template_hash"),
-    }
+    # Restore meta from its real column (v8.0.0).
+    # 旧实现这里**伪造** `d["meta"] = {"template_hash": ...}`，于是任何通过
+    # _build_record 写进 meta 的东西（用户 metadata、实体作用域、categories、
+    # expiration_date……）在进程重启后一律消失，而且看起来像"本来就空"。
+    # 现在 meta 是列，读回来即可；template_hash 仍作为顶层字段保留（引擎多处直接
+    # 读 record["template_hash"]），并顺带在 meta 里补一份以兼容只读 meta 的路径。
+    _meta = d.get("meta")
+    if isinstance(_meta, str):
+        try:
+            _meta = json.loads(_meta)
+        except (json.JSONDecodeError, TypeError):
+            _meta = None
+    if not isinstance(_meta, dict):
+        _meta = {}
+    if d.get("template_hash") and "template_hash" not in _meta:
+        _meta["template_hash"] = d["template_hash"]
+    d["meta"] = _meta
 
     return d
 
@@ -438,10 +464,10 @@ class SqliteBackend:
             cur.execute(
                 f"CREATE TABLE IF NOT EXISTS memories ({', '.join(col_defs)})"
             )
-            # 1b) Migrate existing databases: add flags / notary_evidence columns
-            #     (Module 7.3 Innovation 3 — these may not exist in pre-7.3 DBs)
+            # 1b) Migrate existing databases: add flags / notary_evidence / meta
+            #     columns (these may not exist in pre-7.3 / pre-8.0 DBs)
             existing_cols = {row[1] for row in cur.execute("PRAGMA table_info(memories)")}
-            for _new_col in ("flags", "notary_evidence"):
+            for _new_col in ("flags", "notary_evidence", "meta"):
                 if _new_col not in existing_cols:
                     try:
                         cur.execute(f"ALTER TABLE memories ADD COLUMN {_new_col} TEXT")

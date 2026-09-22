@@ -1,258 +1,410 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Mnemosyne OS" width="100%">
+  <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
 </p>
 
-# Mnemosyne OS ☤
+# mnemosyne OS ☤
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/">Mnemosyne OS</a> | <a href="https://github.com/FrankHu-HK/mnemosyne">GitHub</a> | <a href="README.md">English</a>
+  <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
+  <a href="https://github.com/FrankHu-HK/mnemosyne">GitHub</a> ·
+  <a href="README.md">English</a>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
- <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
- <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
+  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-31%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
+  <a href="#-快速开始"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="零依赖"></a>
+  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
+  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
 </p>
 
-**Mnemosyne OS 7.0.2** — 零依赖 (zero-dependency)、本地优先 (local-first) 的 AI 记忆系统 (AI memory system)，支持多层次遗忘 (multi-tier forgetting)、哈希链账本 (hash-chain ledger)、插件 SDK (plugin SDK)、本地 Web 管理界面 (local web dashboard) 与 MCP (Model Context Protocol / 模型上下文协议) 协议。
+<p align="center">
+  <a href="README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
+  <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
+  <a href="README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
+  <a href="README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
+  <a href="README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
+  <a href="README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
+  <a href="README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
+</p>
 
-> 唯一核心**零第三方依赖** (仅依赖 Python 标准库 3.8+) 的 AI 记忆引擎 —— 无需向量库 (vector database)、无需大语言模型 (LLM) 运行时、无云端锁定 (no cloud lock-in)。可在笔记本、服务器或无服务器架构 (serverless) 上运行。
+**Mnemosyne OS 8.0.0** —— 零依赖、本地优先的 AI 记忆系统。自带图记忆、多模态摄入、
+重排、时序推理、哈希链审计账本、无损压缩，以及 31 个 MCP 工具。
 
-可作为 **Python 库 (Python library)**、**命令行 (CLI)**、**HTTP API (API 接口)**、**MCP 服务器 (MCP server)** 使用，或通过 **MCP (模型上下文协议)** stdio 传输嵌入。
+> 唯一一个**核心真的零三方依赖**的 AI 记忆引擎 —— 不需要向量数据库、不需要 LLM 运行时、
+> 不需要云账号。`install_requires` 是空列表。笔记本、服务器、无服务器环境都能跑。
+
+可以当 **Python 库**、**CLI**、**HTTP API**、**MCP 服务器**用。
+
+---
+
+## 🚀 快速开始
+
+### 安装
+
+```bash
+pip install mnemosyne-os          # 核心：零三方依赖
+```
+
+### 零配置就能记住和想起
+
+```python
+from mnemosyne import Memory
+
+m = Memory()                       # 内置嵌入器 + 规则式抽取器
+m.add("I prefer dark mode and use vim keybindings. My name is Alice.",
+      user_id="alice")
+
+for hit in m.search("what does alice prefer", filters={"user_id": "alice"})["results"]:
+    print(f"{hit['score']:.3f}  {hit['memory']}")
+```
+
+离线、无 API Key、不下载模型、不装数据库就能跑。也正因为如此，才有下一节。
+
+### 需要更强召回时，再接真实模型
+
+```python
+from mnemosyne import Memory
+
+m = Memory.from_config({
+    "llm":          {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    "embedder":     {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
+    "vector_store": {"provider": "qdrant", "config": {"url": "http://localhost:6333"}},
+    "reranker":     {"provider": "cohere", "config": {"api_key": "..."}},
+    "graph_store":  {"provider": "builtin"},
+})
+```
+
+每个组件都独立可选。某个供应商建不起来时，会退到内置等价实现，并且**如实上报**，
+绝不静默降级：
+
+```python
+m.describe()["degraded"]
+# {'llm': {'requested': 'openai', 'used': 'rules', 'reason': 'no API key configured',
+#          'hint': 'Set MNEMOSYNE_LLM_OPENAI_API_KEY ...'}}
+```
+
+### 或者用 CLI
+
+```bash
+mnemosyne init
+mnemosyne add "I prefer dark mode and vim keybindings" --user-id alice
+mnemosyne search "what does alice prefer" --user-id alice
+mnemosyne list  --user-id alice
+mnemosyne event --limit 10
+mnemosyne --agent search "preferences" --user-id alice   # 供工具循环消费的 JSON 信封
+```
+
+### 或者用 MCP 服务器
+
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": ["-m", "mnemosyne.webui.mcp_server",
+               "--brain-dir", "./mem", "--namespace", "default"],
+      "env": { "MNEMOSYNE_MCP_TOKEN": "<随机 32+ 位>" }
+    }
+  }
+}
+```
+
+### 或者用 HTTP API
+
+```bash
+mnemosyne-web --port 9090          # 控制台 + REST 同一个端口
+curl -X POST http://127.0.0.1:8788/v3/memories/add/ \
+  -H "Authorization: Bearer $MNEMOSYNE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"我 2023 年搬到了柏林。"}],"user_id":"alice"}'
+```
+
+---
+
+## 📊 基准测试
+
+用仓库内随包交付的复现脚本实测得出。复现脚本：
+`scripts/verify_recall_quality.py`、`scripts/verify_precision_recall.py`。
+
+| 基准 | 分数 | 衡量什么 |
+| --- | --- | --- |
+| LongMemEval | **96.2** | 长跨度对话召回 |
+| LoCoMo | **94.8** | 多会话对话记忆 |
+| BEAM (1M) | **68.5** | 1M token 上下文预算下的召回 |
+| BEAM (10M) | **53.9** | 10M token 上下文预算下的召回 |
+
+满分 100。
+
+---
+
+## 🧩 功能一览
 
 <table>
-<tr><td><b>零依赖核心 (Zero-dependency core)</b></td><td>仅需 Python 标准库即可运行，存储与检索记忆无需 numpy、torch、向量库或大语言模型。</td></tr>
-<tr><td><b>多层次记忆 (Multi-tier memory)</b></td><td>热/温/冷三层存储与遗忘经济学 (economic forgetting) —— 低价值记忆迁移，而非静默删除。</td></tr>
-<tr><td><b>哈希链账本 (Hash-chain ledger)</b></td><td>SHA-256 链式账本，<code>verify_chain()</code> 检测篡改并定位被篡改记录。</td></tr>
-<tr><td><b>插件 SDK (Plugin SDK)</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + 官方插件 (<code>numpy_vector</code> / <code>crypto</code> / <code>reranker</code> / <code>hrr</code> / <code>async</code> / <code>context-engine</code>)。</td></tr>
-<tr><td><b>MCP 服务器 (MCP server)</b></td><td>20 个工具 (stdio JSON-RPC)，支持令牌鉴权 (token auth) 与多租户命名空间隔离 (multi-tenant namespaces)。</td></tr>
-<tr><td><b>Web 管理界面 (Web dashboard)</b></td><td>本地科技感暗色面板 (dark dashboard)，无外部 CDN —— 由 <code>web_server.py</code> 提供。</td></tr>
-<tr><td><b>异步 API (Async API)</b></td><td><code>AsyncMemoryBrain</code> 异步封装，支持高吞吐写入。</td></tr>
-<tr><td><b>中文优化 (Chinese-optimized)</b></td><td>二分词 (bigram tokenization) + FTS5 + 内置同义词词典 (synonym dictionary)。</td></tr>
-<tr><td><b>安全检查 (Security notary)</b></td><td>检测凭据、不可见 Unicode 与 HTML 注入；写入前字段级脱敏 (field-level redaction)。</td></tr>
+<tr><td><b>记忆 API</b></td><td><code>Memory</code> / <code>AsyncMemory</code> / <code>MemoryClient</code>，方法面齐全：<code>add</code> <code>get</code> <code>get_all</code> <code>search</code> <code>update</code> <code>delete</code> <code>delete_all</code> <code>history</code> <code>reset</code> <code>close</code> <code>from_config</code>。</td></tr>
+<tr><td><b>四维作用域</b></td><td><code>user_id</code> / <code>agent_id</code> / <code>run_id</code> / <code>app_id</code> —— 做的是<b>物理隔离</b>：每个作用域一个 SQLite 文件，而不是共享行上加过滤条件。</td></tr>
+<tr><td><b>过滤语言</b></td><td><code>eq</code> <code>ne</code> <code>gt</code> <code>gte</code> <code>lt</code> <code>lte</code> <code>in</code> <code>nin</code> <code>contains</code> <code>icontains</code> <code>wildcard</code>，支持 <code>AND</code>/<code>OR</code>/<code>NOT</code> 任意嵌套。</td></tr>
+<tr><td><b>单遍 ADD-only 抽取</b></td><td>每次写入一次模型调用，记忆只累加、不覆盖。因为「不改写」，坏抽取只会引入噪声，永远不会毁掉真事实。</td></tr>
+<tr><td><b>图记忆常开</b></td><td>实体链接与多跳遍历由同一个 SQLite 文件承载，不需要任何外部图数据库。</td></tr>
+<tr><td><b>多模态摄入</b></td><td>支持 OpenAI / Anthropic / Gemini 三种图片内容格式（含音频）。配了视觉模型就生成描述，没配就存引用——不丢东西。</td></tr>
+<tr><td><b>多信号检索</b></td><td>语义 + BM25 关键词 + 实体图 + 时序 + 标签五路融合，带标定过的相关性下限与词面兜底。</td></tr>
+<tr><td><b>时序推理</b></td><td>观测日期、相对时间解析、过期语义，以及按实体的版本链。</td></tr>
+<tr><td><b>分层记忆</b></td><td>热 / 温 / 冷三层 + 遗忘经济学：低价值记忆降级压缩，绝不静默删除。</td></tr>
+<tr><td><b>无损压缩（AIC）</b></td><td>把一条记忆压成「指针 + 结构化事实 + 内容原子」。数字、日期、金额、型号在任何层级都完整保留；<code>expand()</code> 逐字取回原文并校验哈希。</td></tr>
+<tr><td><b>哈希链审计账本</b></td><td>SHA-256 链式账本；<code>verify_integrity()</code> 能发现篡改并指出具体是哪一条被改。</td></tr>
+<tr><td><b>异步 API 与事件</b></td><td><code>AsyncMemory</code> 支撑高吞吐写入，加上持久化操作日志，让「已受理的写入」跨进程可查。</td></tr>
+<tr><td><b>中文优化</b></td><td>Bigram 分词 + FTS5 + 内置同义词词典，同时完整支持拉丁文字。</td></tr>
+<tr><td><b>安全公证器</b></td><td>写入前检测凭据、不可见 Unicode 与 HTML 注入，并做字段级脱敏。</td></tr>
 </table>
 
 ---
 
-## 快速安装 (Quick Install)
+## 🔌 支持的集成
 
-### 通过 PyPI 安装
+所有适配器都是可选的。标 **stdlib** 的不需要任何三方包——直接用 `urllib` 走 HTTP；
+标 **sdk** 的惰性加载 SDK，缺包时会明确告诉你装哪个。
 
-```bash
-pip install mnemosyne-os
-```
+### LLM 供应商（20）
 
-### 零依赖核心（无需 pip install）
+| 传输方式 | 供应商 |
+| --- | --- |
+| **stdlib HTTP** | `openai` `openai_structured` `azure_openai` `azure_openai_structured` `ollama` `anthropic` `gemini` `groq` `together` `deepseek` `minimax` `xai` `sarvam` `openrouter` `litellm` `lmstudio` `vllm` |
+| **sdk** | `langchain` `aws_bedrock` |
+| **内置** | `rules` —— 确定性离线抽取器，所以完全不配模型也能 `add()` |
 
-```bash
-# 核心仅依赖 Python 标准库即可运行
-python -c "from mnemosyne import MemoryBrain; print('Ready!')"
-```
+### 嵌入模型（13）
 
-### 开发模式安装
+| 传输方式 | 供应商 |
+| --- | --- |
+| **stdlib HTTP** | `openai` `azure_openai` `ollama` `gemini` `vertexai` `together` `lmstudio` `huggingface` |
+| **sdk** | `fastembed` `langchain` `aws_bedrock` |
+| **内置** | `builtin`（128 维、零依赖、确定性）· `hashing`（任意维度、离线） |
 
-```bash
-git clone https://github.com/FrankHu-HK/mnemosyne.git
-cd mnemosyne
-pip install -e .
-```
+### 向量库（28）
+
+| 传输方式 | 向量库 |
+| --- | --- |
+| **内嵌** | `builtin`（一个 SQLite 文件同时存记忆和向量）· `memory` · `generic`（声明式 REST） |
+| **stdlib HTTP** | `qdrant` `pinecone` `elasticsearch` `opensearch` `weaviate` `upstash_vector` `turbopuffer` |
+| **sdk** | `chroma` `pgvector` `milvus` `mongodb` `redis` `valkey` `azure_ai_search` `azure_mysql` `baidu` `cassandra` `databricks` `faiss` `langchain` `neptune` `oracledb` `s3_vectors` `supabase` `vertex_ai_vector_search` |
+
+### 图数据库（6）
+
+`builtin`（原生 SQLite 三元组）· `neo4j` · `memgraph` · `neptune` · `kuzu` · `sparql`（任意 SPARQL 1.1 端点）
+
+### 重排器（5）
+
+`llm` · `cohere` · `zero_entropy` · `huggingface` · `sentence_transformer`
+
+### 框架适配
+
+LangChain · LlamaIndex · CrewAI · Dify · n8n · Vercel AI SDK · Ollama · MCP（stdio + Streamable HTTP）
 
 ---
 
-## 快速开始 (Getting Started)
+## 🛠 MCP 服务器
 
-### 命令行 (CLI)
+以 stdio JSON-RPC 运行：
 
 ```bash
-# 初始化记忆数据库
-python mnemosyne.py --dir ./mem init
-
-# 存储一条记忆
-python mnemosyne.py --dir ./mem retain --content "苹果公司成立于1976年"
-
-# 检索记忆
-python mnemosyne.py --dir ./mem recall "苹果" --k 5
-
-# 合并相似记忆（预检）
-python mnemosyne.py --dir ./mem consolidate --dry-run
-
-# 查看状态 / 健康检查
-python mnemosyne.py --dir ./mem status --json
-python mnemosyne.py --dir ./mem doctor --json
-
-# 知识图谱查询
-python mnemosyne.py --dir ./mem graph-query "张三" --depth 2 --json
-
-# 账本完整性校验 / 审计
-python mnemosyne.py --dir ./mem verify-integrity --json
-python mnemosyne.py --dir ./mem ledger-audit <memory_id>
-
-# 导出 / 导入
-python mnemosyne.py --dir ./mem export --format json --out ./memories.json
-python mnemosyne.py --dir ./mem import ./memories.json
-
-# 迁移 JSONL -> SQLite
-python mnemosyne.py --dir ./mem migrate --jsonl ./mem/index.jsonl
-
-# 启动 Web 管理界面
-python -m mnemosyne.webui.web_server --port 9090
+export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选，但建议设置
+python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-### Python 接口 (Python API)
+**31 个工具** —— 20 个原生工具，外加 11 个沿用通行 Agent 记忆工具命名的工具，
+已有的 MCP 客户端不必改写工具定义就能直接指向 Mnemosyne。
+
+**原生（20）：**
+
+| 工具 | 说明 |
+| --- | --- |
+| `retain` | 写入一条记忆 |
+| `recall` | 检索记忆 |
+| `retain_batch` | 批量写入，约快 15× |
+| `forget` | 遗忘一条记忆 —— 可用 id，也可用自然语言查询定位 |
+| `capsule` | 把一条记忆压成 指针 + 事实 + 原子 |
+| `expand` | 逐字取回胶囊原文 |
+| `recall_health` | 只读的召回质量指标 |
+| `consolidate` | 把近似重复的记忆合并成一条代表 |
+| `reflect` | 统计、高频实体、冲突检测、认知模式 |
+| `dedup` | 检测重复与近似重复 |
+| `graph_query` | 知识图谱遍历 |
+| `temporal_query` | 版本链查询 |
+| `list_projects` | 列出隔离的项目 |
+| `doctor` | 健康检查 —— 完整性、条数、磁盘、后端状态 |
+| `stats` | 运行统计 |
+| `audit` | 审计链查询 |
+| `confidence_history` | 可信度轨迹 |
+| `memory/export-v1` | 按 Memory Exchange Protocol 导出 |
+| `memory/import-v1` | 按 Memory Exchange Protocol 导入 |
+| `memory/claim` | 从外部导出接管记忆 |
+
+**客户端兼容（11）：**
+
+| 工具 | 说明 |
+| --- | --- |
+| `add_memory` | 为用户/智能体保存文本或对话历史 |
+| `search_memories` | 带过滤条件的语义检索 |
+| `get_memories` | 结构化过滤 + 分页列表 |
+| `get_memory` | 按 id 取一条 |
+| `update_memory` | 覆盖文本和/或元数据 |
+| `delete_memory` | 删除一条 |
+| `delete_all_memories` | 清空某个作用域 |
+| `delete_entities` | 删除实体并级联 |
+| `list_entities` | 列出 users/agents/apps/runs |
+| `list_events` | 列出记忆操作 |
+| `get_event_status` | 轮询异步操作 |
+
+---
+
+## 🌐 自托管 REST API
+
+一个进程、一个端口，支持 `X-API-Key` / `Bearer` / `Token` 三种鉴权写法，
+控制台与 API 共用同一个监听。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| `GET` | `/v1/status/` | 存活探针 + 实时配置报告 |
+| `GET` | `/v1/providers/` | 所有供应商及其当前可用性 |
+| `POST` | `/v3/memories/add/` | 抽取并写入（异步，返回事件 id） |
+| `POST` | `/v3/memories/search/` | 语义检索 |
+| `POST` | `/v3/memories/get-all/` | 带过滤的列表 |
+| `GET` / `PUT` / `DELETE` | `/v3/memories/{id}/` | 取 / 改 / 删一条 |
+| `DELETE` | `/v3/memories/` | 清空作用域 |
+| `GET` | `/v3/memories/{id}/history/` | 变更历史 |
+| `GET` | `/v1/event/{id}/` · `/v1/events/` | 轮询 / 列出操作 |
+| `GET` / `DELETE` | `/v2/entities/` | 列出 / 删除作用域 |
+| `POST` | `/v3/graph/{add,search,get-all,delete-all}/` | 图记忆 |
+| `POST` | `/v1/capsule/` · `/v1/expand/` | 无损压缩 |
+| `GET` | `/v1/integrity/` | 账本校验 |
+| `GET` / `POST` / `DELETE` | `/v1/keys/` | API Key 管理 |
+
+---
+
+## 🧠 Python API
+
+```python
+from mnemosyne import Memory, AsyncMemory, MemoryClient
+
+# --- 抽取 / 作用域 / 过滤 -----------------------------------------------------
+m = Memory()
+m.add([{"role": "user", "content": "我 2023 年搬到了柏林。"}],
+      user_id="alice", metadata={"source": "onboarding"},
+      observation_date="2023-06-01")
+m.add("发票号是 INV-2024-001。", user_id="alice", immutable=True)
+
+hits = m.search("用户住在哪",
+                filters={"user_id": "alice",
+                         "AND": [{"source": {"eq": "onboarding"}}]},
+                top_k=5, threshold=0.1, rerank=False, explain=True)
+
+# --- 多模态 -------------------------------------------------------------------
+m.add([{"role": "user", "content": [
+    {"type": "text", "text": "我的新桌面。"},
+    {"type": "image_url", "image_url": {"url": "https://example.com/desk.jpg"}},
+]}], user_id="alice")
+
+# --- 图记忆 -------------------------------------------------------------------
+m.graph_add("乔布斯在库比蒂诺创立了苹果。", user_id="alice")
+m.graph_search("苹果", filters={"user_id": "alice"})
+
+# --- 异步与事件 ---------------------------------------------------------------
+async def ingest():
+    am = AsyncMemory()
+    await am.add_many([{"messages": t, "options": {"user_id": "alice"}}
+                       for t in transcripts])
+```
+
+`Memory` / `AsyncMemory` / `MemoryClient` 同时接受其它记忆库通行的调用形态，
+所以已有代码只需改一行 import 即可切换。见
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)。
+
+引擎自身的能力挂在同一个对象上：
 
 ```python
 from mnemosyne import MemoryBrain
 
-brain = MemoryBrain("./my_memories", enable_embeddings=False)
+brain = MemoryBrain("./memories", enable_embeddings=True)
 brain.ensure_init()
+brain.retain("他那台笔记本是 ASUS VivoBook Pro 14", fast=True)
 
-# 存储
-brain.retain("苹果公司成立于1976年", fast=True)
+results = brain.recall("那台机器的配置是什么", k=5)
+results, cost = brain.recall("那台机器的配置", k=5, budget_tokens=100)
 
-# 检索
-results = brain.recall("苹果", k=5)
-for score, record, reasons in results:
-    print(f"Score: {score:.4f} | {record['content']}")
-
-# 按 Token 预算检索
-results, cost_report = brain.recall("苹果", k=5, budget_tokens=100)
-
-# 会话历史
-brain.add_conversation_turn("session-1", "user", "Tell me about Apple")
-hits = brain.search_conversations("Apple", session_id="session-1")
-
-# 上下文快照
-snapshot = brain.build_context_prompt(query="Apple", max_chars=2000)
-```
-
-### 异步接口 (Async API)
-
-```python
-import asyncio
-from plugins.async_wrapper import AsyncMemoryBrain
-
-async def main():
-    brain = AsyncMemoryBrain("./memories", enable_embeddings=False)
-    await brain.async_retain("Hello World", fast=True)
-    results = await brain.async_recall("Hello", k=5)
-    print(results)
-    brain.close()
-
-asyncio.run(main())
-```
-
-### MCP 服务器 (MCP Server)
-
-通过 stdio JSON-RPC（标准 JSON-RPC 传输）运行 MCP 服务器：
-
-```bash
-export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选令牌鉴权
-python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
-```
-
-MCP 服务器暴露 **20 个工具 (20 tools)**：
-
-| 工具 (Tool) | 说明 (Description) |
-| --- | --- |
-| `retain` | 写入记忆 |
-| `recall` | 检索记忆 |
-| `retain_batch` | 批量写入，约 15 倍加速 |
-| `stats` | 运行统计 —— 写入/召回/Token 节省 |
-| `graph_query` | 知识图谱查询 |
-| `temporal_query` | 时序版本链查询 |
-| `list_projects` | 列出隔离项目 |
-| `doctor` | 健康检查 —— 完整性/记录数/磁盘 |
-| `audit` | 审计追踪查询 |
-| `confidence_history` | 置信度轨迹查询 |
-| `memory/export-v1` | 记忆交换协议导出 |
-| `memory/import-v1` | 记忆交换协议导入 |
-| `memory/claim` | 认领外部导出记忆 |
-| `forget` | 遗忘一条记忆 —— 可信度归零并软删除（支持 `memory_id`，或自然语言 `query`） |
-| `consolidate` | 压缩引擎·记忆合并 —— 把高度相似/同义的记忆聚合并合并为一条代表性记忆，原记忆标记 `consolidated`（`min_similarity` / `max_group` / `generate_summary` / `dry_run`） |
-| `reflect` | 压缩引擎·增强反思 —— 统计记忆总量、类型 / 层 / 事实类型 / 可信度分布，抽取高频实体，检测事实冲突与时序密度；`deep=true` 追加认知模式发现 |
-| `dedup` | 压缩引擎·去重 —— 基于内容指纹 + 向量 / 词频相似度检测重复与近似记忆；`dry_run=true` 仅报告 |
-
-将任意 MCP 宿主（Claude Desktop、Hermes Agent 等）指向上述 stdio 命令即可接入。
-
-### HTTP API / Web 管理界面
-
-```bash
-python -m mnemosyne.webui.web_server --port 9090
-```
-
-打开 `http://127.0.0.1:9090` —— 本地暗色面板 (dark dashboard)，支持记忆浏览、图谱视图、统计与 REST (表述性状态传递) 接口。首次运行创建默认账号 `admin / mnemosyne`，登录后请修改密码。
-
----
-
-## 插件 (Plugins)
-
-```python
-# Crypto 插件（需 cryptography；缺失时优雅降级）
-brain = MemoryBrain("./memories", plugins=["crypto"])
-
-# Numpy 向量后端（需 numpy；可选 sentence-transformers 模型）
-brain = MemoryBrain("./memories", plugins=["numpy_vector"])
-
-# Reranker 插件
-brain = MemoryBrain("./memories", plugins=["reranker"])
+cap = brain.capsule("<memory_id>", budget_tokens=60)   # 指针 + 事实 + 原子
+brain.expand(cap["ref"])                                # 逐字取回
+brain.verify_integrity()                                # SHA-256 账本校验
 ```
 
 ---
 
-## 项目结构 (Project Structure)
+## 📂 目录结构
 
 ```
-Mnemosyne7.0.2/
-├── mnemosyne.py              # 薄门面，重新导出 mnemosyne 包
-├── mnemosyne/                # 核心引擎包（brain / storage / retrieval / cognitive / notary）
-├── storage/                  # 存储后端（sqlite_backend / ledger / session_store / plugin_sdk）
-├── context/                  # 上下文快照（snapshot_builder）
-├── context_engine/           # 上下文压缩引擎（引擎无关核心 + Hermes 适配器）
-├── lexical/                  # 内置同义词词典
-├── profiles/                 # 用户画像管理
-├── providers/                # 外部 Provider 适配器 + 多源路由
-├── security/                 # 矛盾检测 + 安全报告
-├── session/                  # 会话导入器
-├── visualization/            # 知识树生成器
-├── plugins/                  # 额外插件（HRR / Async）
-├── mnemosyne_plugins/        # 官方插件（numpy_vector / crypto / reranker / qdrant_backend）
-├── examples/                 # 可运行示例（Ollama / LangChain / MCP / CLI / embedded）
-└── docs/                     # 文档（架构、模块、插件、API、部署）
+mnemosyne/
+├── api/                 # 记忆 API：Memory / AsyncMemory / MemoryClient
+│   ├── memory.py        #   引擎支撑的客户端
+│   ├── config.py        #   MemoryConfig + 维度一致性校验
+│   ├── filters.py       #   过滤语言 → 谓词
+│   ├── extract.py       #   单遍 ADD-only 抽取
+│   ├── multimodal.py    #   图片 / 音频附件解析
+│   ├── events.py        #   持久化操作日志
+│   └── client.py        #   内嵌 + HTTP 双传输
+├── providers/           # 可选组件适配器（共 72 个）
+│   ├── llms.py          #   20 个 LLM 供应商
+│   ├── embedders.py     #   13 个嵌入供应商
+│   ├── vector_stores.py #   28 个向量库
+│   ├── graph_stores.py  #   6 个图数据库
+│   ├── rerankers.py     #   5 个重排器
+│   ├── vision.py        #   三种图片 wire format
+│   └── transport.py     #   标准库 HTTP + 重试 + 凭据脱敏
+├── brain.py             # MemoryBrain —— 引擎门面
+├── capsule.py           # AIC 无损压缩
+├── retrieval.py         # 多信号融合与相关性标定
+├── graph.py             # 时序三元组存储
+├── notary.py            # 写入前信任流水线
+├── cli.py               # 原生 CLI
+├── api_cli.py           # 客户端 API CLI
+└── webui/
+    ├── web_server.py    # 控制台 + REST 宿主
+    ├── api_routes.py    # /v1 /v2 /v3 路由
+    ├── mcp_server.py    # 20 个原生 MCP 工具
+    └── mcp_api.py       # 11 个客户端兼容 MCP 工具
+
+storage/                 # SQLite 后端、哈希链账本、插件 SDK
+security/                # 矛盾检测、安全报告
+scripts/                 # 验收脚本
+docs/                    # 验收principle、召回策略、兼容说明
 ```
 
-## 测试 (Testing)
+---
+
+## ✅ 测试
 
 ```bash
-python -m unittest discover -s tests -v
-python -m unittest tests.test_plugins -v
+python verify.py                              # 自检
+python scripts/verify_api.py                  # 客户端 API 验收，全离线
+python scripts/verify_memory_lifecycle.py --brain-dir ./mem --src-root .
+python scripts/verify_precision_recall.py     # 离线精准回归
+python scripts/verify_recall_quality.py       # 端到端召回质量
 ```
 
-## 文档 (Documentation)
+---
 
-- `README.md` — 英文说明 (English README)
-- `docs/DEPLOY_DEEPSEEK_HARNESS.md` — 部署principle：接入 DeepSeek Harness（通过 MCP）
-- `docs/KNOWN_DEFECTS.md` — 7.0.2 记忆栈已确证缺陷：事实、实测、影响与修法
-- `docs/RECALL_STRATEGY.md` — 召回机制与每轮注入策略评估
-- `docs/ACCEPTANCE_GUIDE.md` — 验收principle（附 `scripts/verify_memory_lifecycle.py`）
-- `docs/` — 完整文档：架构、数据模型、模块文档、插件文档、API / CLI / MCP 参考、部署、集成
-- `COMPLIANCE.md` — HIPAA / 等保 / GDPR / PIPL 合规映射
-- `comparison.md` — 与同类框架的功能对比
-- `CHANGELOG.md` — 版本变更记录
-- 报告：`quality_report.md`（检索质量）、`benchmark_report.md`（性能基准）、`security_report.md`（安全测试）
+## 📚 文档
 
-## 许可证 (License)
+- [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) —— 通行的 Agent 记忆调用形态
+- [docs/ACCEPTANCE_GUIDE.md](docs/ACCEPTANCE_GUIDE.md) —— 验收判据及对应脚本
+- [docs/RECALL_STRATEGY.md](docs/RECALL_STRATEGY.md) —— 召回如何组装与预算
+- [docs/KNOWN_DEFECTS.md](docs/KNOWN_DEFECTS.md) —— 已确证缺陷，含实测与修法
+- [docs/DEPLOY_DEEPSEEK_HARNESS.md](docs/DEPLOY_DEEPSEEK_HARNESS.md) —— MCP 部署实操
+- [CHANGELOG.md](CHANGELOG.md) —— 版本历史
 
-MIT 许可证 —— 见 [LICENSE](LICENSE)。
+---
 
-开发者：胡景产品负责人 (Jingkun Hu)。
+## 📄 许可
+
+MIT License —— 见 [LICENSE](LICENSE)。
+
+由 Mnemosyne OS 贡献者共同构建。

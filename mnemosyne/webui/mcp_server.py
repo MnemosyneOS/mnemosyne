@@ -135,10 +135,35 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
 ]
 
+# ---- client API tools -------------------------------------------------
+# Appended rather than interleaved so the native tool indices stay stable for any
+# client that cached tools/list.  Imported defensively: a problem in the
+# compatibility module must not take the native tools down with it.
+try:
+    from .mcp_api import TOOLS as _API_TOOLS
+    from .mcp_api import TOOL_NAMES as _API_TOOL_NAMES
+except Exception as _api_import_error:  # pragma: no cover - defensive
+    _API_TOOLS, _API_TOOL_NAMES = [], frozenset()
+
+TOOLS = TOOLS + list(_API_TOOLS)
+NATIVE_TOOL_COUNT = len(TOOLS) - len(_API_TOOLS)
+
+
 def handle_tools_list():
     return {"tools": TOOLS}
 
 def handle_tools_call(name, arguments):
+    # client API tools route through the compatibility layer, which keeps its
+    # own Memory instance and its own four-dimension physical scoping.  Checked
+    # first because the compatible names are exact and unambiguous.
+    if name in _API_TOOL_NAMES:
+        try:
+            from .mcp_api import handle as _api_handle
+            return _api_handle(name, arguments if isinstance(arguments, dict) else {})
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}",
+                    "code": "INTERNAL_001", "tool": name}
+
     ns = _get_ns(arguments)
     b = _ensure_brain(namespace=ns)
     project = arguments.get("project", "")
@@ -450,7 +475,7 @@ def handle_request(req):
         # Eagerly initialise the brain for the requested namespace
         _ensure_brain(namespace=ns_hint)
         result = {"protocolVersion":"2024-11-05",
-                  "serverInfo":{"name":"mnemosyne-memory","version":"7.0.2"},
+                  "serverInfo":{"name":"mnemosyne-memory","version":"8.0.0"},
                   "capabilities":{"tools":{}}}
         if ns_hint:
             result["namespace"] = ns_hint

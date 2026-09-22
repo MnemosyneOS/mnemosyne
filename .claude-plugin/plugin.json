@@ -1,0 +1,57 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/plugins/schema.json",
+  "name": "mnemosyne",
+  "version": "8.0.0",
+  "description": "Mnemosyne OS memory for Claude Code — a persistent, local-first memory layer with graph memory, lossless compression and a tamper-evident audit ledger. Zero third-party dependencies.",
+  "author": {
+    "name": "Mnemosyne OS contributors",
+    "url": "https://github.com/FrankHu-HK/mnemosyne"
+  },
+  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
+  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "license": "MIT",
+  "keywords": ["memory", "mcp", "context", "local-first", "rag"],
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mnemosyne.webui.mcp_server",
+        "--brain-dir",
+        "${MNEMOSYNE_DIR:-.mnemosyne}",
+        "--namespace",
+        "${MNEMOSYNE_NAMESPACE:-default}"
+      ],
+      "env": {
+        "MNEMOSYNE_MCP_TOKEN": "${MNEMOSYNE_MCP_TOKEN}"
+      }
+    }
+  },
+  "skills": ["./skills/mnemosyne", "./skills/mnemosyne-cli"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mnemosyne --agent list --top-k 20 2>/dev/null || true",
+            "description": "Load the most recent memories into the session."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mnemosyne --agent add \"$CLAUDE_SESSION_SUMMARY\" --metadata '{\"source\":\"session-hook\"}' 2>/dev/null || true",
+            "description": "Persist the session summary as a memory."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -289,7 +289,7 @@ def main():
     #  capsule_count/indexed_count 都是 0，断言失去意义）。
     CAP_TEXT = ('用户的生产库端口是 6333，嵌入模型是 bge-m3 共 1024 维，'
                 '稀疏向量维度是 30522，预算上限 15000 元，交付日期 2026-12-31，'
-                '联系人 <your-user>ngkun@qq.com，部署区域 cn-hangzhou，延迟 12ms。')
+                '联系人 example@example.com，部署区域 cn-hangzhou，延迟 12ms。')
     r7 = m.tool('retain', {'content': CAP_TEXT, 'mtype': 'semantic',
                            'tags': ['验收'], 'confidence': 0.9})
     capid = r7.get('memory_id')

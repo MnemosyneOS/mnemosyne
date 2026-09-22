@@ -7,7 +7,7 @@ and stored in a local Qdrant collection, which provides a persistent ANN
 index shared across processes instead of the per-process in-memory dict
 used by ``numpy_vector``.
 
-Design contract (verified against Mnemosyne 7.0.2 call sites)
+Design contract (verified against Mnemosyne 8.0.0 call sites)
 -------------------------------------------------------------
 ``available``
     Read at ``mnemosyne/brain.py:184`` to decide whether to splice this

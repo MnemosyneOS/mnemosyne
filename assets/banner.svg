@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400" role="img" aria-label="mnemosyne OS — AI Memory System">
+  <title>mnemosyne OS — AI Memory System</title>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EEF2F6"/>
+    </linearGradient>
+
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#0D9488" stop-opacity="0.16"/>
+      <stop offset="0.55" stop-color="#14B8A6" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#14B8A6" stop-opacity="0"/>
+    </radialGradient>
+
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#0B1220" stroke-opacity="0.045" stroke-width="1"/>
+    </pattern>
+
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0D9488" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#0D9488" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="400" fill="url(#bg)"/>
+  <rect width="1600" height="400" fill="url(#grid)"/>
+  <ellipse cx="215" cy="200" rx="240" ry="215" fill="url(#glow)"/>
+
+  <!-- node-graph mark, geometry taken from the brand logo -->
+  <g transform="translate(216,200) scale(2.55)">
+    <g transform="translate(-35.95,-47.8)">
+      <g transform="translate(4,16)">
+        <g stroke="#94A3B8" stroke-width="0.9" stroke-opacity="0.5" stroke-linecap="round">
+          <line x1="32.0" y1="32.0" x2="47.40" y2="32.00"/>
+          <line x1="32.0" y1="32.0" x2="39.70" y2="45.34"/>
+          <line x1="32.0" y1="32.0" x2="24.30" y2="45.34"/>
+          <line x1="32.0" y1="32.0" x2="16.60" y2="32.00"/>
+          <line x1="32.0" y1="32.0" x2="24.30" y2="18.66"/>
+          <line x1="32.0" y1="32.0" x2="39.70" y2="18.66"/>
+          <line x1="47.40" y1="32.00" x2="53.65" y2="44.50"/>
+          <line x1="47.40" y1="32.00" x2="32.00" y2="57.00"/>
+          <line x1="39.70" y1="45.34" x2="32.00" y2="57.00"/>
+          <line x1="39.70" y1="45.34" x2="10.35" y2="44.50"/>
+          <line x1="24.30" y1="45.34" x2="10.35" y2="44.50"/>
+          <line x1="24.30" y1="45.34" x2="10.35" y2="19.50"/>
+          <line x1="16.60" y1="32.00" x2="10.35" y2="19.50"/>
+          <line x1="16.60" y1="32.00" x2="32.00" y2="7.00"/>
+          <line x1="24.30" y1="18.66" x2="32.00" y2="7.00"/>
+          <line x1="24.30" y1="18.66" x2="53.65" y2="19.50"/>
+          <line x1="39.70" y1="18.66" x2="53.65" y2="19.50"/>
+          <line x1="39.70" y1="18.66" x2="53.65" y2="44.50"/>
+        </g>
+        <circle cx="47.40" cy="32.00" r="3.9" fill="#5B6B8A"/>
+        <circle cx="39.70" cy="45.34" r="3.9" fill="#5B6B8A"/>
+        <circle cx="24.30" cy="45.34" r="3.9" fill="#5B6B8A"/>
+        <circle cx="16.60" cy="32.00" r="3.9" fill="#5B6B8A"/>
+        <circle cx="24.30" cy="18.66" r="3.9" fill="#5B6B8A"/>
+        <circle cx="39.70" cy="18.66" r="3.9" fill="#5B6B8A"/>
+        <circle cx="53.65" cy="44.50" r="4.6" fill="#94A3B8"/>
+        <circle cx="32.00" cy="57.00" r="4.2" fill="#94A3B8"/>
+        <circle cx="10.35" cy="44.50" r="4.7" fill="#94A3B8"/>
+        <circle cx="10.35" cy="19.50" r="4.2" fill="#94A3B8"/>
+        <circle cx="32.00" cy="7.00" r="4.6" fill="#94A3B8"/>
+        <circle cx="53.65" cy="19.50" r="4.3" fill="#94A3B8"/>
+        <circle cx="32.0" cy="32.0" r="6.6" fill="#0D9488"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <text x="392" y="206" font-size="82" font-weight="600" letter-spacing="-2.6" fill="#0B1220">mnemosyne</text>
+    <text x="854" y="204" font-size="50" font-weight="400" letter-spacing="9" fill="#64748B">OS</text>
+
+    <rect x="396" y="240" width="176" height="3" rx="1.5" fill="url(#rule)"/>
+
+    <text x="396" y="290" font-size="26" font-weight="500" letter-spacing="4.6" fill="#64748B">AI MEMORY SYSTEM</text>
+    <text x="396" y="330" font-size="21" font-weight="400" letter-spacing="0.1" fill="#94A3B8">Zero dependencies &#183; Local-first &#183; Self-hosted</text>
+  </g>
+</svg>

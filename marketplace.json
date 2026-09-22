@@ -1,0 +1,58 @@
+{
+  "name": "mnemosyne-os",
+  "version": "8.0.0",
+  "description": "Mnemosyne OS — a zero-dependency, local-first AI memory engine.",
+  "owner": {
+    "name": "Mnemosyne OS contributors",
+    "url": "https://github.com/FrankHu-HK/mnemosyne"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
+  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "plugins": [
+    {
+      "name": "mnemosyne",
+      "source": "./.claude-plugin",
+      "description": "Memory for AI agents: retain, recall, compress, audit.",
+      "tags": ["memory", "mcp", "rag", "context", "local-first"]
+    },
+    {
+      "name": "mnemosyne-codex",
+      "source": "./.codex-plugin",
+      "description": "Codex plugin: Mnemosyne memory tools and lifecycle hooks.",
+      "tags": ["memory", "mcp", "codex"]
+    },
+    {
+      "name": "mnemosyne-cursor",
+      "source": "./.cursor-plugin",
+      "description": "Cursor plugin: Mnemosyne memory tools.",
+      "tags": ["memory", "mcp", "cursor"]
+    },
+    {
+      "name": "mnemosyne-kimi",
+      "source": "./.kimi-plugin",
+      "description": "Kimi plugin: Mnemosyne memory tools.",
+      "tags": ["memory", "mcp", "kimi"]
+    }
+  ],
+  "skills": [
+    {
+      "name": "mnemosyne",
+      "path": "./skills/mnemosyne",
+      "kind": "reference",
+      "description": "How to use the Mnemosyne memory API — SDK, filters, scoping, compression."
+    },
+    {
+      "name": "mnemosyne-cli",
+      "path": "./skills/mnemosyne-cli",
+      "kind": "reference",
+      "description": "The mnemosyne CLI, including agent mode for tool loops."
+    },
+    {
+      "name": "mnemosyne-integrate",
+      "path": "./skills/mnemosyne-integrate",
+      "kind": "pipeline",
+      "description": "Wire Mnemosyne into an existing repository, test-first."
+    }
+  ]
+}

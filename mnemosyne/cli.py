@@ -8,7 +8,7 @@ from .utils import (_fail, _ok,)
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "7.0.2"
+VERSION = "8.0.0"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"
@@ -27,7 +27,7 @@ VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "supersed
 
 
 def _build_parser():
-    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v7.0.2")
+    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v8.0.0")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
     p.add_argument("--no-embeddings", action="store_true", help="禁用向量检索")
     p.add_argument("--no-graph", action="store_true", help="禁用知识图谱")
@@ -126,6 +126,19 @@ def _build_parser():
 
     im = sub.add_parser("import", help="导入记忆")
     im.add_argument("path")
+    # 兼容层的作用域/输出开关（可选）。一旦提供，本次 import 就交给兼容层执行：
+    # 原生命令只会导入到默认命名空间，无法表达"导进某个 user 的记忆"，
+    # 而参考实现的 import 本就需要这个能力。不提供时行为完全不变。
+    im.add_argument("--user-id", default=None)
+    im.add_argument("--agent-id", default=None)
+    im.add_argument("--run-id", default=None)
+    im.add_argument("--app-id", default=None)
+    im.add_argument("--agent", action="store_true",
+                    help="Agent 模式：机器可读 JSON 信封")
+    im.add_argument("--json", action="store_true", dest="agent_json",
+                    help="--agent 的别名")
+    im.add_argument("--output", default=None,
+                    choices=["text", "json", "table", "quiet", "agent"])
 
     rp = sub.add_parser("repair", help="修复损坏的记忆文件")
     rp.add_argument("--dry-run", action="store_true")
@@ -136,6 +149,22 @@ def _build_parser():
     mg = sub.add_parser("migrate", help="从 JSONL 后端迁移到 SQLite 后端")
     mg.add_argument("--jsonl", default=None,
                     help="JSONL 文件路径（默认 <--dir>/index.jsonl）")
+
+    # ---- 兼容命令面（add/search/list/get/update/delete/import/config/entity/event）----
+    # 注册在同一个解析器上，所以一个二进制同时服务两套词汇表。失败时静默降级：
+    # 兼容层出问题不该让原生 CLI 连 --help 都打不开。
+    try:
+        from .api_cli import add_subparsers as _add_api_subparsers
+
+        # 传入已注册的命令名：argparse 遇到重名会直接报错，而静默替换掉原生命令、
+        # 换成一个行为不同的同名命令，比保留原生命令更糟。init / import 原生已覆盖
+        # 等价操作，跳过即可。
+        _add_api_subparsers(sub, existing=set(sub.choices))
+    except Exception as _api_cli_error:  # pragma: no cover - defensive
+        import sys as _sys
+
+        print(f"warning: compatibility CLI commands unavailable: "
+              f"{_api_cli_error}", file=_sys.stderr)
 
     return p
 
@@ -149,6 +178,29 @@ def main(argv=None):
         except (AttributeError, ValueError):
             pass
     args = _build_parser().parse_args(argv)
+
+    # 兼容命令走自己的客户端构造路径（可指向远程服务、也可完全内嵌），
+    # 因此必须在原生 brain 初始化之前分流——否则一个只想 add 一条记忆的调用
+    # 会先付一次完整记忆库初始化的代价。
+    try:
+        from .api_cli import API_COMMANDS as _API_COMMANDS
+        from .api_cli import dispatch as _api_dispatch
+    except Exception:  # pragma: no cover - defensive
+        _API_COMMANDS, _api_dispatch = frozenset(), None
+    if _api_dispatch is not None and args.command in _API_COMMANDS:
+        return _api_dispatch(args)
+
+    # `import` 归原生命令，但一旦调用方给出作用域（--user-id 等）或 agent 开关，
+    # 它表达的就是兼容层的语义 —— 把记忆导进某个实体、并以 JSON 信封回报。
+    # 这两种输入在原生命令里无法表达，硬按原生执行会**静默丢掉作用域**，
+    # 把记录全导进默认命名空间。故此处按输入分流，未提供时行为完全不变。
+    if _api_dispatch is not None and args.command == "import":
+        _scoped_import = any(getattr(args, k, None) for k in
+                             ("user_id", "agent_id", "app_id", "run_id"))
+        if _scoped_import or getattr(args, "agent", False) \
+                or getattr(args, "agent_json", False):
+            return _api_dispatch(args)
+
     base_dir = args.dir or DEFAULT_DIR
     enable_emb = not getattr(args, "no_embeddings", False)
     enable_gr = not getattr(args, "no_graph", False)
@@ -177,7 +229,19 @@ def main(argv=None):
                      fix="checks 权限后用 --dir 指定可写目录。")
 
     if args.command == "init":
-        return _ok(f"记忆库已初始化：{brain.store.base_dir}")
+        # 兼容层：原生 init 只初始化记忆库，而参考实现的 init 兼作"配置向导"。
+        # 这里顺手落一份 CLI 配置，使一条命令同时完成两件事——不新增开关，
+        # 也不覆盖用户已配好的 key（write_default_config 只补缺失项）。
+        cfg_note = ""
+        try:
+            from .api_cli import write_default_config as _write_cli_config
+
+            cfg_note = f"\nCLI 配置：{_write_cli_config(brain.store.base_dir)}"
+        except Exception as exc:  # pragma: no cover - 配置写入失败不该让 init 失败
+            import logging as _logging
+
+            _logging.getLogger(__name__).debug("CLI 配置写入失败（忽略）：%s", exc)
+        return _ok(f"记忆库已初始化：{brain.store.base_dir}{cfg_note}")
     elif args.command == "demo":
         _demo(brain)
         return 0
