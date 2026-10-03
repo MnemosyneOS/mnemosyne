@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
 </p>
 
-# mnemosyne OS ☤
+# mnemosyne OS
 
 <p align="center">
   <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
