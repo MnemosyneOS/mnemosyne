@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agent plugins that give a coding assistant a persistent, local-first memory backed by Mnemosyne OS.",
-    "version": "8.0.0"
+    "version": "8.1.0"
   },
   "plugins": [
     {

@@ -1,6 +1,6 @@
 {
   "name": "mnemosyne",
-  "version": "8.0.0",
+  "version": "8.1.0",
   "description": "Mnemosyne OS memory for Cursor — persistent, local-first memory with graph recall and lossless compression.",
   "homepage": "https://github.com/FrankHu-HK/mnemosyne",
   "repository": "https://github.com/FrankHu-HK/mnemosyne",

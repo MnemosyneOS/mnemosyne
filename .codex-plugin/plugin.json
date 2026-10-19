@@ -1,6 +1,6 @@
 {
   "name": "mnemosyne",
-  "version": "8.0.0",
+  "version": "8.1.0",
   "description": "Mnemosyne OS memory for Codex — local-first, zero-dependency AI memory with MCP tools and opt-in lifecycle hooks.",
   "homepage": "https://github.com/FrankHu-HK/mnemosyne",
   "repository": "https://github.com/FrankHu-HK/mnemosyne",
