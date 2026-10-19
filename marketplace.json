@@ -1,6 +1,6 @@
 {
   "name": "mnemosyne-os",
-  "version": "8.0.0",
+  "version": "8.1.0",
   "description": "Mnemosyne OS — a zero-dependency, local-first AI memory engine.",
   "owner": {
     "name": "Mnemosyne OS contributors",

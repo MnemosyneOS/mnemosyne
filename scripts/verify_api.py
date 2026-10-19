@@ -886,9 +886,12 @@ def t_mcp() -> None:
                 "get_event_status"]
     for name in expected:
         assert name in names, f"missing MCP tool {name}"
-    assert mcp_server.NATIVE_TOOL_COUNT == 20, mcp_server.NATIVE_TOOL_COUNT
+    # v8.1.0：原生工具 20 → 29（新增 session_summarize / session_recall /
+    # conflict_resolve / task_record / playbook_save / playbook_recall /
+    # code_change_record / code_archaeology / memory_policy），总数 31 → 40。
+    assert mcp_server.NATIVE_TOOL_COUNT == 29, mcp_server.NATIVE_TOOL_COUNT
     assert len(names) == len(set(names)), "tool names must be unique"
-    assert len(names) == 31, len(names)
+    assert len(names) == 40, len(names)
 
     out = mcp_server.handle_tools_call("add_memory",
                                        {"messages": "I own a ThinkPad.",
@@ -928,7 +931,7 @@ def t_mcp() -> None:
     # JSON-RPC envelope
     resp = mcp_server.handle_request({"jsonrpc": "2.0", "id": 1,
                                       "method": "tools/list"})
-    assert len(resp["result"]["tools"]) == 31
+    assert len(resp["result"]["tools"]) == 40
     resp = mcp_server.handle_request({
         "jsonrpc": "2.0", "id": 2, "method": "tools/call",
         "params": {"name": "add_memory",

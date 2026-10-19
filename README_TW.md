@@ -25,7 +25,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — 零依赖 (zero-dependency)、本地优先 (local-first) 的 AI 記憶系統 (AI memory system)，支持多層次遺忘 (multi-tier forgetting)、哈希鏈賬本 (hash-chain ledger)、插件 SDK (plugin SDK)、本地 Web 管理界面 (local web dashboard) 与 MCP (Model Context Protocol / 模型上下文協定) 協定。
+**Mnemosyne OS 8.1.0** — 零依赖 (zero-dependency)、本地优先 (local-first) 的 AI 記憶系統 (AI memory system)，支持多層次遺忘 (multi-tier forgetting)、哈希鏈賬本 (hash-chain ledger)、插件 SDK (plugin SDK)、本地 Web 管理界面 (local web dashboard) 与 MCP (Model Context Protocol / 模型上下文協定) 協定。
 
 > 唯一核心**零第三方依赖** (仅依赖 Python 標準庫 3.8+) 的 AI 記憶引擎 —— 無需向量庫 (vector database)、無需大語言模型 (LLM) 运行時、無云端鎖定 (no cloud lock-in)。可在笔记本、服務器或無服務器架構 (serverless) 上运行。
 
@@ -213,7 +213,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## 項目結構 (Project Structure)
 
 ```
-Mnemosyne8.0.0/
+Mnemosyne8.1.0/
 ├── mnemosyne.py              # 薄門面，重新導出 mnemosyne 包
 ├── mnemosyne/                # 核心引擎包（brain / storage / retrieval / cognitive / notary）
 ├── storage/                  # 儲存後端（sqlite_backend / ledger / session_store / plugin_sdk）
@@ -242,7 +242,7 @@ python -m unittest tests.test_plugins -v
 
 - `README.md` — 英文說明 (English README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — 部署principle：接入 DeepSeek Harness（透過 MCP）
-- `docs/KNOWN_DEFECTS.md` — 8.0.0 記憶棧已確證缺陷：事實、實測、影響與修法
+- `docs/KNOWN_DEFECTS.md` — 8.1.0 記憶棧已確證缺陷：事實、實測、影響與修法
 - `docs/RECALL_STRATEGY.md` — 召回機制與每輪注入策略評估
 - `docs/ACCEPTANCE_GUIDE.md` — 驗收principle（附 `scripts/verify_memory_lifecycle.py`）
 - `docs/` — 完整文檔：架構、資料模型、模塊文檔、插件文檔、API / CLI / MCP 參考、部署、集成

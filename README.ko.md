@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — 외부 의존성 없는(zero-dependency), 로컬 우선(local-first) AI 기억 시스템입니다. 다단계 망각(multi-tier forgetting), 해시 체인 원장(hash-chain ledger), 플러그인 SDK(plugin SDK), 로컬 웹 대시보드(local web dashboard), 그리고 MCP(Model Context Protocol / 모델 컨텍스트 프로토콜)를 지원합니다.
+**Mnemosyne OS 8.1.0** — 외부 의존성 없는(zero-dependency), 로컬 우선(local-first) AI 기억 시스템입니다. 다단계 망각(multi-tier forgetting), 해시 체인 원장(hash-chain ledger), 플러그인 SDK(plugin SDK), 로컬 웹 대시보드(local web dashboard), 그리고 MCP(Model Context Protocol / 모델 컨텍스트 프로토콜)를 지원합니다.
 
 > **핵심이 외부 서드파티 의존성 없이 동작하는** 유일한 AI 기억 엔진입니다(Python 표준 라이브러리 3.8+만 의존). 벡터 데이터베이스, LLM(대형 언어 모델) 런타임, 클라우드 종속성이 필요 없습니다. 노트북, 서버, 서버리스 인프라에서 모두 실행됩니다.
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## 프로젝트 구조
 
 ```
-Mnemosyne8.0.0/
+Mnemosyne8.1.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — 중국어 설명(중국어 README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — DeepSeek Harness 배포 (MCP 통합)
-- `docs/KNOWN_DEFECTS.md` — 8.0.0 메모리 스택에서 확인된 결함: 사실, 실측, 영향 및 수정
+- `docs/KNOWN_DEFECTS.md` — 8.1.0 메모리 스택에서 확인된 결함: 사실, 실측, 영향 및 수정
 - `docs/RECALL_STRATEGY.md` — 회상 메커니즘 및 턴별 주입 전략 평가
 - `docs/ACCEPTANCE_GUIDE.md` — 승인 가이드 (`scripts/verify_memory_lifecycle.py` 포함)
 - `docs/` — 전체 문서: 아키텍처, 데이터 모델, 모듈 문서, 플러그인 문서, API / CLI / MCP 참조, 배포, 통합

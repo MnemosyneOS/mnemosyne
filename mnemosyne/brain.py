@@ -23,7 +23,7 @@ from .utils import (EmbeddingEngine, StatsTracker, _content_atoms, _extract_rela
 
 # === Constants (defined in package __init__) ===
 import os as _os_init
-VERSION = "8.0.0"
+VERSION = "8.1.0"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"

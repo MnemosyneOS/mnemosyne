@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — локальная система ИИ-памяти с нулевыми зависимостями, приоритетом локального хранения, многоуровневым забыванием, хеш-цепочечным реестром, SDK плагинов, локальной веб-панелью управления и поддержкой MCP (Model Context Protocol).
+**Mnemosyne OS 8.1.0** — локальная система ИИ-памяти с нулевыми зависимостями, приоритетом локального хранения, многоуровневым забыванием, хеш-цепочечным реестром, SDK плагинов, локальной веб-панелью управления и поддержкой MCP (Model Context Protocol).
 
 > Единственный движок ИИ-памяти, ядро которого **не требует сторонних зависимостей** (только стандартная библиотека Python 3.8+) — ни векторной базы данных, ни среды выполнения LLM (большой языковой модели), ни привязки к облаку. Работает на ноутбуке, сервере или бессерверной инфраструктуре.
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Структура проекта
 
 ```
-Mnemosyne8.0.0/
+Mnemosyne8.1.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — описание на китайском (китайское README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Развёртывание с DeepSeek Harness (через MCP)
-- `docs/KNOWN_DEFECTS.md` — Подтверждённые дефекты стека памяти 8.0.0: факты, измерения, влияние и исправления
+- `docs/KNOWN_DEFECTS.md` — Подтверждённые дефекты стека памяти 8.1.0: факты, измерения, влияние и исправления
 - `docs/RECALL_STRATEGY.md` — Механика поиска и стратегия инъекции на каждом ходу
 - `docs/ACCEPTANCE_GUIDE.md` — Руководство по приёмке (со `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Полная документация: архитектура, модель данных, документация по модулям, плагинам, справочники API / CLI / MCP, развёртывание, интеграция

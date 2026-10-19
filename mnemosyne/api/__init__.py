@@ -68,7 +68,7 @@ from .projection import derive_namespace, to_memory_item
 
 from ..providers import build_components, describe_providers, list_providers
 
-__version__ = "8.0.0"
+__version__ = "8.1.0"
 
 #: The projected memory shape, documented as a tuple of its guaranteed fields.
 MEMORY_ITEM_FIELDS = ("id", "memory", "metadata", "score", "created_at", "updated_at")

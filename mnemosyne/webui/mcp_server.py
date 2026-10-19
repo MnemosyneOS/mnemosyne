@@ -133,6 +133,25 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"question":{"type":"string"},"deep":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
     {"name":"dedup","description":"压缩引擎·去重：基于内容指纹+向量/词频相似度检测重复与近似记忆，dry_run=true 仅报告不删除(默认false); namespace: 可选",
      "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
+    # ---- v8.1.0 记忆形成层（9 个新工具）------------------------------------
+    {"name":"session_summarize","description":"生成或增量更新【会话摘要】——七要素（目标/约束/决策/未决/产物/失败/偏好）+ 锚点原文保留；未决事项会独立成条。解决 8.0.0「只存原子事实、无法回答上次聊到哪」的空白。session_id: 会话标识; messages: 消息数组 [{role,content}] 或整段文本; rebuild=true 丢弃旧摘要从原文重建（抗漂移）",
+     "inputSchema":{"type":"object","properties":{"session_id":{"type":"string"},"messages":{"type":["array","string"]},"rebuild":{"type":"boolean","default":False},"write_pending":{"type":"boolean","default":True},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["session_id","messages"]}},
+    {"name":"session_recall","description":"召回会话摘要与未决事项。query 为空时返回最近摘要；include_pending=true 时同时返回未决条目（用于下次对话主动追问）",
+     "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer","default":3},"include_pending":{"type":"boolean","default":True},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"conflict_resolve","description":"【冲突消解】六类判定（时间更新/偏好变更/作用域差异/精度差异/逻辑矛盾/来源冲突）+ 四操作（ADD/NOOP/UPDATE/KEEP_BOTH）。默认 dry_run=true 只给计划；apply=true 时把旧条目置 superseded（不删除）。scope=audit 时全库审计，只报真冲突（共享实体且共享谓词），修复 8.0.0 把实体共现误判为冲突的问题",
+     "inputSchema":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","default":"semantic"},"dry_run":{"type":"boolean","default":True},"apply":{"type":"boolean","default":False},"scope":{"type":"string","enum":["single","audit"],"default":"single"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"task_record","description":"记录【任务事实】（Working Memory 事实层，只追加不改写）。goal: 目标; goal_type: 任务类别（同类检索的关键）; context: {constraints, preconditions}; steps: [{action,result,reason}]; outcome: success/partial/failed/rolled_back",
+     "inputSchema":{"type":"object","properties":{"goal":{"type":"string"},"goal_type":{"type":"string","default":"general"},"context":{"type":"object"},"steps":{"type":"array","items":{"type":"object"}},"artifacts":{"type":["array","string"]},"outcome":{"type":"string","default":"success"},"duration_min":{"type":"number"},"rework_count":{"type":"integer"},"user_feedback":{"type":"string","default":"unknown"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["goal"]}},
+    {"name":"playbook_save","description":"沉淀【经验】（Working Memory 经验层）。pattern: 可复用方法; preconditions 必填三件套 {must, must_not, typical_env}——不带适用条件的经验会在条件不匹配时把 Agent 带沟里; failure_modes: [{when,why}] 已知失效场景; anti_patterns: 反模式",
+     "inputSchema":{"type":"object","properties":{"pattern":{"type":"string"},"goal_type":{"type":"string","default":"general"},"preconditions":{"type":"object"},"steps":{"type":"array","items":{"type":"string"}},"failure_modes":{"type":"array","items":{"type":"object"}},"anti_patterns":{"type":"array","items":{"type":"string"}},"scope":{"type":"object"},"evidence":{"type":"array","items":{"type":"string"}},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["pattern","preconditions"]}},
+    {"name":"playbook_recall","description":"检索候选经验并做【前置条件校验】。返回项带 applicable/blocked_by：只应把 applicable=true 的注入上下文，其余丢弃（防负迁移）。context: 当前任务环境描述，用于 must/must_not 比对",
+     "inputSchema":{"type":"object","properties":{"goal_type":{"type":"string"},"context":{"type":"object"},"k":{"type":"integer","default":3},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"code_change_record","description":"记录【代码变更事件】（Coding Memory）——存 git 缺失的三样东西：意图、约束、放弃的方案。intent: 这次改动想解决什么; constraints: 当时约束; files/symbols: 影响面（符号级锚点）; rejected_approaches: [{what,why_not}]; outcome: merged/reverted/superseded; lesson: 一句话教训",
+     "inputSchema":{"type":"object","properties":{"intent":{"type":"string"},"repo":{"type":"string"},"commit":{"type":"string"},"parent":{"type":"string","description":"上一个 change_id，构成演进链"},"intent_type":{"type":"string","enum":["feature","bugfix","refactor","perf","chore","revert"],"default":"feature"},"constraints":{"type":["array","string"]},"linked":{"type":"object"},"files":{"type":["array","string"]},"symbols":{"type":["array","string"]},"impact":{"type":["array","string"]},"diff_summary":{"type":"string"},"rejected_approaches":{"type":"array","items":{"type":"object"}},"review_notes":{"type":"array","items":{"type":"object"}},"outcome":{"type":"string","default":"merged"},"lesson":{"type":"string"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["intent"]}},
+    {"name":"code_archaeology","description":"【代码考古 / 坑位预警】。target 传文件路径或符号名：返回该锚点的变更链、最近 3 次意图、是否被回滚过、已知约束。intent 传任务意图时转为坑位预警，返回历史失败与放弃方案。改动前先跑一次，成本约 500 token",
+     "inputSchema":{"type":"object","properties":{"target":{"type":"string"},"intent":{"type":"string"},"files":{"type":["array","string"]},"repo":{"type":"string"},"k":{"type":"integer","default":8},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_policy","description":"【记忆策略】敏感度分级与来源闸门。action=classify 判定一段内容的敏感度（normal/private/secret）与是否允许写入长期偏好; action=check 做写入准入判定; action=audit 扫描全库，列出以 secret 级内容明文入库的条目",
+     "inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["classify","check","audit"],"default":"classify"},"content":{"type":"string"},"source_type":{"type":"string"},"mtype":{"type":"string"},"allow_secret":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
 ]
 
 # ---- client API tools -------------------------------------------------
@@ -451,6 +470,177 @@ def handle_tools_call(name, arguments):
         except Exception as e:
             return {"error": str(e)}
 
+    # ---- v8.1.0 记忆形成层 ------------------------------------------------
+    elif name == "session_summarize":
+        try:
+            from ..session import SessionMemory
+            out = SessionMemory(b).summarize(
+                session_id=arguments["session_id"],
+                messages=arguments.get("messages"),
+                project=project or None,
+                rebuild=bool(arguments.get("rebuild", False)),
+                write_pending=bool(arguments.get("write_pending", True)),
+            )
+            out["namespace"] = ns or _default_namespace
+            return out
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "session_recall":
+        try:
+            from ..session import SessionMemory
+            out = SessionMemory(b).recall(
+                query=arguments.get("query", ""),
+                project=project or None,
+                k=int(arguments.get("k", 3)),
+                include_pending=bool(arguments.get("include_pending", True)),
+            )
+            out["namespace"] = ns or _default_namespace
+            return out
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "conflict_resolve":
+        try:
+            from ..conflict import ConflictResolver
+            cr = ConflictResolver(b)
+            if arguments.get("scope") == "audit":
+                return cr.audit()
+            if not arguments.get("content"):
+                return {"error": "scope=single 时必须提供 content"}
+            return cr.resolve(
+                content=arguments["content"],
+                mtype=arguments.get("mtype", "semantic"),
+                project=project or None,
+                dry_run=bool(arguments.get("dry_run", True)),
+                apply=bool(arguments.get("apply", False)),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "task_record":
+        try:
+            from ..working import WorkingMemory
+            out = WorkingMemory(b).record_task(
+                goal=arguments["goal"],
+                goal_type=arguments.get("goal_type", "general"),
+                context=arguments.get("context") or {},
+                steps=arguments.get("steps") or [],
+                artifacts=arguments.get("artifacts") or [],
+                outcome=arguments.get("outcome", "success"),
+                duration_min=float(arguments.get("duration_min") or 0),
+                rework_count=int(arguments.get("rework_count") or 0),
+                user_feedback=arguments.get("user_feedback", "unknown"),
+                project=project or None,
+            )
+            out["namespace"] = ns or _default_namespace
+            return out
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "playbook_save":
+        try:
+            from ..working import WorkingMemory
+            out = WorkingMemory(b).save_playbook(
+                pattern=arguments["pattern"],
+                goal_type=arguments.get("goal_type", "general"),
+                preconditions=arguments.get("preconditions") or {},
+                steps=arguments.get("steps") or [],
+                failure_modes=arguments.get("failure_modes") or [],
+                anti_patterns=arguments.get("anti_patterns") or [],
+                scope=arguments.get("scope") or {},
+                evidence=arguments.get("evidence") or [],
+                project=project or None,
+            )
+            out["namespace"] = ns or _default_namespace
+            return out
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "playbook_recall":
+        try:
+            from ..working import WorkingMemory
+            hits = WorkingMemory(b).recall_playbooks(
+                goal_type=arguments.get("goal_type", ""),
+                context=arguments.get("context") or {},
+                k=int(arguments.get("k", 3)),
+                project=project or None,
+            )
+            return {"playbooks": hits, "count": len(hits),
+                    "applicable_count": sum(1 for h in hits if h.get("applicable")),
+                    "namespace": ns or _default_namespace}
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "code_change_record":
+        try:
+            from ..coding import CodingMemory
+            out = CodingMemory(b).record_change(
+                intent=arguments["intent"],
+                repo=arguments.get("repo", ""),
+                commit=arguments.get("commit", ""),
+                parent=arguments.get("parent"),
+                intent_type=arguments.get("intent_type", "feature"),
+                constraints=arguments.get("constraints") or [],
+                linked=arguments.get("linked") or {},
+                files=arguments.get("files") or [],
+                symbols=arguments.get("symbols") or [],
+                impact=arguments.get("impact") or [],
+                diff_summary=arguments.get("diff_summary", ""),
+                rejected_approaches=arguments.get("rejected_approaches") or [],
+                review_notes=arguments.get("review_notes") or [],
+                outcome=arguments.get("outcome", "merged"),
+                lesson=arguments.get("lesson", ""),
+                project=project or None,
+            )
+            out["namespace"] = ns or _default_namespace
+            return out
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "code_archaeology":
+        try:
+            from ..coding import CodingMemory
+            cm = CodingMemory(b)
+            if arguments.get("intent"):
+                return cm.pitfall_check(
+                    intent=arguments["intent"],
+                    files=arguments.get("files") or [],
+                    k=int(arguments.get("k", 5)),
+                    project=project or None,
+                )
+            if not arguments.get("target"):
+                return {"error": "需要 target（文件或符号）或 intent"}
+            return cm.archaeology(
+                target=arguments["target"],
+                repo=arguments.get("repo", ""),
+                k=int(arguments.get("k", 8)),
+                project=project or None,
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_policy":
+        try:
+            from ..policy import MemoryPolicy
+            action = arguments.get("action", "classify")
+            if action == "audit":
+                return MemoryPolicy.audit(b)
+            if action == "check":
+                return MemoryPolicy.check(
+                    content=arguments.get("content", ""),
+                    source_type=arguments.get("source_type"),
+                    mtype=arguments.get("mtype"),
+                    allow_secret=bool(arguments.get("allow_secret", False)),
+                )
+            return MemoryPolicy.classify(
+                content=arguments.get("content", ""),
+                source_type=arguments.get("source_type"),
+                mtype=arguments.get("mtype"),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
     return {"error": f"Unknown tool: {name}"}
 
 # ---------- JSON-RPC ----------
@@ -475,7 +665,7 @@ def handle_request(req):
         # Eagerly initialise the brain for the requested namespace
         _ensure_brain(namespace=ns_hint)
         result = {"protocolVersion":"2024-11-05",
-                  "serverInfo":{"name":"mnemosyne-memory","version":"8.0.0"},
+                  "serverInfo":{"name":"mnemosyne-memory","version":"8.1.0"},
                   "capabilities":{"tools":{}}}
         if ns_hint:
             result["namespace"] = ns_hint

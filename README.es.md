@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — un sistema de memoria de IA sin dependencias, de prioridad local, con olvido multinivel, un libro de contabilidad de cadena hash, un SDK de plugins, un panel web local y soporte para MCP (Model Context Protocol).
+**Mnemosyne OS 8.1.0** — un sistema de memoria de IA sin dependencias, de prioridad local, con olvido multinivel, un libro de contabilidad de cadena hash, un SDK de plugins, un panel web local y soporte para MCP (Model Context Protocol).
 
 > El único motor de memoria de IA cuyo **núcleo no requiere dependencias de terceros** — solo usa la biblioteca estándar de Python 3.8+ — sin base de datos vectorial, sin entorno de ejecución LLM, sin dependencia de la nube. Funciona en una laptop, un servidor o infraestructura sin servidor.
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Estructura del proyecto
 
 ```
-Mnemosyne8.0.0/
+Mnemosyne8.1.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — Documentación en chino
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Despliegue con DeepSeek Harness (vía MCP)
-- `docs/KNOWN_DEFECTS.md` — Defectos confirmados en la pila de memoria 8.0.0, con evidencia y correcciones
+- `docs/KNOWN_DEFECTS.md` — Defectos confirmados en la pila de memoria 8.1.0, con evidencia y correcciones
 - `docs/RECALL_STRATEGY.md` — Mecánica de recuperación y estrategia de inyección por turno
 - `docs/ACCEPTANCE_GUIDE.md` — Guía de aceptación (con `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Documentación completa: arquitectura, modelo de datos, documentación de módulos, documentación de plugins, referencias de API / CLI / MCP, despliegue, integración

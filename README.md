@@ -30,9 +30,13 @@
   <a href="README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — a zero-dependency, local-first AI memory system. Graph
+**Mnemosyne OS 8.1.0** — a zero-dependency, local-first AI memory system. Graph
 memory, multimodal ingestion, reranking, temporal reasoning, a hash-chained audit
-ledger, lossless compression, and 31 MCP tools.
+ledger, lossless compression, and 40 MCP tools.
+
+8.1.0 adds the **memory formation layer**: session summaries, conflict resolution,
+task and experience memory, code evolution memory, and sensitivity governance —
+so the engine no longer just *retrieves* memories, it *turns experience into memory*.
 
 > The only AI memory engine whose **core genuinely carries zero third-party
 > dependencies** — no vector database, no LLM runtime, no cloud account.
@@ -217,11 +221,12 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional, but recommended
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**31 tools** — twenty native, plus eleven that reuse the conventional
+**40 tools** — twenty-nine native (nine of them new in 8.1.0, covering the memory
+formation layer), plus eleven that reuse the conventional
 agent-memory tool names, so an existing MCP client can be pointed at Mnemosyne
 without rewriting its tool definitions.
 
-**Native (20):**
+**Native · retrieval & governance (20):**
 
 | Tool | Purpose |
 | --- | --- |
@@ -245,6 +250,20 @@ without rewriting its tool definitions.
 | `memory/export-v1` | Export via the Memory Exchange Protocol |
 | `memory/import-v1` | Import via the Memory Exchange Protocol |
 | `memory/claim` | Take over memories from an external export |
+
+**Native · memory formation (9, new in 8.1.0):**
+
+| Tool | Purpose |
+| --- | --- |
+| `session_summarize` | Seven-factor session summary with verbatim anchors; pending items stored separately |
+| `session_recall` | Recall summaries and open items so the next session can follow up |
+| `conflict_resolve` | Six conflict kinds + four actions; `scope=audit` scans the whole store |
+| `task_record` | Append-only task facts, keyed by `goal_type` for similar-task retrieval |
+| `playbook_save` | Save reusable experience — `preconditions` is **required** |
+| `playbook_recall` | Retrieve playbooks with precondition checks (`applicable` / `blocked_by`) |
+| `code_change_record` | Record a change event: intent, constraints, impact, rejected approaches |
+| `code_archaeology` | Code archaeology / pitfall check (pass `intent` for pitfalls) |
+| `memory_policy` | Sensitivity classification, write admission, legacy audit |
 
 **Client-compatible (11):**
 
@@ -376,7 +395,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # console + REST host
     ├── api_routes.py    # /v1 /v2 /v3 routes
-    ├── mcp_server.py    # 20 native MCP tools
+    ├── mcp_server.py    # 29 native MCP tools (incl. 9 formation-layer tools)
     └── mcp_api.py       # 11 client-compatible MCP tools
 
 storage/                 # SQLite backend, hash-chained ledger, plugin SDK

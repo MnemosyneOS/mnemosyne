@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mnemosyne OS Engine v8.0.0 — Zero-Dependency AI Memory System
+Mnemosyne OS Engine v8.1.0 — Zero-Dependency AI Memory System
 ===============================================================
+
+v8.1.0 新增「记忆形成层」五个模块（此前只有检索层）：
+
+- ``session``  会话摘要（七要素 / 双通道 / 抗漂移）
+- ``conflict`` 冲突分类与消解（六类 / 四操作）
+- ``working``  工作记忆（任务事实层 + 经验层）
+- ``coding``   代码演进记忆（变更事件 / 演进链 / 考古）
+- ``policy``   记忆策略（敏感度分级 / 来源闸门）
+
+旧 API 与旧数据完全兼容：新增字段均可选，缺失时按默认值处理。
 """
 import os
 import sys
@@ -12,12 +22,19 @@ _PARENT = os.path.dirname(_ROOT)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-__version__ = "8.0.0"
-VERSION = "8.0.0"
+__version__ = "8.1.0"
+VERSION = "8.1.0"
 
 # === Core classes ===
 from .brain import MemoryBrain
 from .memory_adapter import MnemosyneMemory
+
+# === v8.1.0 记忆形成层 ===
+from .session import (SEVEN_FACTORS, SessionMemory,)
+from .conflict import (ConflictKind, ConflictResolver,)
+from .working import (Playbook, TaskFact, WorkingMemory,)
+from .coding import (ChangeEvent, CodingMemory,)
+from .policy import (SENSITIVITY_LEVELS, MemoryPolicy,)
 
 # === Constants ===
 MEMORY_TYPES = {
@@ -108,6 +125,9 @@ __all__ = [
     "RetrievalEngine", "CognitiveResolver",
     "MemoryNotary",
     "StatsTracker",
+    # v8.1.0 记忆形成层
+    "SessionMemory", "ConflictResolver", "WorkingMemory", "CodingMemory",
+    "MemoryPolicy", "SEVEN_FACTORS", "SENSITIVITY_LEVELS",
     "main",
 ]
 

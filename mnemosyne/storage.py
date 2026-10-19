@@ -11,7 +11,7 @@ from .utils import (_now_iso, _stable_id, _tokenize,)
 
 # === Cross-platform file lock ===
 import os as _os
-VERSION = "8.0.0"
+VERSION = "8.1.0"
 INDEX_NAME = "index.jsonl"
 GRAPH_NAME = "graph.jsonl"
 META_NAME = "meta.json"

@@ -30,8 +30,11 @@
   <a href="README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** —— 零依赖、本地优先的 AI 记忆系统。自带图记忆、多模态摄入、
-重排、时序推理、哈希链审计账本、无损压缩，以及 31 个 MCP 工具。
+**Mnemosyne OS 8.1.0** —— 零依赖、本地优先的 AI 记忆系统。自带图记忆、多模态摄入、
+重排、时序推理、哈希链审计账本、无损压缩，以及 40 个 MCP 工具。
+
+8.1.0 补上了**记忆形成层**：会话摘要、冲突消解、任务与经验、代码演进、敏感度治理——
+让系统不只「找得出记忆」，还能「把经历变成记忆」。
 
 > 唯一一个**核心真的零三方依赖**的 AI 记忆引擎 —— 不需要向量数据库、不需要 LLM 运行时、
 > 不需要云账号。`install_requires` 是空列表。笔记本、服务器、无服务器环境都能跑。
@@ -212,10 +215,11 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选，但建议设置
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**31 个工具** —— 20 个原生工具，外加 11 个沿用通行 Agent 记忆工具命名的工具，
+**40 个工具** —— 29 个原生工具（其中 9 个是 8.1.0 新增的记忆形成层工具），
+外加 11 个沿用通行 Agent 记忆工具命名的工具，
 已有的 MCP 客户端不必改写工具定义就能直接指向 Mnemosyne。
 
-**原生（20）：**
+**原生 · 检索与治理（20）：**
 
 | 工具 | 说明 |
 | --- | --- |
@@ -239,6 +243,20 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `memory/export-v1` | 按 Memory Exchange Protocol 导出 |
 | `memory/import-v1` | 按 Memory Exchange Protocol 导入 |
 | `memory/claim` | 从外部导出接管记忆 |
+
+**原生 · 记忆形成层（9，v8.1.0 新增）：**
+
+| 工具 | 说明 |
+| --- | --- |
+| `session_summarize` | 会话摘要：七要素 + 锚点原文保留，未决事项独立成条 |
+| `session_recall` | 召回摘要与未决事项，供下次对话主动追问 |
+| `conflict_resolve` | 六类冲突判定 + 四操作；`scope=audit` 做全库审计（只报真冲突） |
+| `task_record` | 记录任务事实（只追加），按 `goal_type` 支撑同类任务检索 |
+| `playbook_save` | 沉淀经验，**强制** `preconditions` 三件套 |
+| `playbook_recall` | 检索候选经验并做前置条件校验，返回 `applicable` / `blocked_by` |
+| `code_change_record` | 记录变更事件：意图、约束、影响面、放弃的方案 |
+| `code_archaeology` | 代码考古 / 坑位预警（传 `intent` 即转为坑位检查） |
+| `memory_policy` | 敏感度判定、写入准入、存量高危记忆审计 |
 
 **客户端兼容（11）：**
 
@@ -369,7 +387,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # 控制台 + REST 宿主
     ├── api_routes.py    # /v1 /v2 /v3 路由
-    ├── mcp_server.py    # 20 个原生 MCP 工具
+    ├── mcp_server.py    # 29 个原生 MCP 工具（含 9 个记忆形成层工具）
     └── mcp_api.py       # 11 个客户端兼容 MCP 工具
 
 storage/                 # SQLite 后端、哈希链账本、插件 SDK

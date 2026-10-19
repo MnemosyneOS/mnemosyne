@@ -37,7 +37,7 @@
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.0.0** — ein vollständig abhängigkeitsfreies (zero-dependency), lokal-zentriertes (local-first) KI-Gedächtnissystem mit mehrstufigem Vergessen (multi-tier forgetting), einem Hash-Chain-Ledger (hash-chain ledger), einem Plugin-SDK (plugin SDK), einem lokalen Web-Dashboard (local web dashboard) und MCP-Unterstützung (Model Context Protocol / 模型上下文协议).
+**Mnemosyne OS 8.1.0** — ein vollständig abhängigkeitsfreies (zero-dependency), lokal-zentriertes (local-first) KI-Gedächtnissystem mit mehrstufigem Vergessen (multi-tier forgetting), einem Hash-Chain-Ledger (hash-chain ledger), einem Plugin-SDK (plugin SDK), einem lokalen Web-Dashboard (local web dashboard) und MCP-Unterstützung (Model Context Protocol / 模型上下文协议).
 
 > Die einzige KI-Gedächtnis-Engine, deren **Kern keine externen Drittanbieter-Abhängigkeiten benötigt** (nur die Python-Standardbibliothek 3.8+) — keine Vektordatenbank (vector DB), keine LLM-Laufzeitumgebung (Large Language Model), kein Cloud-Vendor-Lock-in. Läuft auf einem Laptop, einem Server oder serverloser Infrastruktur (serverless).
 
@@ -225,7 +225,7 @@ brain = MemoryBrain("./memories", plugins=["reranker"])
 ## Projektstruktur
 
 ```
-Mnemosyne8.0.0/
+Mnemosyne8.1.0/
 ├── mnemosyne.py              # Thin facade re-exporting the mnemosyne package
 ├── mnemosyne/                # Core engine package (brain / storage / retrieval / cognitive / notary)
 ├── storage/                  # Storage backends (sqlite_backend / ledger / session_store / plugin_sdk)
@@ -254,7 +254,7 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — Chinesische Dokumentation (Chinese README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Bereitstellung mit DeepSeek Harness (über MCP)
-- `docs/KNOWN_DEFECTS.md` — Bestätigte Defekte im 8.0.0-Speicher-Stack: Fakten, Messungen, Auswirkungen und Korrekturen
+- `docs/KNOWN_DEFECTS.md` — Bestätigte Defekte im 8.1.0-Speicher-Stack: Fakten, Messungen, Auswirkungen und Korrekturen
 - `docs/RECALL_STRATEGY.md` — Recall-Mechanik und Injektionsstrategie pro Runde
 - `docs/ACCEPTANCE_GUIDE.md` — Abnahmeleitfaden (mit `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Vollständige Dokumentation: Architektur, Datenmodell, Moduldokumentation, Plugin-Dokumentation, API-/CLI-/MCP-Referenzen, Bereitstellung, Integration
