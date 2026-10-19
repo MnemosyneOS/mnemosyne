@@ -150,8 +150,8 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"intent":{"type":"string"},"repo":{"type":"string"},"commit":{"type":"string"},"parent":{"type":"string","description":"上一个 change_id，构成演进链"},"intent_type":{"type":"string","enum":["feature","bugfix","refactor","perf","chore","revert"],"default":"feature"},"constraints":{"type":["array","string"]},"linked":{"type":"object"},"files":{"type":["array","string"]},"symbols":{"type":["array","string"]},"impact":{"type":["array","string"]},"diff_summary":{"type":"string"},"rejected_approaches":{"type":"array","items":{"type":"object"}},"review_notes":{"type":"array","items":{"type":"object"}},"outcome":{"type":"string","default":"merged"},"lesson":{"type":"string"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["intent"]}},
     {"name":"code_archaeology","description":"【代码考古 / 坑位预警】。target 传文件路径或符号名：返回该锚点的变更链、最近 3 次意图、是否被回滚过、已知约束。intent 传任务意图时转为坑位预警，返回历史失败与放弃方案。改动前先跑一次，成本约 500 token",
      "inputSchema":{"type":"object","properties":{"target":{"type":"string"},"intent":{"type":"string"},"files":{"type":["array","string"]},"repo":{"type":"string"},"k":{"type":"integer","default":8},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
-    {"name":"memory_policy","description":"【记忆策略】敏感度分级与来源闸门。action=classify 判定一段内容的敏感度（normal/private/secret）与是否允许写入长期偏好; action=check 做写入准入判定; action=audit 扫描全库，列出以 secret 级内容明文入库的条目",
-     "inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["classify","check","audit"],"default":"classify"},"content":{"type":"string"},"source_type":{"type":"string"},"mtype":{"type":"string"},"allow_secret":{"type":"boolean","default":False},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_policy","description":"【记忆策略】敏感度分级与来源闸门。action=classify 判定一段内容的敏感度（normal/private/secret）与是否允许写入长期偏好; action=check 做写入准入判定; action=audit 扫描全库，列出以 secret 级内容明文入库的条目; action=filter 查看或开关召回闸门（默认开启，只拦 secret 级）",
+     "inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["classify","check","audit","filter"],"default":"classify"},"content":{"type":"string"},"source_type":{"type":"string"},"mtype":{"type":"string"},"allow_secret":{"type":"boolean","default":False},"enabled":{"type":"boolean"},"namespace":{"type":"string"}},"required":[]}},
 ]
 
 # ---- client API tools -------------------------------------------------
@@ -626,6 +626,14 @@ def handle_tools_call(name, arguments):
             action = arguments.get("action", "classify")
             if action == "audit":
                 return MemoryPolicy.audit(b)
+            if action == "filter":
+                # v8.1.0：召回闸门开关。默认开启；传 enabled=false 可完全
+                # 恢复 8.0.0 的无过滤行为（给确实需要原样取回 secret 的运维场景）。
+                if "enabled" in arguments:
+                    b._policy_filter = bool(arguments.get("enabled"))
+                return {"recall_filter": bool(getattr(b, "_policy_filter", True)),
+                        "blocks": ["secret"],
+                        "note": "只拦 secret 级；private/normal 在内部上下文照常放行"}
             if action == "check":
                 return MemoryPolicy.check(
                     content=arguments.get("content", ""),

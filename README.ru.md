@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@
 <tr><td><b>Многоуровневая память</b></td><td>Уровни hot / warm / cold с экономикой забывания — малозначимые воспоминания переносятся, но никогда не удаляются молча.</td></tr>
 <tr><td><b>Хеш-цепочечный реестр</b></td><td>Реестр на основе цепочки SHA-256 — <code>verify_chain()</code> обнаруживает подделку и указывает точную повреждённую запись.</td></tr>
 <tr><td><b>SDK плагинов</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + официальные плагины (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP-сервер</b></td><td>17 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
+<tr><td><b>MCP-сервер</b></td><td>40 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
 <tr><td><b>Веб-панель управления</b></td><td>Локальная тёмная панель в технологичном стиле без внешних CDN — обслуживается из <code>web_server.py</code>.</td></tr>
 <tr><td><b>Асинхронный API</b></td><td><code>AsyncMemoryBrain</code> — обёртка asyncio для высокопроизводительного приёма данных.</td></tr>
 <tr><td><b>Оптимизация для китайского</b></td><td>Биграммная токенизация + FTS5 + встроенный словарь синонимов.</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP-сервер предоставляет **17 инструментов**:
+MCP-сервер предоставляет **40 инструментов**:
 
 | Инструмент | Описание |
 | --- | --- |
@@ -194,6 +194,15 @@ MCP-сервер предоставляет **17 инструментов**:
 | `consolidate` | Движок сжатия · консолидация памяти — объединяет сильно похожие / синонимичные воспоминания в одно репрезентативное; исходные помечаются `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | Движок сжатия · расширенная рефлексия — итоги по типу / слою / типу факта / уверенности, частые сущности, обнаружение конфликтов фактов, временная плотность; `deep=true` добавляет поиск когнитивных паттернов |
 | `dedup` | Движок сжатия · дедупликация — поиск дубликатов и почти-дубликатов по отпечатку содержимого + векторному / частотному сходству; `dry_run=true` только отчёт |
+| `session_summarize` | Сводка сессии — семь элементов (цель / ограничения / решения / незавершённое / артефакты / неудачи / предпочтения) |
+| `session_recall` | Вызвать сводки и незавершённые дела по сессии или проекту |
+| `conflict_resolve` | Классификация и разрешение конфликтов (шесть классов, сначала `dry_run`) |
+| `task_record` | Зафиксировать факт задачи — что сделано и с каким результатом (слой фактов) |
+| `playbook_save` | Сохранить опыт — **предусловия обязательны** (must / must_not / typical_env) |
+| `playbook_recall` | Искать опыт по типу цели + предусловиям; возвращает `applicable` / `blocked_by` |
+| `code_change_record` | Зафиксировать событие изменения кода (намерение / ограничения / отклонённые подходы) |
+| `code_archaeology` | Проследить цепочку эволюции и ловушки для файла или символа |
+| `memory_policy` | Просмотр / настройка уровней чувствительности и политики источников |
 
 Подключите любой MCP-хост (Claude Desktop, Hermes Agent и др.), указав ему указанную выше stdio-команду.
 

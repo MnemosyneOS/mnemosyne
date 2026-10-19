@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@
 <tr><td><b>ความจำแบบหลายระดับ</b></td><td>ชั้น hot / warm / cold พร้อมเศรษฐศาสตร์แห่งการลืม (forgetting economics) — ย้ายความจำที่มีค่าน้อยกว่าไปยังที่อื่น โดยไม่ลบทิ้งอย่างเงียบเชีย</td></tr>
 <tr><td><b>กระดาษบัญชีแบบโซ่แฮช</b></td><td>กระดาษบัญชีแบบโซ่ SHA-256 — <code>verify_chain()</code> ตรวจจับการแก้ไขผิดปกติและระบุบันทึกที่เสียหายได้อย่างแม่นยำ</td></tr>
 <tr><td><b>ชุดพัฒนาปลั๊กอิน</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> รวมถึงปลั๊กอินทางการ (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>)</td></tr>
-<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>17 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
+<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>40 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
 <tr><td><b>แดชบอร์ดเว็บ</b></td><td>แดชบอร์ดสีเข้มแบบเทคโนโลยีบนเครื่อง (local dark dashboard) ไม่มี CDN ภายนอก — ให้บริการจาก <code>web_server.py</code></td></tr>
 <tr><td><b>API แบบอะซิงโครนัส</b></td><td>ตัวหุ้ม asyncio <code>AsyncMemoryBrain</code> สำหรับการนำเข้าข้อมูลปริมาณมาก</td></tr>
 <tr><td><b>ปรับให้เหมาะกับภาษาจีน</b></td><td>การแบ่งโทเค็นแบบบิแกรม (bigram tokenization) + FTS5 + พจนานุกรมคำเหมือนในตัว (built-in synonym dictionary)</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-เซิร์ฟเวอร์ MCP เปิดเผย **17 เครื่องมือ (tools)**:
+เซิร์ฟเวอร์ MCP เปิดเผย **40 เครื่องมือ (tools)**:
 
 | Tool | Description |
 | --- | --- |
@@ -194,6 +194,15 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `consolidate` | เอนจินบีบอัด·รวมความจำ — รวมความจำที่คล้ายกันมาก/มีความหมายเดียวกันเป็นความจำตัวแทนหนึ่งรายการ ความจำเดิมถูกทำเครื่องหมาย `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | เอนจินบีบอัด·สะท้อนคิดขั้นสูง — สรุปจำนวนตามประเภท/ชั้น/ประเภทข้อเท็จจริง/การกระจายความเชื่อมั่น, เอนทิตีที่พบบ่อย, ตรวจจับข้อขัดแย้งของข้อเท็จจริง, ความหนาแน่นเชิงเวลา; `deep=true` เพิ่มการค้นหารูปแบบทางปัญญา |
 | `dedup` | เอนจินบีบอัด·ลบรายการซ้ำ — ตรวจจับรายการซ้ำและใกล้ซ้ำด้วยลายนิ้วมือเนื้อหา + ความคล้ายแบบเวกเตอร์/ความถี่คำ; `dry_run=true` รายงานเท่านั้น |
+| `session_summarize` | สรุปเซสชัน — เจ็ดองค์ประกอบ (เป้าหมาย / ข้อจำกัด / การตัดสินใจ / ค้างคา / งานที่สร้าง / ความล้มเหลว / ความชอบ) |
+| `session_recall` | เรียกสรุปและรายการค้างคิวกลับตามเซสชันหรือโปรเจกต์ |
+| `conflict_resolve` | จำแนกและระงับความขัดแย้ง (หกประเภท ใช้ `dry_run` ก่อน) |
+| `task_record` | บันทึกข้อเท็จจริงของงาน — ทำอะไรไปบ้างและผลเป็นอย่างไร (ชั้นข้อเท็จจริง) |
+| `playbook_save` | เก็บบทเรียน — **เงื่อนไขบังคับต้องมี** (must / must_not / typical_env) |
+| `playbook_recall` | ค้นบทเรียนตามประเภทเป้าหมาย + เงื่อนไข คืน `applicable` / `blocked_by` |
+| `code_change_record` | บันทึกเหตุการณ์แก้โค้ด (เจตนา / ข้อจำกัด / วิธีที่ลองแล้วทิ้ง) |
+| `code_archaeology` | ย้อนรอยสายวิวัฒนาการกับดักของไฟล์หรือสัญลักษณ์ |
+| `memory_policy` | ดู / ตั้งค่าระดับความอ่อนไหวและนโยบายแหล่งที่มา |
 
 เชื่อมต่อโฮสต์ MCP ใดก็ได้ (เช่น Claude Desktop, Hermes Agent ฯลฯ) โดยชี้ไปที่คำสั่ง stdio ด้านบน
 

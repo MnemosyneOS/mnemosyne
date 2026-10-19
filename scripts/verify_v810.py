@@ -41,6 +41,15 @@ def main():
 
     print("Mnemosyne v%s 回归验证" % M.__version__)
     tmp = tempfile.mkdtemp(prefix="mnemo_v810_")
+    _extra_dirs = []
+
+    def make_brain():
+        """每个用例一个独立空库，避免相互污染。"""
+        d = tempfile.mkdtemp(prefix="mnemo_v810_case_")
+        _extra_dirs.append(d)
+        return MemoryBrain(base_dir=d, enable_embeddings=False,
+                           enable_graph=False, enable_stats=False)
+
     try:
         brain = MemoryBrain(base_dir=tmp, enable_embeddings=False,
                             enable_graph=False, enable_stats=False)
@@ -60,6 +69,18 @@ def main():
         check("用户来源允许写偏好", a["admit"] is True, a)
         a = p.check("password: hunter2", source_type="user")
         check("secret 默认拒写", a["admit"] is False, a)
+
+        # 召回闸门：secret 级必须真的进不了上下文（这是 8.0.0 的实测缺陷，
+        # 只做一个工具不算修复 —— 必须落在默认召回路径上）
+        brain.retain("用户的 API 密钥是 sk-live-9f8a7b6c5d4e3f2a1b0c", mtype="fact")
+        brain.retain("用户的身份证号是 110101199003071234", mtype="fact")
+        brain.retain("用户偏好使用 Python 写后端服务", mtype="preference")
+        check("召回默认拦截 secret（密钥）", len(brain.recall("密钥", k=5)) == 0)
+        check("召回默认拦截 secret（证件）", len(brain.recall("身份证", k=5)) == 0)
+        check("召回不误伤 normal 记忆", len(brain.recall("Python 后端", k=5)) >= 1)
+        brain._policy_filter = False
+        check("闸门可关闭（兼容开关）", len(brain.recall("密钥", k=5)) >= 1)
+        brain._policy_filter = True
 
         # ---------------- 2. conflict ----------------
         print("\n[2] conflict — 分类与误报消除")
@@ -106,6 +127,51 @@ def main():
         cr = M.ConflictResolver(brain)
         audit = cr.audit()
         check("同实体共现不再计为冲突", audit.get("count", -1) == 0, audit.get("count"))
+
+        # ---- 端到端：用户真正看到的 reflect 输出（8.1.0 把 brain 内置判定也换掉了）----
+        # 8.0.0 在这里会输出 1 组假冲突；8.1.0 应为 0。
+        rep = brain.reflect(deep=False)
+        check("reflect 同实体共现零误报",
+              (rep.get("conflicts_total", -1) == 0), rep.get("conflicts_total"))
+        check("reflect 暴露扫描范围与说明",
+              "conflicts_scanned" in rep and "conflicts_note" in rep,
+              (rep.get("conflicts_scanned"), rep.get("conflicts_note")))
+
+        # 端到端：真冲突必须仍然检得出（换属性值 / 极性相反 / 版本号）
+        brain2 = make_brain()
+        for t in ("用户在北京的公司是甲公司", "用户在北京的公司是乙公司"):
+            brain2.retain(t, mtype="fact")
+        r2 = brain2.reflect(deep=False)
+        check("端到端·同属性不同值检出时间性更新",
+              r2.get("conflicts_total") == 1
+              and r2["conflicts"][0]["type"] == ConflictKind.TEMPORAL_UPDATE,
+              (r2.get("conflicts_total"), [c.get("type") for c in r2.get("conflicts", [])]))
+        check("端到端·时间性更新动作为 UPDATE",
+              r2["conflicts"][0].get("action") == "UPDATE", r2["conflicts"][0].get("action"))
+
+        brain3 = make_brain()
+        for t in ("该方案是安全的", "该方案是不安全的"):
+            brain3.retain(t, mtype="fact")
+        r3 = brain3.reflect(deep=False)
+        check("端到端·极性相反检出逻辑矛盾",
+              r3.get("conflicts_total") == 1
+              and r3["conflicts"][0]["type"] == ConflictKind.LOGICAL_CONTRADICTION,
+              (r3.get("conflicts_total"), [c.get("type") for c in r3.get("conflicts", [])]))
+
+        # 端到端：不同属性 / 不同主体 → 不得误报
+        brain4 = make_brain()
+        for t in ("an agent 的规则注入槽是 SOUL.md", "an agent 的记忆通道是云端"):
+            brain4.retain(t, mtype="fact")
+        r4 = brain4.reflect(deep=False)
+        check("端到端·不同属性不误报", r4.get("conflicts_total") == 0,
+              r4.get("conflicts_total"))
+
+        brain5 = make_brain()
+        for t in ("项目A的负责人是张三", "项目B的负责人是李四"):
+            brain5.retain(t, mtype="fact")
+        r5 = brain5.reflect(deep=False)
+        check("端到端·不同主体同属性不误报", r5.get("conflicts_total") == 0,
+              r5.get("conflicts_total"))
 
         # ---------------- 3. session ----------------
         print("\n[3] session — 七要素摘要")
@@ -194,6 +260,8 @@ def main():
         brain.close() if hasattr(brain, "close") else None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        for d in _extra_dirs:
+            shutil.rmtree(d, ignore_errors=True)
 
     print("\n" + "=" * 56)
     print("通过 %d 项，失败 %d 项" % (len(PASS), len(FAIL)))

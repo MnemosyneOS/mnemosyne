@@ -116,19 +116,71 @@ def _numbers(text: str) -> List[str]:
     return [v for v in vals if v]
 
 
+def _attr_value(text: str, entities: Optional[set] = None) -> Tuple[set, set]:
+    """从一句话里析出「属性 → 取值」。
+
+    做法：取第一个谓词的位置，**从它前面回溯一小段中文作为属性**，后面的部分作为
+    取值。完全不依赖 ``entities`` —— 因为中文实体抽取本身是噪声源
+    （`用户在北京的公司是甲公司` 会被抽成 `用户在北京的` + `公司是甲公司`），
+    任何「从 head 里减掉实体」的推导都会被这些碎片带偏。回溯法则只看相对位置::
+
+        用户在北京的公司是甲公司   → 谓词前回溯 → 属性 北京的公司 / 取值 甲公司
+        an agent 的规则注入槽是 X  → 属性 规则注入槽     / 取值 SOUL.md
+        an agent 的记忆通道是 Y    → 属性 记忆通道       / 取值 云端
+
+    于是「换公司」两句属性一致、取值不同 → 时间性更新；而 an agent 那两句**属性
+    本就不同**，不会被误判成同一事实的变更。
+    """
+    text = (text or "").strip()
+    idx, pred = -1, ""
+    for p in _PREDICATES:
+        i = text.find(p)
+        if i > 0 and (idx < 0 or i < idx):
+            idx, pred = i, p
+    if idx <= 0:
+        return set(), set()
+    head, tail = text[:idx], text[idx + len(pred):]
+
+    # 属性：谓词前紧邻的一段。优先中文（遇到非中文即停，最多 6 字），
+    # 否则退回谓词前最后一个 ASCII 词（"Mnemosyne 是 8.1.0" 这种）。
+    attr = ""
+    m = re.search(r"[\u4e00-\u9fff]{1,6}$", head.rstrip(" \t的地得"))
+    if m:
+        attr = m.group(0)
+    else:
+        m2 = re.search(r"[A-Za-z0-9_.\-]{1,24}$", head)
+        if m2:
+            attr = m2.group(0)
+
+    # 取值：谓词后第一句，去空白与成对符号
+    val = re.split(r"[，。、；：？！\n]", tail)[0]
+    val = re.sub(r"[\s「」『』（）()\[\]{}\"'`~@#$%^&*_+=|\\/<>]+", "", val).strip()
+    return ({attr} if attr else set()), ({val} if val else set())
+
+
 def assertion(record: Dict[str, Any]) -> Dict[str, Any]:
     """把一条记忆压成可比较的断言结构。
 
     返回 ``{entities, predicates, polarity, numbers, text, scope}``。
+
+    ``entities`` 存的是**谓词切分后的实体主干**（见 :func:`_ent_core`）而非原始
+    实体串。原因：中文抽取兜底正则会把「该方案是不安全的」切出「该方案是不安」和
+    「全的」，与「该方案是安全的」抽出的「该方案是安全」字符串不等；若按原始串比，
+    这两条本应冲突的记忆会因为「无共享实体」被直接判为 NONE。存主干后三者都归一
+    为 `该方案`，后续的谓词/极性/数值比对才排得上用场。
     """
     text = (record.get("content") or "").strip()
-    entities = set(record.get("entities") or [])
+    raw = record.get("entities") or []
+    entities = {c for c in (_ent_key(e) for e in raw) if c}
     predicates = {p for p in _PREDICATES if p in text}
+    attrs, values = _attr_value(text, entities)
     return {
         "entities": entities,
         "predicates": predicates,
         "polarity": _polarity(text),
         "numbers": set(_numbers(text)),
+        "attrs": attrs,
+        "values": values,
         "text": text,
         "scope": (
             record.get("project") or "",
@@ -207,7 +259,19 @@ def classify_pair(new: Dict[str, Any],
         return (ConflictKind.LOGICAL_CONTRADICTION, "KEEP_BOTH",
                 "谓词相同但否定极性相反（%s），需人工或对话确认" % "、".join(list(shared_pred)[:2]))
 
-    # 7. 数值不同但谓词相同 → 精度差异或时间性更新
+    # 7. 属性相同、取值不同 → 时间性更新
+    #    这是principle「六类冲突」里的 TEMPORAL_UPDATE（换公司、搬家、改版本号）。
+    #    必须同时满足「属性一致」，否则 `A 的 X 是 1` 与 `A 的 Y 是 2` 会被误判——
+    #    那是同一对象的不同侧面，本来就是两条独立事实（见第 4 条同理）。
+    same_attr = a["attrs"] & b["attrs"]
+    if same_attr and a["values"] and b["values"] and a["values"] != b["values"]:
+        return (ConflictKind.TEMPORAL_UPDATE, "UPDATE",
+                "同一属性「%s」的取值发生变化（%s → %s）"
+                % ("、".join(list(same_attr)[:1]),
+                   "、".join(list(a["values"])[:1]),
+                   "、".join(list(b["values"])[:1])))
+
+    # 8. 数值不同但谓词相同 → 精度差异或时间性更新
     if a["numbers"] and b["numbers"] and a["numbers"] != b["numbers"]:
         # 有明确事件时间且新旧不同 → 时间性更新；否则视为精度差异
         ta, tb = new.get("event_time"), old.get("event_time")
@@ -217,19 +281,19 @@ def classify_pair(new: Dict[str, Any],
                     % (tb, ta))
         return (ConflictKind.PRECISION_DIFF, "NOOP", "数值精度不同，保留精确者")
 
-    # 8. 偏好类且宾语不同 → 偏好变更（需新证据足够强）
+    # 9. 偏好类且宾语不同 → 偏好变更（需新证据足够强）
     if new.get("type") == "preference" and old.get("type") == "preference":
         if sim < 0.85:
             return (ConflictKind.PREFERENCE_CHANGE, "UPDATE",
                     "偏好对象发生变化，新记忆置信度达标时失效旧条目")
 
-    # 9. 来源冲突：同事实不同来源
+    # 10. 来源冲突：同事实不同来源
     sa, sb = new.get("source_type"), old.get("source_type")
     if sa and sb and sa != sb and sim >= 0.6:
         return (ConflictKind.SOURCE_CONFLICT, "KEEP_BOTH",
                 "同一事实来自不同来源（%s vs %s），按可信度排序而非删除" % (sa, sb))
 
-    # 10. 时间性更新的兜底：共享实体+谓词、相似度中等、事件时间不同
+    # 11. 时间性更新的兜底：共享实体+谓词、相似度中等、事件时间不同
     ta, tb = new.get("event_time"), old.get("event_time")
     if ta and tb and ta != tb and sim >= 0.35:
         return (ConflictKind.TEMPORAL_UPDATE, "UPDATE",
@@ -288,6 +352,60 @@ def resolve_candidates(new: Dict[str, Any],
 # ---------------------------------------------------------------------------
 # 门面类
 # ---------------------------------------------------------------------------
+
+def _ent_core(ent: str) -> str:
+    """取实体名中谓词之前的主干。
+
+    为什么需要：`_extract_entity_names` 的中文兜底正则是 `[\\u4e00-\\u9fff]{2,6}`，
+    会把 7 字以上的中文串**硬切成 6+2 两段**——「该方案是不安全的」被抽成
+    「该方案是不安」和「全的」，而「该方案是安全的」被抽成「该方案是安全」。
+    三条碎片字符串两两不等，分桶时永远凑不到一对。
+
+    与其改动影响面很大的抽取器（`entities` 字段同时喂图通道、temporal_query、
+    recall 的图信号），这里只在冲突分桶这一层做归一：**把谓词及其后内容切掉**，
+    只留主干。`该方案是安全` 与 `该方案是不安` 的主干都是 `该方案`，即可正确配对。
+    """
+    s = ent or ""
+    cut = len(s)
+    for p in _PREDICATES:
+        i = s.find(p)
+        if 0 < i < cut:
+            cut = i
+    return s[:cut] if 0 < cut < len(s) else s
+
+
+def _ent_key(ent: str) -> str:
+    """分桶用的实体归一化键：去标点 → 切主干 → 小写。"""
+    s = re.sub(r"[\s，。、；：？！「」『』（）()\[\]{},.;:!?\"'`~@#$%^&*_+=|\\/<>-]+",
+               "", ent or "").lower()
+    core = _ent_core(s)
+    return core or s
+
+
+def _ent_bigrams(ent: str) -> set:
+    """实体名的二元字组集合，用于容忍中文抽取的断词差异。
+
+    即使切了主干，长定语仍可能让两个主干不完全相等（`用户的显卡` vs
+    `用户的显卡型号`）。按二元字组重合度兜底，重合度 ≥ threshold 判为同一实体。
+    """
+    s = re.sub(r"[\s，。、；：？！「」『』（）()\[\]{},.;:!?\"'`~@#$%^&*_+=|\\/<>-]+", "", ent or "").lower()
+    if len(s) < 2:
+        return {s} if s else set()
+    return {s[i:i + 2] for i in range(len(s) - 1)}
+
+
+def _same_entity(a: str, b: str, threshold: float = 0.6) -> bool:
+    """两个实体名是否指向同一个实体（主干优先，二元字组兜底）。"""
+    if not a or not b:
+        return False
+    ka, kb = _ent_key(a), _ent_key(b)
+    if ka and ka == kb:
+        return True
+    ba, bb = _ent_bigrams(ka or a), _ent_bigrams(kb or b)
+    if not ba or not bb:
+        return False
+    return len(ba & bb) / float(len(ba | bb)) >= threshold
+
 
 class ConflictResolver:
     """冲突消解门面：检测 → 分类 → 按计划落库。
@@ -365,9 +483,19 @@ class ConflictResolver:
                    if not r.get("_corrupt") and r.get("status") != "deleted"][:limit]
 
         buckets: Dict[str, List[Dict[str, Any]]] = {}
+        # 实体归一化：把断词产生的多个变体合并到同一个规范名下，再分桶。
+        groups: List[Dict[str, Any]] = []   # [{"name": str, "bigrams": set}]
         for r in records:
             for e in (r.get("entities") or [])[:6]:
-                buckets.setdefault(e, []).append(r)
+                g = None
+                for cand in groups:
+                    if _same_entity(cand["name"], e):
+                        g = cand
+                        break
+                if g is None:
+                    g = {"name": e, "bigrams": _ent_bigrams(e)}
+                    groups.append(g)
+                buckets.setdefault(g["name"], []).append(r)
 
         findings = []
         for ent, rs in buckets.items():

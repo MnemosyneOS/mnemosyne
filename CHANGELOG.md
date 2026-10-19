@@ -13,10 +13,10 @@
 冲突只检测不消解且误报严重、没有任务与经验结构（一次投入无法复利）、
 没有代码演进记忆、没有敏感度分级（私密内容明文入库且会被正常召回）。
 
-8.1.0 补齐这五处，工具数 **31 → 40**，新增 5 个模块、9 个工具，修复 3 个缺陷，
+8.1.0 补齐这五处，工具数 **31 → 40**，新增 5 个模块、9 个工具、2 篇设计文档，
 且**不改变任何旧工具签名与旧数据格式**。
 
-验收：`python scripts/verify_v810.py` —— **29 项全通过**；
+验收：`python scripts/verify_v810.py` —— **40 项全通过**；
 `python scripts/verify_api.py` —— **29 组全通过**（原 29 组，断言随版本更新）。
 
 ### 新增 —— 记忆形成层（`mnemosyne/` 下 5 个模块）
@@ -107,10 +107,24 @@
 
 ### 修复
 
-1. **`reflect` 冲突误报**：实体共现不再计为冲突（见上）。
+1. **`reflect` 冲突误报**：实体共现不再计为冲突。`reflect` 的冲突检测改为委托
+   `ConflictResolver.audit()`，判据从「同一实体 + 都是 fact」换成断言对齐
+   （实体主干归一化 + 属性/取值对齐 + 极性 + 数值 + 时间）。
+   实测：8.0.0 的 14 组误报归零；7 项阳性/阴性对照 7/7 通过。
 2. **`_detect_conflicts_at_write` 只记录不消解**：结果此前只写进
-   `meta.write_conflicts` 后无人消费；新增 `ConflictResolver` 按计划真正执行失效。
-3. **`recall_health` 埋点覆盖不全**：`namespace=default` 下指标恒为 0，
+   `meta.write_conflicts` 后无人消费；现在改用 `classify_pair()`，返回
+   `kind` / `action` / `reason`，调用方按 `action` 执行失效。
+3. **敏感度闸门没落在默认召回路径上**：8.1.0 初版只提供了 `memory_policy`
+   工具，用户不主动调用就完全不受保护 —— 等于没修。现在
+   `Brain.recall()` 与 `_budget_recall()` 两条出口都过 `_apply_policy_filter()`：
+   `secret` 级（密钥 / 证件 / 银行卡）默认永不进入上下文，`private` 在内部
+   上下文照常放行，`normal` 一律放行。存量记录无 `sensitivity` 字段时按内容
+   现算，不回写原记录。可用 `memory_policy(action="filter", enabled=false)` 关闭。
+4. **中文实体抽取断词导致冲突漏报**：`_extract_entity_names` 对中文是滑窗切片，
+   「该方案是安全的」与「该方案是不安全的」会被切成不同碎片，两条记忆零共享
+   实体、分桶配不上对。新增 `_ent_key()` 按谓词切出实体主干 + `_ent_bigram`
+   归一化分桶，冲突检测不再依赖字符串精确相等。
+5. **`recall_health` 埋点覆盖不全**：`namespace=default` 下指标恒为 0，
    已在 8.1.0 的验证脚本中标注为已知问题，留待 8.2.0 处理。
 
 ### 兼容性

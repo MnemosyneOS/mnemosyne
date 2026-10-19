@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@
 <tr><td><b>Memoria multinivel</b></td><td>Niveles caliente / tibio / frío con olvido económico — migra memorias de bajo valor, nunca las elimina silenciosamente.</td></tr>
 <tr><td><b>Libro de contabilidad de cadena hash</b></td><td>Libro de contabilidad encadenado SHA-256 — <code>verify_chain()</code> detecta manipulaciones y localiza el registro corrupto exacto.</td></tr>
 <tr><td><b>SDK de plugins</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + plugins oficiales (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>Servidor MCP</b></td><td>17 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
+<tr><td><b>Servidor MCP</b></td><td>40 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
 <tr><td><b>Panel web</b></td><td>Panel local oscuro con estética tecnológica, sin CDN externo — servido desde <code>web_server.py</code>.</td></tr>
 <tr><td><b>API asíncrona</b></td><td><code>AsyncMemoryBrain</code> es un contenedor asyncio para ingesta de alto rendimiento.</td></tr>
 <tr><td><b>Optimizado para chino</b></td><td>Tokenización bigrama + FTS5 + diccionario de sinónimos integrado.</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-El servidor MCP expone **17 herramientas**:
+El servidor MCP expone **40 herramientas**:
 
 | Tool | Descripción |
 | --- | --- |
@@ -194,6 +194,15 @@ El servidor MCP expone **17 herramientas**:
 | `consolidate` | Compresión · consolidación de memoria — fusiona memorias muy similares / sinónimas en una memoria representativa; las originales se marcan como `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | Compresión · reflexión mejorada — totales por tipo / capa / tipo de hecho / confianza, entidades más frecuentes, detección de conflictos entre hechos y densidad temporal; `deep=true` añade descubrimiento de patrones cognitivos |
 | `dedup` | Compresión · deduplicación — detecta duplicados y casi duplicados mediante huella de contenido + similitud vectorial / de frecuencia de términos; `dry_run=true` solo informa |
+| `session_summarize` | Resumen de sesión — siete elementos (objetivo / restricciones / decisiones / pendientes / artefactos / fallos / preferencias) |
+| `session_recall` | Recuperar resúmenes y pendientes por sesión o proyecto |
+| `conflict_resolve` | Clasificación y resolución de conflictos (seis clases, `dry_run` primero) |
+| `task_record` | Registrar un hecho de tarea — qué se hizo y cómo resultó (capa de hechos) |
+| `playbook_save` | Guardar experiencia — **las precondiciones son obligatorias** (must / must_not / typical_env) |
+| `playbook_recall` | Buscar experiencia por tipo de objetivo + precondiciones; devuelve `applicable` / `blocked_by` |
+| `code_change_record` | Registrar un evento de cambio de código (intención / restricciones / enfoques descartados) |
+| `code_archaeology` | Rastrear la cadena de evolución y los errores de un archivo o símbolo |
+| `memory_policy` | Ver / ajustar niveles de sensibilidad y políticas de origen |
 
 Conecta cualquier host MCP (Claude Desktop, Hermes Agent, etc.) apuntándolo al comando stdio de arriba.
 

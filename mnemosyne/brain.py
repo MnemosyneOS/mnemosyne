@@ -128,6 +128,10 @@ class MemoryBrain:
                                "bands": {}, "channels": {}, "recent": []}
         # v7.0.2 (P1-1)：存量数据的图边懒回填标记（每个进程只做一次）
         self._graph_backfilled = False
+        # v8.1.0：敏感度召回闸门（默认开启；可用 memory_policy 工具切换）。
+        # 只过滤 secret 级（密钥 / 证件 / 银行卡），private 在内部上下文仍放行，
+        # 因此不影响普通记忆的既有召回行为。
+        self._policy_filter = True
 
         # v7.0.0: MemoryNotary
         from .notary import MemoryNotary
@@ -547,6 +551,54 @@ class MemoryBrain:
 
     # ---- v7.0.0: budget_tokens in recall ----
     
+    def _apply_policy_filter(self, items):
+        """v8.1.0：召回出口的敏感度闸门。
+
+        为什么必须挂在 recall 出口，而不是只提供一个 `memory_policy` 工具：
+        8.0.0 的实测问题是「含私密内容的记忆明文入库、且会被正常召回」。如果
+        过滤只存在于一个需要主动调用的工具里，用户不调就等于没修 —— 保护必须
+        落在默认路径上。
+
+        兼容性边界（对应 5.3「策略默认宽松」）：
+        - 只拦 `secret` 级（密钥 / 证件号 / 银行卡）。
+        - `private` 在内部上下文（context_level=normal）照常放行。
+        - `normal` 一律放行。
+        因此普通记忆的召回结果与 8.0.0 完全一致。
+
+        存量记录没有 `sensitivity` 字段时按内容现算，**不回写原记录**
+        （对应 5.3 第 3 条「不重写存量数据」）。
+        """
+        if not items or not getattr(self, "_policy_filter", True):
+            return items
+        try:
+            from .policy import classify_sensitivity, recall_allowed
+        except Exception:  # pragma: no cover - 策略模块缺失时降级放行
+            return items
+        kept = []
+        for it in items:
+            rec = None
+            if isinstance(it, (list, tuple)) and len(it) >= 2 and isinstance(it[1], dict):
+                rec = it[1]
+            elif isinstance(it, dict):
+                rec = it
+            if rec is None:
+                kept.append(it)
+                continue
+            level = rec.get("sensitivity")
+            if not level:
+                try:
+                    level, _ = classify_sensitivity(
+                        rec.get("content", ""),
+                        rec.get("source_type"),
+                        rec.get("mtype") or rec.get("type"))
+                except Exception:
+                    level = "normal"
+            probe = dict(rec)
+            probe["sensitivity"] = level
+            if recall_allowed(probe, context_level="normal"):
+                kept.append(it)
+        return kept
+
     def _budget_recall(self, query: str, budget_tokens: int, k: int = 5,
                        **kwargs: Any) -> Tuple[List[Any], Dict[str, Any]]:
         """Budget-constrained recall. Returns (results, cost_report).
@@ -592,6 +644,9 @@ class MemoryBrain:
 
         # Get candidates
         candidates = self.retrieval.retrieve(self.store, query, k=20, **kwargs)
+        # v8.1.0：预算路径与普通路径共用同一道敏感度闸门（否则 secret 记忆
+        # 会从 budget_tokens 这条路上漏出去）
+        candidates = self._apply_policy_filter(candidates)
         if not candidates:
             return [], {
                 "selected": [],
@@ -1211,7 +1266,21 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
         return records
 
     def _detect_conflicts_at_write(self, new_record):
-        """writes 时检测与已有记忆的冲突。"""
+        """writes 时检测与已有记忆的冲突。
+
+        8.1.0 起委托给 :mod:`mnemosyne.conflict` 的 ``classify_pair``。
+
+        为什么必须换掉 8.0.0 的内联判据：旧逻辑是「共享实体 + 都是 fact +
+        内容前 30 字不同 + 余弦 > 0.3」，只要两条记忆提到同一个实体就被判冲突。
+        实测 `an agent` 同时出现在「规则注入槽是 SOUL.md」「记忆通道是云端」
+        「old→new version 迁移」三条**互不矛盾**的记忆里，被判成一组冲突 ——
+        告警全是噪声，真冲突反而被淹没。
+
+        新判据的核心是**断言对齐**：先比对两条记忆是否谈论同一个实体**的同一个
+        属性**（共享谓词），再比极性/数值/作用域。实体共现但谓词不同 → 不是冲突。
+        """
+        from .conflict import ConflictKind, classify_pair
+
         records = self.store.all_records()
         conflicts = []
         new_ents = set(new_record.get("entities") or [])
@@ -1222,20 +1291,19 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
                 continue
             r_ents = set(r.get("entities") or [])
             common = new_ents & r_ents
-            if common and r.get("id") != new_record.get("id"):
-                # 比较事实Type是否矛盾
-                if (r.get("fact_type") == "fact" and new_record.get("fact_type") == "fact"
-                        and r.get("content", "")[:30] != new_record.get("content", "")[:30]):
-                    similarity = _cosine(
-                        _tf_vector(_tokenize(r.get("content", ""))),
-                        _tf_vector(_tokenize(new_record.get("content", ""))),
-                    )
-                    if similarity > 0.3:
-                        conflicts.append({
-                            "conflicting_id": r["id"],
-                            "shared_entities": list(common)[:5],
-                            "existing_content": r.get("content", "")[:80],
-                        })
+            if not (common and r.get("id") != new_record.get("id")):
+                continue
+            kind, action, reason = classify_pair(new_record, r)
+            if kind == ConflictKind.NONE:
+                continue
+            conflicts.append({
+                "conflicting_id": r["id"],
+                "shared_entities": list(common)[:5],
+                "existing_content": r.get("content", "")[:80],
+                "kind": kind,
+                "action": action,
+                "reason": reason,
+            })
         return conflicts[:5]
 
     # ---- 记忆检索 ----
@@ -1283,6 +1351,8 @@ fast=True 跳过实体详抽/图谱边/冲突检测（批量快数倍）；**向
         results = self.retrieval.retrieve(self.store, query, k=k,
                                            mtype=mtype, tag=tag, tags=tags,
                                            **kwargs)
+        # v8.1.0：召回出口敏感度闸门（secret 级永不进入上下文）
+        results = self._apply_policy_filter(results)
         # v7.0.0: crypto 解密（读取时还原 content 字段）
         if getattr(self, "crypto_plugin", None) is not None and getattr(self.crypto_plugin, "available", False):
             _dec = []
@@ -1455,24 +1525,33 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         insights["top_entities"] = [{"entity": e, "count": c}
                                      for e, c in ent_counter.most_common(15) if c >= 2]
 
-        # 冲突检测（基于实体+事实Type矛盾）
+        # 冲突检测 —— 8.1.0 起改用 assertion alignment（断言对齐）。
+        #
+        # 8.0.0 的做法是「同一实体出现在 ≥2 条 fact 里，且内容前 60 字不同 → 判冲突」。
+        # 这是纯粹的实体共现误判：`an agent` 出现在三条互不矛盾的记忆里就会产出一组
+        # 假冲突，线上实测 14 组几乎全是噪声，用户被迫学会忽略告警。
+        #
+        # 新做法只报告**共享实体且共享谓词**的实质冲突（极性相反、数值不同、时间性
+        # 更新、来源矛盾等），实体共现不再计入。实体桶内两两比对，桶 >12 条时按
+        # 置信度取前 12，避免 O(n²) 在大库上失控。
+        from .conflict import ConflictResolver
+        _audit = ConflictResolver(self).audit()
         conflicts = []
-        ent_map = collections.defaultdict(list)
-        for r in records:
-            for e in (r.get("entities") or []):
-                ent_map[e].append(r)
-        for e, rs in ent_map.items():
-            facts = [r for r in rs if r.get("fact_type") == "fact"]
-            if len(facts) >= 2:
-                contents = {r.get("content", "")[:60] for r in facts}
-                if len(contents) >= 2:
-                    conflicts.append({
-                        "entity": e,
-                        "type": "fact_conflict",
-                        "memory_ids": [r["id"] for r in facts[:3]],
-                        "summaries": list(contents)[:3],
-                    })
+        for f in _audit.get("findings", []):
+            conflicts.append({
+                "entity": f["entity"],
+                "type": f["kind"],
+                "memory_ids": [x for x in (f["a_id"], f["b_id"]) if x],
+                "summaries": [x for x in (f["a"], f["b"]) if x],
+                "action": f["action"],
+                "reason": f["reason"],
+            })
         insights["conflicts"] = conflicts[:15]
+        insights["conflicts_scanned"] = _audit.get("scanned", 0)
+        insights["conflicts_total"] = _audit.get("count", len(conflicts))
+        insights["conflicts_note"] = _audit.get(
+            "note",
+            "仅报告共享实体且共享谓词的实质冲突，实体共现不再计入")
 
         # 趋势：Time线密度
         monthly = collections.Counter()

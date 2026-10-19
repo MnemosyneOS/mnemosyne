@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-20%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@
 <tr><td><b>多層型メモリ</b></td><td>ホット／ウォーム／コールドの階層と「忘却の経済学」を備え、低価値な記憶は移行し、決して黙って削除されることはありません。</td></tr>
 <tr><td><b>ハッシュチェーン台帳</b></td><td>SHA-256 で連鎖した台帳 — <code>verify_chain()</code> は改ざんを検出し、破損したレコードを特定します。</td></tr>
 <tr><td><b>プラグイン SDK</b></td><td><code>VectorBackendPlugin</code>／<code>CryptoPlugin</code>／<code>RerankerPlugin</code> ＋ 公式プラグイン（<code>numpy_vector</code>、<code>crypto</code>、<code>reranker</code>、<code>hrr</code>、<code>async</code>、<code>context-engine</code>）。</td></tr>
-<tr><td><b>MCP サーバー</b></td><td>stdio 経由の JSON-RPC で 17 のツールを提供。トークン認証とマルチテナント名前空間分離に対応。</td></tr>
+<tr><td><b>MCP サーバー</b></td><td>stdio 経由の JSON-RPC で 40 のツールを提供。トークン認証とマルチテナント名前空間分離に対応。</td></tr>
 <tr><td><b>Web ダッシュボード</b></td><td>テック系のローカル暗色ダッシュボード。外部 CDN に非依存 — <code>web_server.py</code> から配信されます。</td></tr>
 <tr><td><b>非同期 API</b></td><td>高スループットな取り込みのための <code>AsyncMemoryBrain</code> asyncio ラッパー。</td></tr>
 <tr><td><b>中国語最適化</b></td><td>バイグラム（二文字）トークナイゼーション ＋ FTS5 ＋ 内蔵同義語辞書。</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP サーバーは **17 のツール** を提供します：
+MCP サーバーは **40 のツール** を提供します：
 
 | Tool | Description |
 | --- | --- |
@@ -194,6 +194,15 @@ MCP サーバーは **17 のツール** を提供します：
 | `consolidate` | 圧縮エンジン・記憶統合 — 高度に類似／同義の記憶を集約し 1 件の代表記憶に統合、元の記憶は `consolidated` としてマーク（`min_similarity` / `max_group` / `generate_summary` / `dry_run`） |
 | `reflect` | 圧縮エンジン・拡張リフレクション — 記憶の総量、タイプ／層／ファクト種別／信頼度分布、頻出エンティティ、ファクト矛盾の検出、時系列密度を集計；`deep=true` で認知パターン発見を追加 |
 | `dedup` | 圧縮エンジン・重複排除 — 内容フィンガープリント＋ベクトル／語頻度類似度で重複・近似重複を検出；`dry_run=true` は報告のみ |
+| `session_summarize` | セッション要約 — 7 要素（目標 / 制約 / 決定 / 未決 / 成果物 / 失敗 / 偏好） |
+| `session_recall` | セッションまたはプロジェクト別に要約と未決事項を呼び戻す |
+| `conflict_resolve` | 衝突の分類と解消（6 クラス、まず `dry_run`） |
+| `task_record` | タスク事実の記録 — 何をしてどうなったか（事実層） |
+| `playbook_save` | 経験の保存 — **前提条件は必須**（must / must_not / typical_env） |
+| `playbook_recall` | 目標タイプ + 前提条件で経験を検索し `applicable` / `blocked_by` を返す |
+| `code_change_record` | コード変更イベントの記録（意図 / 制約 / 却下した案） |
+| `code_archaeology` | ファイルやシンボルの変更履歴と落とし穴を遡って引く |
+| `memory_policy` | 感度レベルとソースポリシーの参照 / 設定 |
 
 上記の stdio コマンドを指定することで、どの MCP ホスト（Claude Desktop、Hermes Agent など）からでも接続できます。
 
