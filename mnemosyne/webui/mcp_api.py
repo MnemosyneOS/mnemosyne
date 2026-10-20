@@ -6,7 +6,7 @@ Mnemosyne OS — client API MCP tools
 
 The eleven tool names a client written for the reference MCP server will call,
 implemented against the compatibility layer.  They are added *alongside* the
-twenty native tools rather than replacing them, so an existing Mnemosyne client
+twenty-nine native tools rather than replacing them, so an existing Mnemosyne client
 keeps working and a migrating client finds every name it expects.
 
 ======================  =========================================================

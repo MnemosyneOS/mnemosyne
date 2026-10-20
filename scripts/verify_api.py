@@ -886,12 +886,22 @@ def t_mcp() -> None:
                 "get_event_status"]
     for name in expected:
         assert name in names, f"missing MCP tool {name}"
-    # v8.1.0：原生工具 20 → 29（新增 session_summarize / session_recall /
+    # v8.1.0 记忆形成层（9 个）：session_summarize / session_recall /
     # conflict_resolve / task_record / playbook_save / playbook_recall /
-    # code_change_record / code_archaeology / memory_policy），总数 31 → 40。
-    assert mcp_server.NATIVE_TOOL_COUNT == 29, mcp_server.NATIVE_TOOL_COUNT
+    # code_change_record / code_archaeology / memory_policy  → 29 个原生工具
+    # v8.1.0 记忆运行层（12 个）：profile_card / memory_inject / recall_catalog /
+    # expand_memory / memory_envelope / memory_consolidate / memory_metrics /
+    # memory_cascade_delete / memory_mask / topic_summarize / memory_trace /
+    # memory_hot_path → 41 个原生工具，总数 41 → 52
+    expected_new = ["profile_card", "memory_inject", "recall_catalog",
+                    "expand_memory", "memory_envelope", "memory_consolidate",
+                    "memory_metrics", "memory_cascade_delete", "memory_mask",
+                    "topic_summarize", "memory_trace", "memory_hot_path"]
+    for name in expected_new:
+        assert name in names, f"missing MCP tool {name}"
+    assert mcp_server.NATIVE_TOOL_COUNT == 41, mcp_server.NATIVE_TOOL_COUNT
     assert len(names) == len(set(names)), "tool names must be unique"
-    assert len(names) == 40, len(names)
+    assert len(names) == 52, len(names)
 
     out = mcp_server.handle_tools_call("add_memory",
                                        {"messages": "I own a ThinkPad.",
@@ -931,7 +941,7 @@ def t_mcp() -> None:
     # JSON-RPC envelope
     resp = mcp_server.handle_request({"jsonrpc": "2.0", "id": 1,
                                       "method": "tools/list"})
-    assert len(resp["result"]["tools"]) == 40
+    assert len(resp["result"]["tools"]) == 52
     resp = mcp_server.handle_request({
         "jsonrpc": "2.0", "id": 2, "method": "tools/call",
         "params": {"name": "add_memory",

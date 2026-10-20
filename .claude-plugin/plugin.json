@@ -5,10 +5,10 @@
   "description": "Mnemosyne OS memory for Claude Code — a persistent, local-first memory layer with graph memory, lossless compression and a tamper-evident audit ledger. Zero third-party dependencies.",
   "author": {
     "name": "Mnemosyne OS contributors",
-    "url": "https://github.com/FrankHu-HK/mnemosyne"
+    "url": "https://github.com/MnemosyneOS/mnemosyne"
   },
-  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
-  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "homepage": "https://github.com/MnemosyneOS/mnemosyne",
+  "repository": "https://github.com/MnemosyneOS/mnemosyne",
   "license": "MIT",
   "keywords": ["memory", "mcp", "context", "local-first", "rag"],
   "mcpServers": {

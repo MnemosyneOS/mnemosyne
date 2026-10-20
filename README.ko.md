@@ -3,21 +3,21 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
 # Mnemosyne OS ☤
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/">Mnemosyne OS</a> | <a href="https://github.com/FrankHu-HK/mnemosyne">GitHub</a> | <a href="README.ko.md">한국어 문서</a>
+  <a href="https://pypi.org/project/mnemosyne-os/">Mnemosyne OS</a> | <a href="https://github.com/MnemosyneOS/mnemosyne">GitHub</a> | <a href="README.ko.md">한국어 문서</a>
 </p>
 
 <p align="center">
@@ -27,14 +27,14 @@
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
-  <a href="https://github.com/FrankHu-HK/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
+  <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
 **Mnemosyne OS 8.1.0** — 외부 의존성 없는(zero-dependency), 로컬 우선(local-first) AI 기억 시스템입니다. 다단계 망각(multi-tier forgetting), 해시 체인 원장(hash-chain ledger), 플러그인 SDK(plugin SDK), 로컬 웹 대시보드(local web dashboard), 그리고 MCP(Model Context Protocol / 모델 컨텍스트 프로토콜)를 지원합니다.
@@ -75,7 +75,7 @@ python -c "from mnemosyne import MemoryBrain; print('Ready!')"
 ### 개발 모드 설치
 
 ```bash
-git clone https://github.com/FrankHu-HK/mnemosyne.git
+git clone https://github.com/MnemosyneOS/mnemosyne.git
 cd mnemosyne
 pip install -e .
 ```
@@ -203,6 +203,17 @@ MCP 서버는 **40개 도구**를 제공합니다:
 | `code_change_record` | 코드 변경 이벤트 기록(의도 / 제약 / 기각한 접근법) |
 | `code_archaeology` | 파일이나 심볼의 변경 이력과 함정을 거슬러 추적 |
 | `memory_policy` | 민감도 등급과 출처 정책 조회 / 설정 |
+| `add_memory` | 사용자/에이전트를 위해 텍스트나 대화를 저장 |
+| `search_memories` | 필터가 있는 시맨틱 검색 |
+| `get_memories` | 구조화된 필터 + 페이지 목록 |
+| `get_memory` | id로 1건 조회 |
+| `update_memory` | 텍스트와/또는 메타데이터 덮어쓰기 |
+| `delete_memory` | 1건 삭제 |
+| `delete_all_memories` | 스코프 비우기 |
+| `delete_entities` | 엔티티를 연쇄 삭제 |
+| `list_entities` | users/agents/apps/runs 목록 |
+| `list_events` | 기억 작업 목록 |
+| `get_event_status` | 비동기 작업 폴링 |
 
 위 stdio 명령을 가리키도록 설정하여 모든 MCP 호스트(Claude Desktop, Hermes Agent 등)에 연결하세요.
 

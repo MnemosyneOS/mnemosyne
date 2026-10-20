@@ -2,7 +2,7 @@
   "name": "Mnemosyne Plugins",
   "owner": {
     "name": "Mnemosyne OS contributors",
-    "url": "https://github.com/FrankHu-HK/mnemosyne"
+    "url": "https://github.com/MnemosyneOS/mnemosyne"
   },
   "metadata": {
     "description": "Agent plugins that give a coding assistant a persistent, local-first memory backed by Mnemosyne OS.",

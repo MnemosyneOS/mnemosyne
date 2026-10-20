@@ -152,6 +152,34 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"target":{"type":"string"},"intent":{"type":"string"},"files":{"type":["array","string"]},"repo":{"type":"string"},"k":{"type":"integer","default":8},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"memory_policy","description":"【记忆策略】敏感度分级与来源闸门。action=classify 判定一段内容的敏感度（normal/private/secret）与是否允许写入长期偏好; action=check 做写入准入判定; action=audit 扫描全库，列出以 secret 级内容明文入库的条目; action=filter 查看或开关召回闸门（默认开启，只拦 secret 级）",
      "inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["classify","check","audit","filter"],"default":"classify"},"content":{"type":"string"},"source_type":{"type":"string"},"mtype":{"type":"string"},"allow_secret":{"type":"boolean","default":False},"enabled":{"type":"boolean"},"namespace":{"type":"string"}},"required":[]}},
+    # ---- v8.1.0 记忆运行层（9 个新工具）------------------------------------
+    # 与上面"形成层"（写入/摘要/冲突/任务/经验/变更/策略）互补，
+    # 这一组覆盖**读取与维护**：画像、注入、目录、信封、巩固、度量、
+    # 级联删除、掩码、主题摘要与回溯。
+    {"name":"profile_card","description":"【用户画像卡】三段分级（稳定身份 / 偏好与约束 / 当前情境）+ 未决事项，可直接拼进 system prompt。max_tokens 为硬上限：超了按「情境→未决→偏好」逐段裁，绝不截断单条（半句事实比没有更危险）。include_context=false 得到约 200 token 的精简版",
+     "inputSchema":{"type":"object","properties":{"include_context":{"type":"boolean","default":True},"include_pending":{"type":"boolean","default":True},"max_tokens":{"type":"integer"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_inject","description":"【上下文注入流水线】五步：查询构造→四路召回→RRF 融合→重排→预算内注入。返回可直接注入的 text + 四段配额账目（画像30% / 任务相关35% / 经验20% / 未决15%）。超预算的条目不截断、直接不注入。比 recall 更适合「给模型准备上下文」",
+     "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"budget_tokens":{"type":"integer","default":1200},"goal":{"type":"string"},"recent_turns":{"type":"array","items":{"type":"string"}},"entities":{"type":"array","items":{"type":"string"}},"project":{"type":"string"},"mode":{"type":"string","enum":["rrf","weighted"],"default":"rrf"},"include_profile":{"type":"boolean","default":True},"namespace":{"type":"string"}},"required":["query"]}},
+    {"name":"recall_catalog","description":"【渐进披露·目录层】只返回标题+一句话+展开成本，不返回正文。先看目录判断哪几条相关，再对 1~2 条调 expand_memory 取全文——注入成本从 O(全部) 降到 O(目录+少量)。预算紧张时优先用这个而不是 recall",
+     "inputSchema":{"type":"object","properties":{"query":{"type":"string"},"k":{"type":"integer","default":10},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["query"]}},
+    {"name":"expand_memory","description":"【渐进披露·展开】取一条记忆的正文 + 统一信封 + 图邻居 + 证据链。与 recall_catalog 配对使用。邻居来自知识图谱：回答「当时这个决定影响了哪些模块」时，答案在邻居里而不在正文里",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"include_neighbors":{"type":"boolean","default":True},"namespace":{"type":"string"}},"required":["memory_id"]}},
+    {"name":"memory_envelope","description":"【统一记忆信封】单条记忆的八类分类（semantic/episodic/procedural/working/resource/anti_pattern/meta/relational）+ 四维 scope（user/project/agent/session）+ 证据链 + 双时间轴（t_valid/t_invalid）+ TTL + SPO 结构。memory_id 省略时返回全库八类分布统计",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_consolidate","description":"【巩固三路径】① 情景→语义（同一事实在 ≥3 个不同会话出现）② 情景→程序性（同类任务成功 ≥2 次 → 归纳带前置条件的 playbook）③ 失败→负记忆（failed/rolled_back/reverted → 禁忌条目）。幂等：同一批源不会重复生成。paths 可只跑其中几条",
+     "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"paths":{"type":"array","items":{"type":"string","enum":["semantic","procedural","anti_pattern"]}},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_metrics","description":"【度量指标】Chat 5 项 + Working 4 项 + Coding 4 项。**诚实原则**：数据不足的指标返回 {value:null, status:\"insufficient_data\", need:\"...\"} 而不是填 0——0 和「没数据」是两件事。domain 可选 chat/working/coding，省略返回全部",
+     "inputSchema":{"type":"object","properties":{"domain":{"type":"string","enum":["chat","working","coding"]},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_cascade_delete","description":"【级联删除】四动作：软删原始 → 失效派生结论（置信度减半 + superseded）→ 清检索缓存 → 依赖摘要标 stale。删除前建议先跑 dry_run=true 看 dependents。reason 会写进审计。hard=true 才物理删除",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"hard":{"type":"boolean","default":False},"dry_run":{"type":"boolean","default":False},"reason":{"type":"string"},"namespace":{"type":"string"}},"required":["memory_id"]}},
+    {"name":"memory_mask","description":"【掩码】把正文替换为占位符但保留记录骨架——比删除更温和，且保持上下文长度与前缀不变（不破坏 KV-Cache 复用）。用户说「别记这个」时优先用掩码。action=unmask 可撤销（需当初 keep_original=true）",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"action":{"type":"string","enum":["mask","unmask"],"default":"mask"},"replacement":{"type":"string"},"keep_original":{"type":"boolean","default":True},"namespace":{"type":"string"}},"required":["memory_id"]}},
+    {"name":"topic_summarize","description":"【L3 主题摘要】把同一 project 下的多条 L2 会话摘要合并成「这个项目现在处于什么状态」。合并规则确定性：goal 取最新、decisions 累积、pending 只留最新。persist=true 落库并记录 pointer.children，供 memory_trace 回溯",
+     "inputSchema":{"type":"object","properties":{"project":{"type":"string"},"persist":{"type":"boolean","default":False},"max_sessions":{"type":"integer","default":20},"namespace":{"type":"string"}},"required":[]}},
+    {"name":"memory_trace","description":"【指针链回溯】沿 pointer 链 L3→L2→L1 回溯，返回每层内容、覆盖的轮次区间与 message_ids。回答「这条结论是从哪句话来的」。记忆库不存 L0 原文，调用方拿 message_ids 去自己的对话历史取",
+     "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"max_depth":{"type":"integer","default":3},"namespace":{"type":"string"}},"required":["memory_id"]}},
+    {"name":"memory_hot_path","description":"【热路径缓冲】action=enable 开启异步写入（热路径只入队，抽取/冲突/巩固交后台）；action=status 查看队列与统计；action=flush 等队列落盘（读一致性屏障——写完立刻读之前必须 flush）",
+     "inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["enable","status","flush"],"default":"status"},"max_queue":{"type":"integer","default":2000},"batch_size":{"type":"integer","default":32},"namespace":{"type":"string"}},"required":[]}},
 ]
 
 # ---- client API tools -------------------------------------------------
@@ -646,6 +674,132 @@ def handle_tools_call(name, arguments):
                 source_type=arguments.get("source_type"),
                 mtype=arguments.get("mtype"),
             )
+        except Exception as e:
+            return {"error": str(e)}
+
+    # ---- v8.1.0 记忆运行层 ----------------------------------------------
+    elif name == "profile_card":
+        try:
+            return b.profile_card(
+                include_context=bool(arguments.get("include_context", True)),
+                include_pending=bool(arguments.get("include_pending", True)),
+                max_tokens=arguments.get("max_tokens"),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_inject":
+        try:
+            return b.inject_context(
+                arguments["query"],
+                budget_tokens=int(arguments.get("budget_tokens", 1200)),
+                goal=arguments.get("goal", ""),
+                recent_turns=arguments.get("recent_turns"),
+                entities=arguments.get("entities"),
+                project=project or None,
+                mode=arguments.get("mode", "rrf"),
+                include_profile=bool(arguments.get("include_profile", True)),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "recall_catalog":
+        try:
+            return b.recall_catalog(arguments["query"],
+                                    k=int(arguments.get("k", 10)),
+                                    project=project or None)
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "expand_memory":
+        try:
+            out = b.expand_memory(arguments["memory_id"],
+                                  include_neighbors=bool(
+                                      arguments.get("include_neighbors", True)))
+            return out if out is not None else {"error": "memory not found"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_envelope":
+        try:
+            mid = arguments.get("memory_id")
+            if not mid:
+                return b.memory_type_stats()
+            env = b.memory_envelope(mid)
+            return env if env is not None else {"error": "memory not found"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_consolidate":
+        try:
+            return b.consolidate_memories(
+                dry_run=bool(arguments.get("dry_run", False)),
+                paths=arguments.get("paths"),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_metrics":
+        try:
+            return b.memory_metrics(domain=arguments.get("domain"))
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_cascade_delete":
+        try:
+            mid = arguments["memory_id"]
+            if arguments.get("dry_run"):
+                dep = b.memory_dependents(mid)
+                dep["dry_run"] = True
+                dep["note"] = "以上为将被失效的派生项；确认后去掉 dry_run 执行"
+                return dep
+            return b.cascade_delete(mid,
+                                    hard=bool(arguments.get("hard", False)),
+                                    reason=arguments.get("reason"))
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_mask":
+        try:
+            mid = arguments["memory_id"]
+            if arguments.get("action", "mask") == "unmask":
+                return b.unmask_memory(mid)
+            return b.mask_memory(
+                mid,
+                replacement=arguments.get("replacement"),
+                keep_original=bool(arguments.get("keep_original", True)),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "topic_summarize":
+        try:
+            return b.topic_summarize(
+                project=project or arguments.get("project") or None,
+                persist=bool(arguments.get("persist", False)),
+                max_sessions=int(arguments.get("max_sessions", 20)),
+            )
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_trace":
+        try:
+            return b.trace_memory(arguments["memory_id"],
+                                  max_depth=int(arguments.get("max_depth", 3)))
+        except Exception as e:
+            return {"error": str(e)}
+
+    elif name == "memory_hot_path":
+        try:
+            act = arguments.get("action", "status")
+            if act == "enable":
+                return b.enable_hot_path(
+                    max_queue=int(arguments.get("max_queue", 2000)),
+                    batch_size=int(arguments.get("batch_size", 32)),
+                )
+            if act == "flush":
+                return b.flush_hot_path()
+            return b.hot_path_status()
         except Exception as e:
             return {"error": str(e)}
 

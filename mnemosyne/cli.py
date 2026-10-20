@@ -27,7 +27,7 @@ VERIFY_STATUS = {"unverified", "verified", "contradicted", "outdated", "supersed
 
 
 def _build_parser():
-    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v8.0.0")
+    p = argparse.ArgumentParser(prog="mnemosyne", description="Mnemosyne OS Engine v8.1.0")
     p.add_argument("--dir", default=None, help="记忆库目录（默认 ~/.mnemosyne）")
     p.add_argument("--no-embeddings", action="store_true", help="禁用向量检索")
     p.add_argument("--no-graph", action="store_true", help="禁用知识图谱")

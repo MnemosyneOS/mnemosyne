@@ -1,6 +1,6 @@
-# Mnemosyne 8.0.0 部署principle：接入 DeepSeek Harness（通过 MCP）
+# Mnemosyne 8.1.0 部署principle：接入 DeepSeek Harness（通过 MCP）
 
-> Deployment Guide: Integrate Mnemosyne 8.0.0 with DeepSeek Harness via MCP
+> Deployment Guide: Integrate Mnemosyne 8.1.0 with DeepSeek Harness via MCP
 
 > **让 AI 记住你 · 同时帮你省 Token**
 > 从 pip 安装 → 接入 DeepSeek Harness → 验证 → 日常使用 → 升级，一站式全流程教程
@@ -11,7 +11,7 @@
 
 ## 0. 阅读principle（先花 1 分钟读这里）
 
-本教程的目标非常明确：**把 Mnemosyne 8.0.0 装好、接上你的 AI 助手、让它"记得住"你说过的话，并且在每次对话里尽量少花钱（省 Token）**。
+本教程的目标非常明确：**把 Mnemosyne 8.1.0 装好、接上你的 AI 助手、让它"记得住"你说过的话，并且在每次对话里尽量少花钱（省 Token）**。
 
 ### 约定符号
 
@@ -49,7 +49,7 @@
 | --- | --- | --- |
 | 第 1 步 | 确认你的 AI 助手是否支持 MCP（不支持有替代方案） | 明确用什么接入 |
 | 第 2 步 | 安装 Python（编程语言运行环境）和 Node.js（运行 DeepSeek Harness 需要） | 环境就绪 |
-| 第 3 步 | 用 pip 安装 Mnemosyne 8.0.0（pip = Python 的安装工具） | 装好记忆核心 |
+| 第 3 步 | 用 pip 安装 Mnemosyne 8.1.0（pip = Python 的安装工具） | 装好记忆核心 |
 | 第 4 步 | 初始化记忆库 + 命令行测试写入/召回 | 记忆库可用 |
 | 第 5 步 | 安装 DeepSeek Harness（你的 AI 助手主程序） | AI 助手可运行 |
 | 第 6 步 | 把 Mnemosyne 注册成 DeepSeek Harness 的 MCP 工具 | 两者接通 |
@@ -174,14 +174,14 @@ npm --version
 
 ---
 
-## 3. 安装 Mnemosyne 8.0.0
+## 3. 安装 Mnemosyne 8.1.0
 
 ### 3.1 用 pip 安装（pip 是 Python 的官方安装工具）
 
 ```powershell
 pip install mnemosyne-os
 # 【这是什么】从 Python 官方仓库下载并安装 mnemosyne-os（Mnemosyne 的正式包名）
-# 【为什么】这就是 Mnemosyne 8.0.0 本体，装好后你的电脑就有了记忆引擎
+# 【为什么】这就是 Mnemosyne 8.1.0 本体，装好后你的电脑就有了记忆引擎
 ```
 
 **如果网速慢/装不动（国内常见）**，改用国内镜像源（镜像源 = 官方仓库的国内加速副本）：
@@ -199,7 +199,7 @@ pip install mnemosyne-os -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```powershell
 pip show mnemosyne-os | Select-String "Version|Requires"
 # 【这是什么】显示已安装的版本号和依赖列表
-# 【为什么】确认装的是 8.0.0；Requires（依赖）为空说明它是零依赖设计，很干净
+# 【为什么】确认装的是 8.1.0；Requires（依赖）为空说明它是零依赖设计，很干净
 ```
 
 ```powershell
@@ -535,7 +535,7 @@ Get-Content "$env:USERPROFILE\.dsh\AGENTS.md"
 
 ## 10. 压缩引擎与省 Token 配置（重点）
 
-> Mnemosyne 8.0.0 自带一套**压缩（Compression）能力**，用于：把旧记忆合并成更精炼的总结（省 Token）、去重（省空间）、提炼洞察（记得住）。**这些能力内置在 `mnemosyne` 命令里，不需要额外安装任何东西。**
+> Mnemosyne 8.1.0 自带一套**压缩（Compression）能力**，用于：把旧记忆合并成更精炼的总结（省 Token）、去重（省空间）、提炼洞察（记得住）。**这些能力内置在 `mnemosyne` 命令里，不需要额外安装任何东西。**
 
 ### 10.1 三个压缩引擎命令
 
@@ -555,7 +555,7 @@ mnemosyne dedup --help
 # 【为什么】确认你本机 7.0.2 的完整参数（下方给的是通用参数，帮你理解含义）
 ```
 
-### 10.2 通用参数说明（结合 8.0.0 实际能力）
+### 10.2 通用参数说明（结合 8.1.0 实际能力）
 
 | 参数 | 中文释义 | 作用 / 建议 |
 | --- | --- | --- |
@@ -806,7 +806,7 @@ claude mcp add mnemosyne -- python -m mnemosyne.webui.mcp_server
 到这一步，你已经完成了：
 
 1. ✅ 确认 AI 助手支持 MCP（或不支持的替代方案）
-2. ✅ 安装 Python + Node.js + Mnemosyne 8.0.0 + DeepSeek Harness
+2. ✅ 安装 Python + Node.js + Mnemosyne 8.1.0 + DeepSeek Harness
 3. ✅ Mnemosyne 注册为 DSH 的 MCP 工具，13 个记忆工具上线
 4. ✅ 会话实测"记得住"闭环通过
 5. ✅ 注入记忆规则，AI 自动记忆、按需召回（省 Token）

@@ -24,7 +24,7 @@ setup(
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
     author="Mnemosyne OS contributors",
-    url="https://github.com/FrankHu-HK/mnemosyne",
+    url="https://github.com/MnemosyneOS/mnemosyne",
     license="MIT",
     packages=find_packages(exclude=("tests", "tests.*", "benchmarks", "quality_eval")),
     python_requires=">=3.8",

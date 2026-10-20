@@ -33,7 +33,7 @@ __all__ = ["SqliteBackend"]
 # ---------------------------------------------------------------------------
 INDEX_NAME = "index.jsonl"
 META_NAME = "meta.json"
-VERSION = "8.0.0"
+VERSION = "8.1.0"
 
 
 def _m():
@@ -886,6 +886,18 @@ class SqliteBackend:
             "type": "mtype",
         }
         update_fields = {}
+        # v8.1.0：白名单外的字段不再静默丢弃，而是并入 meta。
+        #
+        # 为什么必须这样：`superseded_at` / `masked` / `deleted_reason` /
+        # `ttl_days` / `evidence` / `structured` 这些 8.1.0 新增的语义字段都不在
+        # `_MEMORIES_COLUMNS` 里。原实现 `if col in _MEMORIES_COLUMNS` 之外的键
+        # 直接跳过 —— 调用方以为写成功了（返回 True），读出来却是 None。
+        # 级联删除的「失效时间」、掩码的「已掩码」标记、度量的「错误记忆存活时长」
+        # 全都因此恒为空，属于**静默数据丢失**，比抛异常危险得多。
+        #
+        # 选择并入 meta 而不是加列：加列需要 schema 迁移，旧库要全量 rewrite；
+        # meta 是已有的 JSON 列，任意键都能存，读取侧按需取即可，零迁移成本。
+        extra_meta = {}
         for k, v in updates.items():
             col = col_map.get(k, k)
             if col in _MEMORIES_COLUMNS:
@@ -908,6 +920,33 @@ class SqliteBackend:
                     update_fields[col] = _json_safe(v)
                 else:
                     update_fields[col] = _sanitize(v)
+            elif k != "meta":
+                extra_meta[k] = v
+
+        if extra_meta:
+            # 合并顺序：旧 meta → 调用方显式传的新 meta → 调用方传的新顶层字段
+            _base = {}
+            try:
+                _row = conn.execute(
+                    "SELECT meta FROM memories WHERE id = ?", (memory_id,)
+                ).fetchone()
+                if _row and _row[0]:
+                    _raw = _row[0]
+                    _base = json.loads(_raw) if isinstance(_raw, str) else (_raw or {})
+                    if not isinstance(_base, dict):
+                        _base = {}
+            except Exception:
+                _base = {}
+            _incoming = update_fields.get("meta")
+            if _incoming:
+                try:
+                    _inc = json.loads(_incoming) if isinstance(_incoming, str) else _incoming
+                    if isinstance(_inc, dict):
+                        _base.update(_inc)
+                except Exception:
+                    pass
+            _base.update(extra_meta)
+            update_fields["meta"] = _json_safe(_base)
 
         # 单一收口（与 _record_to_row 对称）：任何文本值在 UPDATE 前净化。
         # embedding 分支的"原样透传"与 JSON 分支的转义串都在此兜住。

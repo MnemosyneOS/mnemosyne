@@ -23,6 +23,12 @@ Usage::
 
     python scripts/bump_version.py --from 7.0.2 --to 8.0.0 --dry-run
     python scripts/bump_version.py --from 7.0.2 --to 8.0.0 --apply
+    python scripts/bump_version.py --from 8.0.0 --to 8.1.0 --tools 40 --apply
+
+``--tools`` is optional but recommended: the badge (``MCP-<n>%20Tools``) and the MCP
+tool-face heading (``MCP 工具面（<n> 个，``) carry a count that the version string
+cannot imply. Without it those numbers are left untouched, which is reported like any
+other unused rule so the drift is visible.
 """
 
 from __future__ import annotations
@@ -48,7 +54,7 @@ SKIP_EXT = frozenset({".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf",
                       ".woff", ".woff2", ".ttf", ".db", ".pyc", ".sqlite"})
 
 
-def rules(old: str, new: str) -> List[Tuple[str, str, str]]:
+def rules(old: str, new: str, tools: str = "") -> List[Tuple[str, str, str]]:
     """Return ``(label, pattern, replacement)`` triples.
 
     Ordered most specific first so a broad rule cannot consume a line a narrow
@@ -56,7 +62,7 @@ def rules(old: str, new: str) -> List[Tuple[str, str, str]]:
     """
     o = re.escape(old)
     n = new
-    return [
+    out = [
         # ---- code declarations -------------------------------------------
         ("__version__ assignment",
          rf'(__version__\s*=\s*"){o}(")', rf"\g<1>{n}\g<2>"),
@@ -96,7 +102,7 @@ def rules(old: str, new: str) -> List[Tuple[str, str, str]]:
         ("确认装的是 <ver>", rf"(确认装的是 ){o}", rf"\g<1>{n}"),
         ("结合 <ver> 实际能力", rf"(结合 ){o}( 实际能力)", rf"\g<1>{n}\g<2>"),
         ("MCP 工具面（<n> 个，<ver>）",
-         rf"(MCP 工具面（20 个，){o}(）)", rf"\g<1>{n}\g<2>"),
+         rf"(MCP 工具面（)\d+( 个，){o}(）)", rf"\g<1>\g<2>{n}\g<3>"),
         ("memory stack <ver>", rf"(memory stack ){o}\b", rf"\g<1>{n}"),
         ("记忆栈 <ver>", rf"(记忆栈已?确证缺陷[^）)]*){o}", rf"\g<1>{n}"),
         ("记忆栈（<ver>）", rf"(记忆栈）?\s*){o}", rf"\g<1>{n}"),
@@ -109,6 +115,14 @@ def rules(old: str, new: str) -> List[Tuple[str, str, str]]:
         ("สแตก <ver>", rf"(สแตก[^ ]*?){o}", rf"\g<1>{n}"),
         ("стека <ver>", rf"(стека[^:]*?){o}", rf"\g<1>{n}"),
     ]
+    # Tool *counts* are not derivable from the version string, so they are opt-in: pass
+    # --tools <n> to write the badge and the MCP tool-face heading in the same pass.
+    if tools:
+        out = [
+            ("MCP badge tool count", rf"(MCP-)\d+(%20Tools)", rf"\g<1>{tools}\g<2>"),
+            ("MCP 工具面工具数", rf"(MCP 工具面（)\d+( 个，)", rf"\g<1>{tools}\g<2>"),
+        ] + out
+    return out
 
 
 def iter_files(root: str) -> List[str]:
@@ -131,9 +145,11 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true",
                        help="write the changes (default is a dry run)")
     parser.add_argument("--root", default=ROOT)
+    parser.add_argument("--tools", default="",
+                        help="tool count to write into the badge and MCP tool-face heading")
     args = parser.parse_args()
 
-    rule_list = rules(args.old, args.new)
+    rule_list = rules(args.old, args.new, args.tools)
     files = iter_files(args.root)
     per_rule = {label: 0 for label, _, _ in rule_list}
     changed: List[Tuple[str, int]] = []

@@ -126,6 +126,9 @@ class MemoryBrain:
         self._recall_health = {"n": 0, "empty": 0, "floor_dropped": 0,
                                "returned_sum": 0, "top1_sum": 0.0, "top1_n": 0,
                                "bands": {}, "channels": {}, "recent": []}
+        # v8.1.0：从磁盘恢复历史计数（跨进程可见，见 _health_path 的说明）
+        self._health_saved_at = 0.0
+        self._load_recall_health()
         # v7.0.2 (P1-1)：存量数据的图边懒回填标记（每个进程只做一次）
         self._graph_backfilled = False
         # v8.1.0：敏感度召回闸门（默认开启；可用 memory_policy 工具切换）。
@@ -497,6 +500,12 @@ class MemoryBrain:
     
     def close(self) -> None:
         """Clean up resources."""
+        # v8.1.0：退出前强制落盘召回指标。节流会让 2 秒内的最后几轮统计丢掉，
+        # 而 CLI 一次调用恰好只有几轮 —— 不强制写等于又回到"恒 0"。
+        try:
+            self._save_recall_health(force=True)
+        except Exception as exc:
+            logger.debug("可选功能降级，忽略异常：%s", exc)
         if self.store:
             try:
                 self.store.close()
@@ -1874,13 +1883,42 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         if self.graph_store is None or not self.enable_graph:
             self._graph_backfilled = True
             return {"skipped": "graph_disabled"}
-        marker = os.path.join(self.base_dir, ".graph_edges_backfilled_v702b")
+
+        # v8.1.0 修正（两个真实缺陷，都表现为"图记忆空转"）：
+        #
+        # ① **marker 必须按 namespace 隔离**。`base_dir` 是所有 namespace 共享的，
+        #    旧实现把 marker 写在 base_dir 根上：一旦 `default` 之外新建了 namespace
+        #    （控制台建库、clone_namespace、团队隔离都会建），marker 已存在 →
+        #    新库**永远不会回填**，用户看到 `graph_edges: 0` 却查不出原因。
+        # ② **marker 不能是"一次性永久跳过"**。旧 marker 在空库时写过一次
+        #    （实测 `{"edges":0,"scanned":0}`），此后所有新写入都不再补边；
+        #    而抽取器对某些句式本来就打不出三元组，这些记忆会**永久**缺席图。
+        #    改为记录 `scanned` 基线：活跃记录数比基线增长超过阈值就重跑一次。
+        #    重跑是幂等的（只补"未被图覆盖的 memory_id"），代价可控。
+        _ns = self.namespace or "default"
+        marker = os.path.join(self.base_dir, ".graph_edges_backfilled_v702b.%s" % _ns)
         if not force:
             if self._graph_backfilled:
                 return {"skipped": "done_in_process"}
             if os.path.exists(marker):
-                self._graph_backfilled = True
-                return {"skipped": "marker_present"}
+                prev = {}
+                try:
+                    with open(marker, "r", encoding="utf-8") as f:
+                        prev = json.load(f) or {}
+                except Exception:
+                    prev = {}
+                try:
+                    _now_count = int(self.store.count())
+                except Exception:
+                    _now_count = 0
+                _base = int(prev.get("scanned") or 0)
+                # 阈值：至少 20 条，或相对基线增长 30%（取大者，避免小库频繁重跑）
+                _trigger = max(20, int(_base * 0.3))
+                if _now_count - _base < _trigger:
+                    self._graph_backfilled = True
+                    return {"skipped": "marker_fresh", "scanned_baseline": _base,
+                            "current_count": _now_count, "retrigger_at": _base + _trigger}
+
 
         # 0) v7.0.2（D9）修存量脏边：7.0.1 及以前写入的边 `memory_id` 全为 null。
         #    必须先清掉，否则唯一索引 (from,to,relation,qualifier) 会让下面重建的
@@ -1973,7 +2011,8 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         # 5) 落标记（写失败不影响本次结果，下次重做即可）
         try:
             with open(marker, "w", encoding="utf-8") as f:
-                f.write(json.dumps({"at": _now_iso(), "edges": written,
+                f.write(json.dumps({"at": _now_iso(), "namespace": _ns,
+                                    "edges": written,
                                     "scanned": scanned, "covered": covered,
                                     "purged_stale": purged},
                                    ensure_ascii=False))
@@ -2359,6 +2398,86 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
         })
         if len(ring) > _RECALL_HEALTH_RING:
             del ring[:len(ring) - _RECALL_HEALTH_RING]
+        # v8.1.0：落盘（节流）。原因见 ``_health_path`` 的注释 ——
+        # 进程内缓冲在 CLI / MCP / HTTP 三种调用形态下都是"一次调用一个进程"，
+        # 不落盘的话 recall_health 永远读到 0。
+        self._save_recall_health()
+
+    # ---- v8.1.0：召回质量指标的跨进程持久化 ----
+
+    def _health_path(self) -> Optional[str]:
+        """召回质量计数器的落盘路径（按 namespace 隔离）。
+
+        为什么必须落盘：8.0.0 把计数器放在 ``self._recall_health`` 内存字典里。
+        但 Mnemosyne 的三种主要调用形态 —— ``mnemosyne`` CLI、MCP stdio server、
+        HTTP API —— **每次请求都可能是一个新进程**。新进程里 ``n=0``，
+        于是 ``recall_health`` 在真实使用中恒返回 ``recall_calls: 0``，
+        指标面形同虚设：用户跑了几百次召回，看到的仍是"还没有数据"。
+
+        这属于「度量诚实」的反面 —— 不是造假数，而是**让真实数据不可见**。
+        """
+        try:
+            ns = self.namespace or "default"
+            d = os.path.join(self.base_dir, "metrics")
+            os.makedirs(d, exist_ok=True)
+            return os.path.join(d, "recall_health.%s.json" % ns)
+        except Exception:
+            return None
+
+    def _load_recall_health(self) -> None:
+        """启动时把磁盘上的计数器合并进内存（失败即从零开始，不阻塞启动）。"""
+        path = self._health_path()
+        if not path or not os.path.exists(path):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                disk = json.load(f) or {}
+        except Exception as exc:
+            logger.debug("召回指标读取失败（从零开始）：%s", exc)
+            return
+        h = self._recall_health
+        for k in ("n", "empty", "floor_dropped", "returned_sum", "top1_sum",
+                  "top1_n"):
+            try:
+                h[k] = int(disk.get(k) or 0)
+            except Exception:
+                pass
+        for k in ("bands", "channels"):
+            v = disk.get(k)
+            if isinstance(v, dict):
+                h[k] = {str(a): int(b) for a, b in v.items()
+                        if isinstance(b, (int, float))}
+        ring = disk.get("recent")
+        if isinstance(ring, list):
+            h["recent"] = [x for x in ring if isinstance(x, dict)][-_RECALL_HEALTH_RING:]
+
+    def _save_recall_health(self, force: bool = False) -> None:
+        """把计数器写回磁盘（默认节流 2 秒，避免热路径每条都写盘）。"""
+        path = self._health_path()
+        if not path:
+            return
+        now = time.time()
+        if not force and (now - getattr(self, "_health_saved_at", 0.0)) < 2.0:
+            return
+        self._health_saved_at = now
+        h = self._recall_health
+        payload = {
+            "namespace": self.namespace or "default",
+            "updated_at": _now_iso(),
+            "n": h["n"], "empty": h["empty"],
+            "floor_dropped": h["floor_dropped"],
+            "returned_sum": h["returned_sum"],
+            "top1_sum": h["top1_sum"], "top1_n": h["top1_n"],
+            "bands": h["bands"], "channels": h["channels"],
+            "recent": h["recent"][-50:],
+        }
+        try:
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False)
+            os.replace(tmp, path)
+        except Exception as exc:
+            logger.debug("召回指标落盘失败：%s", exc)
 
     def recall_health(self):
         """召回质量只读指标（v7.0.2 P2-2）。
@@ -2382,6 +2501,12 @@ topic: 主题词/标签，如 "商业化"、"技术架构"。
             thresholds = {}
         return {
             "namespace": self.namespace,
+            # v8.1.0：说明这些数字从哪来。`persisted=True` 表示计数器来自
+            # 磁盘（跨进程累计），否则是纯进程内统计 —— 后者在 CLI 形态下
+            # 通常恒为 0，看到它就该知道要查 metrics 目录权限。
+            "persisted": bool(self._health_path()
+                              and os.path.exists(self._health_path())),
+            "metrics_file": self._health_path(),
             "recall_calls": n,
             "empty_results": h["empty"],
             "empty_rate": round(h["empty"] / n, 4) if n else 0.0,
@@ -3212,7 +3337,7 @@ def _export(store, fmt="json", out_path=None):
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         suffix = ".json"
     else:
-        lines = ["# Mnemosyne v8.0.0 记忆库导出 ", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
+        lines = ["# Mnemosyne v8.1.0 记忆库导出 ", "", f"导出时间：{_now_iso()}    共 {len(records)} 条", ""]
         for r in records:
             lines.append(f"## [{r.get('type')}] [{r.get('fact_type', 'fact')}] {r.get('created_at', '')}")
             lines.append("")
@@ -3255,7 +3380,7 @@ def _hindsights_bench(brain, test_count=200):
     仅输出本机实测指标（延迟、数量），不做任何打分自评。
     """
     print("=" * 64)
-    print("  Mnemosyne v8.0.0 — 流水线自测（实测指标，不打分）")
+    print("  Mnemosyne v8.1.0 — 流水线自测（实测指标，不打分）")
     print("=" * 64)
     brain.ensure_init()
 
@@ -3374,7 +3499,7 @@ def _hindsights_bench(brain, test_count=200):
 # ============================================================================
 
 def _benchmark(brain, count=2000):
-    print("\U0001f9ea Mnemosyne v8.0.0 性能基准测试")
+    print("\U0001f9ea Mnemosyne v8.1.0 性能基准测试")
     print("=" * 56)
     brain.ensure_init()
 
@@ -3413,11 +3538,462 @@ def _benchmark(brain, count=2000):
 
 
 # ============================================================================
+# Part 12.5: v8.1.0 记忆形成层对外接口
+# ============================================================================
+# 【为什么单独一节】v8.1.0 新增了 7 个模块（envelope / profile / consolidate /
+# hotpath / inject / cascade / metrics），但它们此前**只有模块级函数**，
+# 没有接到 MemoryBrain 上。用户视角就是"文档说有，实际调不到"——
+# 这正是"表面完成"最典型的样子。
+#
+# 本节的每个方法都只做三件事：取数据（self.store）、调模块、把结果包成
+# 可 JSON 化的 dict（MCP / HTTP / 控制台都直接消费）。**不复制业务逻辑**，
+# 否则两处实现迟早漂移。
+
+
+class _FormationLayerMixin:
+    """记忆形成层门面（由 MemoryBrain 继承）。
+
+    拆成 mixin 而不是直接塞进 MemoryBrain：MemoryBrain 已经 3500 行，
+    继续膨胀会让"哪段逻辑属于哪一层"彻底失焦。mixin 只依赖宿主提供的
+    ``self.store`` / ``self.retrieval`` / ``self.graph_store`` / ``self.namespace``。
+    """
+
+    # ---------------- 统一信封 ----------------
+
+    def memory_envelope(self, memory_id: str) -> Optional[Dict[str, Any]]:
+        """取一条记忆的**统一信封**（八类 + 四维 scope + 证据链 + 双时间轴）。
+
+        对应principle 3.1。信封是"视图"不是"存储格式"：缺失字段补默认值，
+        但**绝不回写**——否则读操作会悄悄改数据。
+        """
+        from .envelope import to_envelope
+        rec = self.store.find_by_id(memory_id)
+        if not rec:
+            return None
+        return to_envelope(rec)
+
+    def memory_type_stats(self) -> Dict[str, Any]:
+        """八类记忆分布（semantic/episodic/.../relational）。
+
+        用途：一眼看出"这个库是不是只有语义记忆"——如果 episodic 为 0，
+        说明会话摘要没在跑；procedural 为 0，说明巩固没在跑。
+        """
+        from .envelope import MEMORY_TYPES, classify_type
+        counts = {t: 0 for t in MEMORY_TYPES}
+        unknown = 0
+        try:
+            records = self.store.all_records()
+        except Exception:
+            records = []
+        for r in records:
+            if not isinstance(r, dict) or r.get("status") == "deleted":
+                continue
+            try:
+                t = classify_type(r)
+            except Exception:
+                t = "semantic"
+            if t in counts:
+                counts[t] += 1
+            else:
+                unknown += 1
+        total = sum(counts.values()) + unknown
+        return {
+            "total": total,
+            "counts": counts,
+            "unknown": unknown,
+            "empty_types": [t for t, c in counts.items() if c == 0],
+        }
+
+    # ---------------- 画像卡 ----------------
+
+    def profile_card(self, include_context: bool = True,
+                     include_pending: bool = True,
+                     max_tokens: Optional[int] = None) -> Dict[str, Any]:
+        """生成画像卡（三段分级 + 未决事项），对应principle第 6 章。
+
+        ``max_tokens`` 是**硬上限**：超了就按「情境 → 未决 → 偏好」的顺序
+        逐段裁掉，绝不截断单条内容（截断会造出"半句事实"，比不给更危险）。
+        """
+        from .profile import build_profile, render as _render, token_estimate
+        try:
+            records = self.store.all_records()
+        except Exception:
+            records = []
+        prof = build_profile(records)
+
+        include_ctx, include_pd = include_context, include_pending
+        text = _render(prof, include_context=include_ctx,
+                       include_pending=include_pd)
+        tokens = token_estimate(text)
+
+        dropped = []
+        if max_tokens is not None and tokens > max_tokens:
+            # 裁剪顺序体现价值判断：情境最易过期，最先丢；未决次之；
+            # 稳定身份与偏好是画像的"存在理由"，最后才动。
+            # 注意：**只按条裁、不截断单条文本** —— 截断会造出"半句事实"，
+            # 比不给更危险（模型会把半句当完整断言用）。
+            import copy as _copy
+            trial = _copy.deepcopy(prof)
+            for ctx, pd, label in ((False, True, "context"),
+                                   (False, False, "pending")):
+                if label == "context" and not include_context:
+                    continue
+                if label == "pending" and not include_pending:
+                    continue
+                text = _render(trial, include_context=ctx, include_pending=pd)
+                tokens = token_estimate(text)
+                dropped.append(label)
+                if tokens <= max_tokens:
+                    break
+            # 仍超预算 → 逐条削减偏好（3 → 2 → 1 → 0）
+            if tokens > max_tokens:
+                for keep in (3, 2, 1, 0):
+                    trial["preference"] = prof["preference"][:keep]
+                    text = _render(trial, include_context=False,
+                                   include_pending=False)
+                    tokens = token_estimate(text)
+                    if tokens <= max_tokens:
+                        break
+                dropped.append("preference_truncated")
+            prof = trial
+
+        return {
+            "profile": prof,
+            "text": text,
+            "tokens": tokens,
+            "budget": max_tokens,
+            "within_budget": (max_tokens is None or tokens <= max_tokens),
+            "dropped_segments": dropped,
+            "counts": {k: len(v) for k, v in prof.items()},
+            "needs_review": [i["content"] for t in prof for i in prof[t]
+                             if i.get("needs_review")],
+            "expiring": [i["content"] for t in prof for i in prof[t]
+                         if i.get("expired")],
+        }
+
+    def profile_decay_candidates(self) -> Dict[str, Any]:
+        """列出应当降权/清理的画像条目（偏好 6 个月未印证、情境过期）。"""
+        from .profile import decay_candidates, review_candidates
+        try:
+            records = self.store.all_records()
+        except Exception:
+            records = []
+        decay = decay_candidates(records)
+        review = review_candidates(records)
+        return {
+            "decay": [{"id": d.get("id"), "content": d.get("content"),
+                       "reason": d.get("reason")} for d in decay],
+            "review": [{"id": d.get("id"), "content": d.get("content"),
+                        "reason": d.get("reason")} for d in review],
+            "decay_count": len(decay),
+            "review_count": len(review),
+        }
+
+    # ---------------- 巩固 ----------------
+
+    def consolidate_memories(self, dry_run: bool = False,
+                             paths: Optional[List[str]] = None) -> Dict[str, Any]:
+        """跑巩固三路径：情景→语义、情景→程序性、失败→负记忆。
+
+        幂等：同一批源记忆不会重复生成结论（靠 ``meta.consolidation_fp``）。
+        因此可以放进定时任务里反复跑，不必担心越跑越多。
+        """
+        from .consolidate import ConsolidationEngine
+        eng = ConsolidationEngine(self)
+        if paths is None:
+            return eng.run_all(dry_run=dry_run)
+        out: Dict[str, Any] = {}
+        if "semantic" in paths:
+            out["semantic"] = eng.semantic(dry_run=dry_run)
+        if "procedural" in paths:
+            out["procedural"] = eng.procedural(dry_run=dry_run)
+        if "anti_pattern" in paths:
+            out["anti_pattern"] = eng.anti_pattern(dry_run=dry_run)
+        return out
+
+    # ---------------- 召回注入流水线 ----------------
+
+    def inject_context(self, query: str, budget_tokens: int = 1200,
+                       goal: str = "",
+                       recent_turns: Optional[List[str]] = None,
+                       entities: Optional[List[str]] = None,
+                       project: Optional[str] = None,
+                       mode: str = "rrf",
+                       include_profile: bool = True) -> Dict[str, Any]:
+        """五步召回流水线，产出可直接拼进 system prompt 的文本。
+
+        与 ``recall`` 的区别：``recall`` 返回"命中了哪些记忆"（给程序用），
+        本方法返回"该往上下文里塞什么、塞多少 token、剩下的被谁挤掉了"
+        （给模型用）。预算按 30/35/20/15 四段分配，超预算的条目不截断、
+        直接不注入——半句事实比没有事实更糟。
+        """
+        from .inject import InjectionPipeline
+        pipe = InjectionPipeline(self)
+        return pipe.inject(query, budget_tokens=budget_tokens, goal=goal,
+                           recent_turns=recent_turns, entities=entities,
+                           project=project, mode=mode,
+                           include_profile=include_profile)
+
+    def recall_catalog(self, query: str, k: int = 10,
+                       project: Optional[str] = None) -> Dict[str, Any]:
+        """渐进披露的**目录层**：只给标题 + 一句话，正文按需 ``expand_memory``。
+
+        为什么需要：把 20 条记忆的全文塞进上下文要 ~2000 token，而目录只要
+        ~200。模型先看目录判断"哪几条相关"，再对 1~2 条展开——注入成本从
+        O(全部) 降到 O(目录 + 少量)。对应principle 5.4 的最后一步。
+        """
+        hits = self.recall(query, k=k, project=project) or []
+        items = []
+        for h in hits:
+            if not (isinstance(h, (list, tuple)) and len(h) >= 2):
+                continue
+            score, rec = h[0], h[1]
+            if not isinstance(rec, dict):
+                continue
+            content = str(rec.get("content") or "")
+            first = re.split(r"[。！？\n]", content, maxsplit=1)
+            title = (first[0] if first else content)[:28]
+            body = content[len(title):].strip() if len(content) > len(title) else ""
+            items.append({
+                "id": rec.get("id"),
+                "title": title,
+                "hint": (body or content)[:70],
+                "type": rec.get("type") or rec.get("mtype"),
+                "score": round(float(score), 4) if isinstance(score, (int, float)) else None,
+                "chars": len(content),
+                "tokens_if_expanded": estimate_tokens(content),
+            })
+        return {
+            "query": query,
+            "items": items,
+            "count": len(items),
+            "catalog_tokens": estimate_tokens("".join(
+                i["title"] + i["hint"] for i in items)),
+            "expand_hint": "对需要的条目调用 expand_memory(memory_id) 取正文",
+        }
+
+    def expand_memory(self, memory_id: str,
+                      include_neighbors: bool = True) -> Optional[Dict[str, Any]]:
+        """展开一条记忆：正文 + 信封 + 图邻居 + 证据链。
+
+        与 ``recall_catalog`` 配对使用。邻居来自图存储——这也是"图记忆"
+        真正被用上的地方：用户问「当时定的方案影响了哪些模块」，
+        答案在邻居里，不在正文里。
+        """
+        rec = self.store.find_by_id(memory_id)
+        if not rec:
+            return None
+        out = {
+            "id": memory_id,
+            "content": rec.get("content"),
+            "type": rec.get("type") or rec.get("mtype"),
+            "tags": rec.get("tags") or [],
+            "project": rec.get("project"),
+            "created_at": rec.get("created_at"),
+            "confidence": rec.get("confidence"),
+            "importance": rec.get("importance"),
+            "status": rec.get("status"),
+        }
+        try:
+            from .envelope import to_envelope
+            out["envelope"] = to_envelope(rec)
+        except Exception as exc:
+            logger.debug("信封生成失败：%s", exc)
+        if include_neighbors and self.graph_store is not None:
+            try:
+                ents = [e for e in (rec.get("entities") or []) if e][:5]
+                nb = {}
+                for e in ents:
+                    try:
+                        nb[e] = self.graph_store.get_neighbors(e, max_depth=1)
+                    except Exception:
+                        continue
+                out["neighbors"] = nb
+            except Exception as exc:
+                logger.debug("图邻居读取失败：%s", exc)
+        return out
+
+    # ---------------- 级联删除与掩码 ----------------
+
+    def cascade_delete(self, memory_id: str, hard: bool = False,
+                       reason: Optional[str] = None) -> Dict[str, Any]:
+        """级联删除四动作：软删原始 → 失效派生 → 清缓存 → 摘要标 stale。
+
+        为什么不能只删一条：删掉「用户的显卡是 4090」却留着
+        「用户的机器适合跑 7B 模型」，后者就成了无源之水。principle 5.5 要求
+        删除必须沿派生链传播，否则记忆库会积累"孤立的结论"。
+        """
+        from .cascade import CascadeManager
+        return CascadeManager(self).delete(memory_id, hard=hard, reason=reason)
+
+    def mask_memory(self, memory_id: str, replacement: Optional[str] = None,
+                    keep_original: bool = False) -> Dict[str, Any]:
+        """掩码而非删除：正文替换为占位符，保留记录骨架。
+
+        为什么用掩码：删除会改变上下文长度与前缀，破坏 KV-Cache 复用；
+        掩码保持位置与结构不变，只换内容。用户说"别记这个"时优先掩码。
+        """
+        from .cascade import CascadeManager
+        kw = {}
+        if replacement is not None:
+            kw["replacement"] = replacement
+        return CascadeManager(self).mask(memory_id, keep_original=keep_original, **kw)
+
+    def unmask_memory(self, memory_id: str) -> Dict[str, Any]:
+        """撤销掩码，恢复原文（``keep_original=True`` 时才有原文可恢复）。"""
+        from .cascade import CascadeManager
+        return CascadeManager(self).unmask(memory_id)
+
+    def memory_dependents(self, memory_id: str) -> Dict[str, Any]:
+        """删除前预检：这条记忆被哪些结论依赖？先看清楚再动手。"""
+        from .cascade import CascadeManager
+        return CascadeManager(self).dependents(memory_id)
+
+    # ---------------- 度量 ----------------
+
+    def memory_metrics(self, domain: Optional[str] = None) -> Dict[str, Any]:
+        """Chat / Working / Coding 三域指标（13 项）。
+
+        **诚实原则**：数据不足的指标返回
+        ``{"value": null, "status": "insufficient_data", "need": "..."}``，
+        而不是填 0 —— 0 和"没数据"是两件事，混在一起会让人误判系统健康度。
+        """
+        from .metrics import all_metrics, chat_metrics, coding_metrics, working_metrics
+        try:
+            records = self.store.all_records()
+        except Exception:
+            records = []
+        if domain == "chat":
+            return chat_metrics(records)
+        if domain == "working":
+            return working_metrics(records)
+        if domain == "coding":
+            return coding_metrics(records)
+        return all_metrics(records)
+
+    # ---------------- 会话摘要 L3 ----------------
+
+    def topic_summarize(self, project: Optional[str] = None,
+                        persist: bool = False,
+                        max_sessions: int = 20) -> Dict[str, Any]:
+        """把同一 project 下的多条 L2 会话摘要合并成 L3 主题摘要。
+
+        合并规则全部确定性：goal 取最新、decisions 累积、pending 只留最新。
+        ``persist=True`` 时落库一条 ``level:L3`` 记录，``pointer.children``
+        指向参与合并的 L2 记录 id——这是 ``trace_memory`` 能回溯的前提。
+        """
+        from .session import topic_record, topic_summary as _topic
+        try:
+            records = self.store.all_records()
+        except Exception:
+            records = []
+        summaries = []
+        for r in records:
+            if not isinstance(r, dict) or r.get("status") == "deleted":
+                continue
+            meta = r.get("meta") or {}
+            if not isinstance(meta, dict):
+                continue
+            if meta.get("kind") != "session_summary":
+                continue
+            if project and (r.get("project") or meta.get("project")) != project:
+                continue
+            summaries.append({
+                "session_id": meta.get("session_id") or r.get("id"),
+                "created_at": r.get("created_at"),
+                "factors": meta.get("factors") or {},
+                "_id": r.get("id"),
+            })
+        summaries.sort(key=lambda s: str(s.get("created_at") or ""))
+        summaries = summaries[-max_sessions:]
+        if not summaries:
+            return {"goal": "", "session_count": 0, "session_ids": [],
+                    "note": "没有可合并的 L2 会话摘要（先跑 session 摘要）"}
+        merged = _topic(summaries)
+        out = dict(merged)
+        out["source_ids"] = [s["_id"] for s in summaries if s.get("_id")]
+        if persist:
+            rec = topic_record(merged, project or "default", children=out["source_ids"])
+            out["memory_id"] = self.retain(**rec)
+        return out
+
+    def trace_memory(self, memory_id: str, max_depth: int = 3) -> Dict[str, Any]:
+        """沿指针链回溯：L3 → L2 → L1 → 原始轮次（L0）。
+
+        回答的是「这条结论是从哪句话来的」。链尾返回 ``message_ids``，
+        调用方拿它去自己的对话历史里取原文——记忆库不存 L0。
+        """
+        from .session import trace_chain
+        return trace_chain(self, memory_id, max_depth=max_depth)
+
+    # ---------------- 热路径 ----------------
+
+    def enable_hot_path(self, max_queue: int = 2000, batch_size: int = 32,
+                        flush_interval: float = 0.5,
+                        consolidate_every: int = 200) -> Dict[str, Any]:
+        """开启热路径缓冲：写入只入队，抽取/冲突/巩固交给后台线程。
+
+        principle 5.1 的取舍：热路径必须"只做一件事"，否则一次 retain 里
+        同步跑完去重 + 冲突检测 + 向量编码 + 图抽取，P99 会飙到几百毫秒。
+        队列满时**退化为同步写**——宁可慢，绝不丢。
+        """
+        from .hotpath import HotPathBuffer
+        buf = getattr(self, "_hot_path", None)
+        if buf is not None:
+            try:
+                buf.close()
+            except Exception:
+                pass
+        self._hot_path = HotPathBuffer(
+            self, max_queue=max_queue, batch_size=batch_size,
+            flush_interval=flush_interval,
+            consolidate_every=consolidate_every,
+        )
+        self._hot_path.start()
+        return self._hot_path.status()
+
+    def hot_path_status(self) -> Dict[str, Any]:
+        buf = getattr(self, "_hot_path", None)
+        if buf is None:
+            return {"enabled": False,
+                    "note": "未开启；调用 enable_hot_path() 启用"}
+        st = buf.status()
+        st["enabled"] = True
+        return st
+
+    def flush_hot_path(self, timeout: float = 10.0) -> Dict[str, Any]:
+        """读一致性屏障：等队列里的写入全部落盘后再返回。
+
+        为什么必须有：热路径异步写意味着"retain 返回了但还查不到"。
+        任何"写完立刻读"的场景（测试、导出、控制台刷新）都必须先 flush。
+        """
+        buf = getattr(self, "_hot_path", None)
+        if buf is None:
+            return {"enabled": False, "flushed": 0}
+        return buf.flush(timeout=timeout)
+
+
+# 把 mixin 的方法挂到 MemoryBrain 上。
+#
+# 为什么不在 class 定义处写 `class MemoryBrain(_FormationLayerMixin)`：
+# MemoryBrain 有 3500 行、被 20+ 个模块 import，改继承链会牵动 MRO 与
+# 所有 `isinstance` 判断；而且 mixin 定义在文件后部（依赖 `estimate_tokens`
+# 等已导入符号）。这里用显式挂载，语义等价、风险最小。
+# `hasattr` 守卫保证：将来若 MemoryBrain 自己实现了同名方法，以它为准。
+for _n, _a in list(vars(_FormationLayerMixin).items()):
+    if _n.startswith("__"):
+        continue
+    if not hasattr(MemoryBrain, _n):
+        setattr(MemoryBrain, _n, _a)
+del _n, _a
+
+
+# ============================================================================
 # Part 13: 演示
 # ============================================================================
 
 def _demo(brain):
-    print("\U0001f9ea Mnemosyne v8.0.0 演示模式")
+    print("\U0001f9ea Mnemosyne v8.1.0 演示模式")
     print("=" * 50)
     brain.ensure_init()
 

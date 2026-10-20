@@ -4,11 +4,11 @@
   "description": "Mnemosyne OS — a zero-dependency, local-first AI memory engine.",
   "owner": {
     "name": "Mnemosyne OS contributors",
-    "url": "https://github.com/FrankHu-HK/mnemosyne"
+    "url": "https://github.com/MnemosyneOS/mnemosyne"
   },
   "license": "MIT",
-  "homepage": "https://github.com/FrankHu-HK/mnemosyne",
-  "repository": "https://github.com/FrankHu-HK/mnemosyne",
+  "homepage": "https://github.com/MnemosyneOS/mnemosyne",
+  "repository": "https://github.com/MnemosyneOS/mnemosyne",
   "plugins": [
     {
       "name": "mnemosyne",

@@ -178,7 +178,7 @@ def main():
         # 6a) 原子丰富的短文本：验证"原子一个不丢"（含 URL / 邮箱 / 金额 / 日期）
         LONG = ("用户的显卡是 RTX 4090，购于 2026-03-15，花了 15999 元。"
                 "用户的年假是 15 天，必须在 2026-12-31 前用完。"
-                "项目地址 https://github.com/FrankHu-HK/mnemosyne")
+                "项目地址 https://github.com/MnemosyneOS/mnemosyne")
         sid = b.retain(LONG, mtype="semantic")
         stored = b.store.find_by_id(sid)["content"]
         seen_levels = set()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Memory Notary - pre-write trust pipeline for Mnemosyne OS v8.0.0.
+"""Memory Notary - pre-write trust pipeline for Mnemosyne OS v8.1.0.
 
 Implements the four pre-write checks:
 1. Source fingerprint / duplicate detection
