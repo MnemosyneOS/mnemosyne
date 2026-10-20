@@ -20,11 +20,17 @@ def _read_long_desc():
 setup(
     name="mnemosyne-os",
     version="8.1.0",
-    description="Zero-dependency AI Agent Memory Engine — L1 Lexical Cache",
+    description="Zero-dependency, local-first AI memory engine: graph memory, multimodal ingestion, reranking, temporal reasoning, hash-chained audit ledger, capsule compression, memory formation + runtime layers.",
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
     author="Mnemosyne OS contributors",
     url="https://github.com/MnemosyneOS/mnemosyne",
+    project_urls={
+        "Homepage": "https://github.com/MnemosyneOS/mnemosyne",
+        "Documentation": "https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md",
+        "Source": "https://github.com/MnemosyneOS/mnemosyne",
+        "Changelog": "https://github.com/MnemosyneOS/mnemosyne/blob/main/CHANGELOG.md",
+    },
     license="MIT",
     packages=find_packages(exclude=("tests", "tests.*", "benchmarks", "quality_eval")),
     python_requires=">=3.8",
@@ -63,5 +69,5 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    keywords="ai, memory, agent, retrieval, token-optimization, zero-dependency, local-first",
+    keywords="ai, memory, agent, retrieval, mcp, token-optimization, zero-dependency, local-first, long-term-memory",
 )
