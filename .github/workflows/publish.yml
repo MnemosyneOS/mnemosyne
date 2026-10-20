@@ -1,0 +1,45 @@
+name: Publish to PyPI
+
+# Publishes to PyPI with trusted publishing (OIDC) — no long-lived token stored in
+# the repo or in CI secrets. One-time setup on PyPI:
+#
+#   https://pypi.org/manage/project/mnemosyne-os/settings/publishing/
+#     GitHub Repository : MnemosyneOS/mnemosyne
+#     Workflow name     : publish.yml
+#     Environment name  : (leave empty)
+#
+# After that, pushing a v* tag publishes automatically. You can also run this
+# workflow by hand from the Actions tab ("Run workflow").
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip setuptools wheel build
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

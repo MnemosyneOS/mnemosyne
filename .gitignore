@@ -14,6 +14,7 @@ mnemosyne-final/
 *.pyc
 __pycache__/
 arxiv_submit/
+build/
 dist/
 *.egg-info/
 *.backup
