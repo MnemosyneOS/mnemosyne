@@ -32,11 +32,14 @@
 
 **Mnemosyne OS 8.1.0** — a zero-dependency, local-first AI memory system. Graph
 memory, multimodal ingestion, reranking, temporal reasoning, a hash-chained audit
-ledger, lossless compression, and 40 MCP tools.
+ledger, lossless compression, and 52 MCP tools (41 native + 11 client-compatible).
 
-8.1.0 adds the **memory formation layer**: session summaries, conflict resolution,
-task and experience memory, code evolution memory, and sensitivity governance —
+8.1.0 adds two layers. The **memory formation layer** — session summaries, conflict
+resolution, task and experience memory, code evolution memory, sensitivity governance —
 so the engine no longer just *retrieves* memories, it *turns experience into memory*.
+And the **memory runtime layer** — profile cards, context injection, progressive
+disclosure, consolidation, metrics, masking, cascade delete — assembles the right
+context for the model and manages the memory lifecycle.
 
 > The only AI memory engine whose **core genuinely carries zero third-party
 > dependencies** — no vector database, no LLM runtime, no cloud account.
