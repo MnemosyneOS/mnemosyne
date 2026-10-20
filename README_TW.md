@@ -12,7 +12,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="授權: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
@@ -204,7 +204,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可選，但建議設定
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**40 個工具** —— 29 個原生工具（其中 9 個是 8.1.0 新增的記憶形成層工具），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
+**52 個工具** —— 41 個原生工具（其中 21 個是 8.1.0 新增：9 個記憶形成層 + 12 個記憶執行層），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
 
 **原生 · 檢索與治理（20）：**
 
@@ -244,6 +244,23 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `code_change_record` | 記錄變更事件：意圖、約束、影響面、放棄的方案 |
 | `code_archaeology` | 代碼考古 / 坑位預警（傳 `intent` 即轉為坑位檢查） |
 | `memory_policy` | 敏感度判定、寫入准入、存量高危記憶審計 |
+
+**原生 · 記憶執行層（12，v8.1.0 新增）：**
+
+| 工具 | 說明 |
+| --- | --- |
+| `profile_card` | 使用者畫像卡：三段分級（穩定身份 / 偏好與約束 / 當前情境）+ 未決事項，可直接拼進 system prompt。`max_tokens` 是硬上限——超預算按「情境→未決→偏好」逐段裁，絕不截斷單條。 |
+| `memory_inject` | 上下文注入流水線：查詢構造 → 四路召回 → RRF 融合 → 重排 → 預算內注入，回傳可直接注入的 text 加四段配額帳目。給模型準備上下文時比 `recall` 更合適。 |
+| `recall_catalog` | 漸進披露·目錄層：只回傳標題 + 一句話 + 展開成本，不回傳正文。先看目錄判斷哪幾條相關，再對 1~2 條調 `expand_memory`——注入成本從 O(全部) 降到 O(目錄 + 少量)。 |
+| `expand_memory` | 漸進披露·展開：取一條記憶的正文 + 統一信封 + 圖鄰居 + 證據鏈。與 `recall_catalog` 配對；鄰居來自知識圖譜，所以「當時這個決定影響了哪些模組」是可回答的。 |
+| `memory_envelope` | 統一記憶信封：八類分類 + 四維 scope + 證據鏈 + 雙時間軸 + TTL + SPO 結構。省略 `memory_id` 時回傳全庫八類分佈統計。 |
+| `memory_consolidate` | 鞏固三路徑：情境→語意、情境→程序性、失敗→負記憶。冪等——同一批來源不會重複產生。 |
+| `memory_metrics` | 度量指標：Chat 5 項 + Working 4 項 + Coding 4 項。誠實原則——資料不足回傳 `{value:null, status:"insufficient_data"}` 而不是填 0，0 和「沒資料」是兩件事。 |
+| `memory_cascade_delete` | 級聯刪除：軟刪原始 → 失效派生結論 → 清檢索快取 → 依賴摘要標 stale。`hard=true` 才物理刪除；先跑 `dry_run=true` 看 dependents。 |
+| `memory_mask` | 遮罩：把正文替換為佔位符但保留記錄骨架，保持上下文長度與前綴不變（不破壞 KV-Cache 複用）。使用者說「別記這個」時優先用遮罩。`action=unmask` 可撤銷。 |
+| `topic_summarize` | L3 主題摘要：把同一 project 下的多條 L2 會話摘要合併成「這個專案現在處於什麼狀態」。合併規則確定性（goal 取最新、decisions 累積、pending 只留最新）。`persist=true` 落庫並記錄 `pointer.children`。 |
+| `memory_trace` | 指標鏈回溯：沿 L3→L2→L1 回溯，回傳每層內容、覆蓋的輪次區間與 `message_ids`。回答「這條結論是從哪句話來的」。 |
+| `memory_hot_path` | 熱路徑緩衝：`action=enable` 開啟非同步寫入（熱路徑只入隊）；`action=status` 檢視佇列與統計；`action=flush` 等佇列落碟——寫完立刻讀之前必須 flush 的讀一致性屏障。 |
 
 **客戶端相容（11）：**
 
@@ -371,7 +388,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # 控制台 + REST 宿主
     ├── api_routes.py    # /v1 /v2 /v3 路由
-    ├── mcp_server.py    # 29 個原生 MCP 工具（含 9 個記憶形成層工具）
+    ├── mcp_server.py    # 41 個原生 MCP 工具（含 21 個新增於 8.1.0）
     └── mcp_api.py       # 11 個客戶端相容 MCP 工具
 
 storage/                 # SQLite 後端、哈希鏈賬本、外掛 SDK

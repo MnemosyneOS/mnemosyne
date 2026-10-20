@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@
 <tr><td><b>다단계 기억</b></td><td>핫 / 웜 / 콜드 계층과 망각 경제학 — 가치가 낮은 기억을 마이그레이션하며, 절대 조용히 삭제하지 않습니다.</td></tr>
 <tr><td><b>해시 체인 원장</b></td><td>SHA-256 체인 원장 — <code>verify_chain()</code>이 위변조를 탐지하고 정확한 손상 기록을 찾아냅니다.</td></tr>
 <tr><td><b>플러그인 SDK</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> 및 공식 플러그인(<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP 서버</b></td><td>stdio JSON-RPC 기반 40개 도구, 토큰 인증 및 다중 테넌트 네임스페이스 격리 지원.</td></tr>
+<tr><td><b>MCP 서버</b></td><td>stdio JSON-RPC 기반 52개 도구, 토큰 인증 및 다중 테넌트 네임스페이스 격리 지원.</td></tr>
 <tr><td><b>웹 대시보드</b></td><td>외부 CDN 없이 <code>web_server.py</code>에서 제공되는 로컬 다크 대시보드(기술적 미감).</td></tr>
 <tr><td><b>비동기 API</b></td><td>고처리량 수집을 위한 <code>AsyncMemoryBrain</code> asyncio 래퍼.</td></tr>
 <tr><td><b>중국어 최적화</b></td><td>바이그램 토큰화 + FTS5 + 내장 동의어 사전.</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP 서버는 **40개 도구**를 제공합니다:
+MCP 서버는 **52개 도구**를 제공합니다:
 
 | 도구 | 설명 |
 | --- | --- |
@@ -194,6 +194,9 @@ MCP 서버는 **40개 도구**를 제공합니다:
 | `consolidate` | 압축 엔진·기억 통합 — 매우 유사/동의어 기억을 하나의 대표 기억으로 병합하고 원본은 `consolidated`로 표시 (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | 압축 엔진·강화 성찰 — 총량, 유형/계층/사실 유형/신뢰도 분포, 상위 엔티티, 사실 충돌 탐지, 시간 밀도를 집계; `deep=true`는 인지 패턴 발견 추가 |
 | `dedup` | 압축 엔진·중복 제거 — 내용 지문 + 벡터/단어빈도 유사도로 중복 및 근사 중복 탐지; `dry_run=true`는 보고만 |
+| `recall_health` | 검색 품질 지표(읽기 전용) — 빈 결과율, top1 추이, 관련성 하한으로 제거된 수, 지연 |
+| `capsule` | 기억을 포인터+사실+원자로 압축 — 무손실이며 주소 지정 가능 |
+| `expand` | 캡슐의 원문을 글자 단위로 복원(해시 검증 포함) |
 | `session_summarize` | 세션 요약 — 7요소(목표 / 제약 / 결정 / 미결 / 산출물 / 실패 / 선호) |
 | `session_recall` | 세션 또는 프로젝트별로 요약과 미결 항목을 재호출 |
 | `conflict_resolve` | 충돌 분류 및 해소(6类, `dry_run` 우선) |
@@ -203,6 +206,18 @@ MCP 서버는 **40개 도구**를 제공합니다:
 | `code_change_record` | 코드 변경 이벤트 기록(의도 / 제약 / 기각한 접근법) |
 | `code_archaeology` | 파일이나 심볼의 변경 이력과 함정을 거슬러 추적 |
 | `memory_policy` | 민감도 등급과 출처 정책 조회 / 설정 |
+| `profile_card` | 사용자 프로필 카드 — 세 단계(안정적 정체성 / 선호와 제약 / 현재 상황) + 미해결 항목, system prompt에 바로 연결 가능 |
+| `memory_inject` | 컨텍스트 주입 파이프라인: 쿼리 구성 → 4경로 검색 → RRF 융합 → 리랭크 → 예산 내 주입 |
+| `recall_catalog` | 점진적 공개·카탈로그 계층: 제목 + 한 줄 + 확장 비용만 반환(본문은 반환하지 않음) |
+| `expand_memory` | 점진적 공개·확장: 본문 + 통일 봉투 + 그래프 이웃 + 증거 체인 |
+| `memory_envelope` | 통일 메모리 봉투: 8개 분류 + 4차원 scope + 증거 체인 + 이중 시간축 + TTL + SPO |
+| `memory_consolidate` | 세 가지 통합 경로: 에피소딕→의미, 에피소딕→절차, 실패→부정 기억(멱등) |
+| `memory_metrics` | 지표: Chat (5) + Working (4) + Coding (4). 데이터 부족 시 0 대신 `insufficient_data` 반환 |
+| `memory_cascade_delete` | 캐스케이드 삭제: 원본 소프트 삭제 → 파생 결론 무효화 → 캐시 정리 → 의존 요약 stale 표시 |
+| `memory_mask` | 마스크: 본문을 플레이스홀더로 교체하되 레코드 골격은 유지(KV-Cache 재사용 유지) |
+| `topic_summarize` | L3 주제 요약: 같은 project의 여러 L2 세션 요약을 통합 |
+| `memory_trace` | 포인터 체인 역추적: L3→L2→L1, 각 층의 내용과 대상 턴·`message_ids` 반환 |
+| `memory_hot_path` | 핫 패스 버퍼: `enable` 비동기 쓰기, `status` 큐 확인, `flush` 쓰기 완료 대기 |
 | `add_memory` | 사용자/에이전트를 위해 텍스트나 대화를 저장 |
 | `search_memories` | 필터가 있는 시맨틱 검색 |
 | `get_memories` | 구조화된 필터 + 페이지 목록 |

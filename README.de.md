@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,7 +48,7 @@ Nutzen Sie es als **Python-Bibliothek (Python library)**, als **CLI (Kommandozei
 <tr><td><b>Mehrstufiges Gedächtnis (multi-tier memory)</b></td><td>Hot-/Warm-/Cold-Ebenen mit ökonomischem Vergessen (forgetting economics) — migrieren Sie wertarme Erinnerungen, löschen Sie sie niemals stillschweigend.</td></tr>
 <tr><td><b>Hash-Chain-Ledger (hash-chain ledger)</b></td><td>SHA-256 verkettetes Ledger — <code>verify_chain()</code> erkennt Manipulationen und lokalisiert den exakten beschädigten Datensatz.</td></tr>
 <tr><td><b>Plugin-SDK (plugin SDK)</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + offizielle Plugins (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP-Server (MCP server)</b></td><td>40 Werkzeuge über stdio JSON-RPC, mit Token-Authentifizierung (token auth) und mandantenfähigen Namensräumen (multi-tenant namespaces).</td></tr>
+<tr><td><b>MCP-Server (MCP server)</b></td><td>52 Werkzeuge über stdio JSON-RPC, mit Token-Authentifizierung (token auth) und mandantenfähigen Namensräumen (multi-tenant namespaces).</td></tr>
 <tr><td><b>Web-Dashboard (web dashboard)</b></td><td>Lokal betriebenes, technisch gestaltetes dunkles Dashboard (local dark dashboard), kein externes CDN — ausgeliefert über <code>web_server.py</code>.</td></tr>
 <tr><td><b>Async-API (async API)</b></td><td><code>AsyncMemoryBrain</code> asyncio-Wrapper für die Aufnahme mit hohem Durchsatz.</td></tr>
 <tr><td><b>Chinesisch optimiert (Chinese-optimized)</b></td><td>Bigramm-Tokenisierung (bigram tokenization) + FTS5 + eingebautes Synonymwörterbuch (built-in synonym dictionary).</td></tr>
@@ -173,7 +173,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-Der MCP-Server stellt **40 Werkzeuge (40 tools)** bereit:
+Der MCP-Server stellt **52 Werkzeuge (52 tools)** bereit:
 
 | Werkzeug | Beschreibung |
 | --- | --- |
@@ -194,6 +194,9 @@ Der MCP-Server stellt **40 Werkzeuge (40 tools)** bereit:
 | `consolidate` | Kompression · Gedächtniskonsolidierung — stark ähnliche / synonyme Erinnerungen zu einer repräsentativen Erinnerung zusammenführen; Originale werden als `consolidated` markiert (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | Kompression · erweiterte Reflexion — Summen nach Typ / Ebene / Fakten-Typ / Konfidenz, Top-Entitäten, Faktenkonflikt-Erkennung, zeitliche Dichte; `deep=true` ergänzt die Erkennung kognitiver Muster |
 | `dedup` | Kompression · Deduplizierung — Duplikate und Fast-Duplikate über Inhaltsfingerabdruck + Vektor-/Termfrequenz-Ähnlichkeit erkennen; `dry_run=true` meldet nur |
+| `recall_health` | Rückruf-Qualitätsmetriken — only-read: Leerquote, Top1-Trend, Löschungen durch Relevanzschwelle, Konfidenzbänder, Latenz (read-only recall quality metrics) |
+| `capsule` | Gedächtnis zu Zeiger + Fakten + Atome komprimieren — verlustfrei und adressierbar (compress a memory into pointer + facts + atoms) |
+| `expand` | Originaltext eines Capsule wortgetreu zurückholen, mit Hash-Prüfung (recover a capsule's original text byte-for-byte) |
 | `session_summarize` | Sitzungszusammenfassung — sieben Elemente (Ziel / Randbedingungen / Entscheidungen / Offenes / Artefakte / Fehler / Präferenzen) |
 | `session_recall` | Zusammenfassungen und offene Punkte nach Sitzung oder Projekt abrufen |
 | `conflict_resolve` | Konfliktklassifikation und -auflösung (sechs Klassen, `dry_run` zuerst) |
@@ -203,6 +206,18 @@ Der MCP-Server stellt **40 Werkzeuge (40 tools)** bereit:
 | `code_change_record` | Code-Änderungsereignis festhalten (Absicht / Randbedingungen / verworfene Ansätze) |
 | `code_archaeology` | Änderungskette und Fallstricke zu einer Datei oder einem Symbol zurückverfolgen |
 | `memory_policy` | Sensitivitätsstufen und Quellenrichtlinien ansehen / setzen |
+| `profile_card` | Benutzerprofil-Karte — drei Ebenen (stabile Identität / Präferenzen & Randbedingungen / aktuelle Situation) + offene Punkte, direkt in einen System-Prompt einsetzbar |
+| `memory_inject` | Kontext-Injektions-Pipeline: Abfrage → vierfache Rückgewinnung → RRF-Fusion → Rerank → Injektion im Budget |
+| `recall_catalog` | Progressive Offenlegung, Katalog-Ebene: nur Titel + eine Zeile + Erweiterungskosten, nie der Volltext |
+| `expand_memory` | Progressive Offenlegung, Expansion: Volltext + einheitliche Hülle + Graph-Nachbarn + Evidenzkette |
+| `memory_envelope` | Einheitliche Gedächtnis-Hülle: acht Klassen + vierdimensionale Scope + Evidenzkette + Doppelzeitachse + TTL + SPO |
+| `memory_consolidate` | Drei Konsolidierungspfade: episodisch→semantisch, episodisch→prozedural, Fehlschlag→Negativgedächtnis; idempotent |
+| `memory_metrics` | Metriken: Chat (5) + Working (4) + Coding (4); unzureichende Daten geben `insufficient_data` statt 0 zurück |
+| `memory_cascade_delete` | Kaskadenlöschung: Quelle soft-löschen → abgeleitete Schlüsse invalidieren → Cache leeren → abhängige Zusammenfassungen stale setzen |
+| `memory_mask` | Maske: ersetzt den Text durch einen Platzhalter, behält aber das Rumpfskelett bei (KV-Cache bleibt nutzbar) |
+| `topic_summarize` | L3-Themenzusammenfassung: fasst mehrere L2-Sitzungszusammenfassungen eines Projekts zusammen |
+| `memory_trace` | Zeigerketten-Rückverfolgung: L3→L2→L1, mit Inhalt, abgedeckten Runden und `message_ids` |
+| `memory_hot_path` | Hot-Path-Puffer: `enable` aktiviert asynchrones Schreiben, `status` zeigt die Queue, `flush` wartet auf das Landen |
 | `add_memory` | Text oder Verlauf für einen Benutzer/Agenten speichern |
 | `search_memories` | Semantische Suche mit Filtern |
 | `get_memories` | Strukturierte Filter + seitenweise Liste |

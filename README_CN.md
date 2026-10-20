@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
+  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
   <a href="#-快速开始"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="零依赖"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
@@ -215,7 +215,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选，但建议设置
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**40 个工具** —— 29 个原生工具（其中 9 个是 8.1.0 新增的记忆形成层工具），
+**52 个工具** —— 41 个原生工具（其中 21 个是 8.1.0 新增：9 个记忆形成层 + 12 个记忆运行层），
 外加 11 个沿用通行 Agent 记忆工具命名的工具，
 已有的 MCP 客户端不必改写工具定义就能直接指向 Mnemosyne。
 
@@ -257,6 +257,23 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `code_change_record` | 记录变更事件：意图、约束、影响面、放弃的方案 |
 | `code_archaeology` | 代码考古 / 坑位预警（传 `intent` 即转为坑位检查） |
 | `memory_policy` | 敏感度判定、写入准入、存量高危记忆审计 |
+
+**原生 · 记忆运行层（12，v8.1.0 新增）：**
+
+| 工具 | 说明 |
+| --- | --- |
+| `profile_card` | 用户画像卡：三段分级（稳定身份 / 偏好与约束 / 当前情境）+ 未决事项，可直接拼进 system prompt。`max_tokens` 是硬上限——超预算按「情境→未决→偏好」逐段裁，绝不截断单条。 |
+| `memory_inject` | 上下文注入流水线：查询构造 → 四路召回 → RRF 融合 → 重排 → 预算内注入，返回可直接注入的 text 加四段配额账目。给模型准备上下文时比 `recall` 更合适。 |
+| `recall_catalog` | 渐进披露·目录层：只返回标题 + 一句话 + 展开成本，不返回正文。先看目录判断哪几条相关，再对 1~2 条调 `expand_memory`——注入成本从 O(全部) 降到 O(目录 + 少量)。 |
+| `expand_memory` | 渐进披露·展开：取一条记忆的正文 + 统一信封 + 图邻居 + 证据链。与 `recall_catalog` 配对；邻居来自知识图谱，所以「当时这个决定影响了哪些模块」是可回答的。 |
+| `memory_envelope` | 统一记忆信封：八类分类 + 四维 scope + 证据链 + 双时间轴 + TTL + SPO 结构。省略 `memory_id` 时返回全库八类分布统计。 |
+| `memory_consolidate` | 巩固三路径：情景→语义、情景→程序性、失败→负记忆。幂等——同一批源不会重复生成。 |
+| `memory_metrics` | 度量指标：Chat 5 项 + Working 4 项 + Coding 4 项。诚实原则——数据不足返回 `{value:null, status:"insufficient_data"}` 而不是填 0，0 和「没数据」是两件事。 |
+| `memory_cascade_delete` | 级联删除：软删原始 → 失效派生结论 → 清检索缓存 → 依赖摘要标 stale。`hard=true` 才物理删除；先跑 `dry_run=true` 看 dependents。 |
+| `memory_mask` | 掩码：把正文替换为占位符但保留记录骨架，保持上下文长度与前缀不变（不破坏 KV-Cache 复用）。用户说「别记这个」时优先用掩码。`action=unmask` 可撤销。 |
+| `topic_summarize` | L3 主题摘要：把同一 project 下的多条 L2 会话摘要合并成「这个项目现在处于什么状态」。合并规则确定性（goal 取最新、decisions 累积、pending 只留最新）。`persist=true` 落库并记录 `pointer.children`。 |
+| `memory_trace` | 指针链回溯：沿 L3→L2→L1 回溯，返回每层内容、覆盖的轮次区间与 `message_ids`。回答「这条结论是从哪句话来的」。 |
+| `memory_hot_path` | 热路径缓冲：`action=enable` 开启异步写入（热路径只入队）；`action=status` 查看队列与统计；`action=flush` 等队列落盘——写完立刻读之前必须 flush 的读一致性屏障。 |
 
 **客户端兼容（11）：**
 
@@ -387,7 +404,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # 控制台 + REST 宿主
     ├── api_routes.py    # /v1 /v2 /v3 路由
-    ├── mcp_server.py    # 29 个原生 MCP 工具（含 9 个记忆形成层工具）
+    ├── mcp_server.py    # 41 个原生 MCP 工具（含 21 个新增于 8.1.0）
     └── mcp_api.py       # 11 个客户端兼容 MCP 工具
 
 storage/                 # SQLite 后端、哈希链账本、插件 SDK

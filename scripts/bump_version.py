@@ -23,7 +23,7 @@ Usage::
 
     python scripts/bump_version.py --from 7.0.2 --to 8.0.0 --dry-run
     python scripts/bump_version.py --from 7.0.2 --to 8.0.0 --apply
-    python scripts/bump_version.py --from 8.0.0 --to 8.1.0 --tools 40 --apply
+    python scripts/bump_version.py --from 8.0.0 --to 8.1.0 --tools 52 --apply
 
 ``--tools`` is optional but recommended: the badge (``MCP-<n>%20Tools``) and the MCP
 tool-face heading (``MCP 工具面（<n> 个，``) carry a count that the version string

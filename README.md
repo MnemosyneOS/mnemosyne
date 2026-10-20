@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#-mcp-server"><img src="https://img.shields.io/badge/MCP-40%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="#-mcp-server"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="Zero dependencies"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
@@ -221,10 +221,10 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional, but recommended
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**40 tools** — twenty-nine native (nine of them new in 8.1.0, covering the memory
-formation layer), plus eleven that reuse the conventional
-agent-memory tool names, so an existing MCP client can be pointed at Mnemosyne
-without rewriting its tool definitions.
+**52 tools** — forty-one native (twenty-one of them new in 8.1.0: nine in the memory
+formation layer, twelve in the memory runtime layer), plus eleven that reuse the
+conventional agent-memory tool names, so an existing MCP client can be pointed at
+Mnemosyne without rewriting its tool definitions.
 
 **Native · retrieval & governance (20):**
 
@@ -264,6 +264,23 @@ without rewriting its tool definitions.
 | `code_change_record` | Record a change event: intent, constraints, impact, rejected approaches |
 | `code_archaeology` | Code archaeology / pitfall check (pass `intent` for pitfalls) |
 | `memory_policy` | Sensitivity classification, write admission, legacy audit |
+
+**Native · memory runtime layer (12, new in 8.1.0):**
+
+| Tool | Purpose |
+| --- | --- |
+| `profile_card` | User profile card: three tiers (stable identity / preferences & constraints / current situation) + open items, ready to splice into a system prompt. `max_tokens` is a hard cap — over-budget content is dropped by tier (situation → open → preferences), never mid-sentence. |
+| `memory_inject` | Context injection pipeline: query construction → four-path recall → RRF fusion → rerank → in-budget injection. Returns ready-to-inject text plus four quota ledgers. Prefer this over `recall` when you are preparing a prompt. |
+| `recall_catalog` | Progressive disclosure, catalog level: returns title + one line + expansion cost only, never the body. Decide which are relevant, then expand 1–2 with `expand_memory` — injection cost drops from O(everything) to O(catalog + a few). |
+| `expand_memory` | Progressive disclosure, expansion: one memory's body + unified envelope + graph neighbours + evidence chain. Pairs with `recall_catalog`; neighbours come from the knowledge graph, so "which modules did this decision affect" is answerable. |
+| `memory_envelope` | Unified memory envelope: eight-class typing + four-dimensional scope + evidence chain + dual time axis + TTL + SPO structure. Omit `memory_id` for a whole-library eight-class distribution. |
+| `memory_consolidate` | Three consolidation paths: episodic→semantic, episodic→procedural, failure→negative memory. Idempotent — the same source batch never generates twice. |
+| `memory_metrics` | Metrics: Chat (5) + Working (4) + Coding (4). Honest by design — insufficient data returns `{value:null, status:"insufficient_data"}` rather than 0, because 0 and "no data" are different things. |
+| `memory_cascade_delete` | Cascade delete: soft-delete the source → invalidate derived conclusions → clear the retrieval cache → mark dependent summaries stale. `hard=true` for physical delete; run `dry_run=true` first to see dependents. |
+| `memory_mask` | Mask: replace the body with a placeholder but keep the record skeleton, preserving context length and prefix so KV-Cache reuse is not broken. Prefer this over delete when the user says "don't keep this". `action=unmask` reverses it. |
+| `topic_summarize` | L3 topic summary: merge several L2 session summaries in one project into "where this project stands now". Merging is deterministic (goal newest, decisions accumulate, pending newest only). `persist=true` stores it and records `pointer.children`. |
+| `memory_trace` | Pointer-chain backtracking: walk L3→L2→L1, returning each layer's content, the turn ranges it covers and its `message_ids`. Answers "which sentence did this conclusion come from". |
+| `memory_hot_path` | Hot-path buffer: `action=enable` turns on async writes (the hot path only enqueues); `action=status` inspects the queue; `action=flush` waits for the queue to land — the read-consistency barrier you must pass before reading right after writing. |
 
 **Client-compatible (11):**
 
@@ -395,7 +412,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # console + REST host
     ├── api_routes.py    # /v1 /v2 /v3 routes
-    ├── mcp_server.py    # 29 native MCP tools (incl. 9 formation-layer tools)
+    ├── mcp_server.py    # 41 native MCP tools (incl. 21 new in 8.1.0)
     └── mcp_api.py       # 11 client-compatible MCP tools
 
 storage/                 # SQLite backend, hash-chained ledger, plugin SDK

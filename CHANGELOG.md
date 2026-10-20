@@ -13,7 +13,7 @@
 冲突只检测不消解且误报严重、没有任务与经验结构（一次投入无法复利）、
 没有代码演进记忆、没有敏感度分级（私密内容明文入库且会被正常召回）。
 
-8.1.0 补齐这五处，工具数 **31 → 40**，新增 5 个模块、9 个工具、2 篇设计文档，
+8.1.0 补齐这五处，工具数 **31 → 52**，新增 5 个模块、21 个工具、2 篇设计文档，
 且**不改变任何旧工具签名与旧数据格式**。
 
 验收：`python scripts/verify_v810.py` —— **40 项全通过**；
@@ -91,7 +91,7 @@
 
 `memory_policy(action="audit")` 可扫描存量，列出以 secret 级内容明文入库的条目。
 
-### 新增 —— 9 个 MCP 工具（31 → 40）
+### 新增 —— 21 个 MCP 工具（31 → 52）
 
 | 工具 | 用途 |
 |---|---|
@@ -104,6 +104,20 @@
 | `code_change_record` | 记录代码变更事件 |
 | `code_archaeology` | 代码考古 / 坑位预警 |
 | `memory_policy` | 敏感度判定、写入准入、存量审计 |
+| 工具 | 说明 |
+| --- | --- |
+| `profile_card` | 用户画像卡 —— 三段分级（稳定身份/偏好与约束/当前情境）+ 未决事项，可直接拼进 system prompt；超预算按「情境→未决→偏好」逐段裁，绝不截断单条 |
+| `memory_inject` | 上下文注入流水线 —— 查询构造→四路召回→RRF 融合→重排→预算内注入，返回可直接注入的 text + 四段配额账目 |
+| `recall_catalog` | 渐进披露·目录层 —— 只返回标题+一句话+展开成本，不返回正文；先看目录再对 1~2 条调 expand_memory |
+| `expand_memory` | 渐进披露·展开 —— 取一条记忆的正文 + 统一信封 + 图邻居 + 证据链 |
+| `memory_envelope` | 统一记忆信封 —— 八类分类 + 四维 scope + 证据链 + 双时间轴 + TTL + SPO 结构；省略 memory_id 返回全库八类分布 |
+| `memory_consolidate` | 巩固三路径 —— 情景→语义、情景→程序性、失败→负记忆；幂等 |
+| `memory_metrics` | 度量指标 —— Chat/Working/Coding 三域；数据不足返回 insufficient_data 而不是填 0 |
+| `memory_cascade_delete` | 级联删除 —— 软删原始→失效派生结论→清检索缓存→依赖摘要标 stale；hard=true 才物理删除 |
+| `memory_mask` | 掩码 —— 正文替换为占位符但保留记录骨架，不破坏 KV-Cache 复用；unmask 可撤销 |
+| `topic_summarize` | L3 主题摘要 —— 把同一 project 下多条 L2 会话摘要合并成项目当前状态；persist=true 落库并记录 pointer.children |
+| `memory_trace` | 指针链回溯 —— 沿 L3→L2→L1 回溯，返回每层内容、覆盖的轮次区间与 message_ids |
+| `memory_hot_path` | 热路径缓冲 —— enable 开启异步写入，status 查看队列，flush 等队列落盘（读一致性屏障） |
 
 ### 修复
 
