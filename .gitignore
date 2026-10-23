@@ -19,36 +19,23 @@ dist/
 *.egg-info/
 *.backup
 *.schemeA.backup
+~
 
 # 报告产物（HTML/截图/压缩包/个人邮件不提交）
 *.html
 *.png
 *.jpg
 *.zip
-arXiv_Endorsement_Email*.md
+*_Email*.md
 
 # 仓库资源目录（README banner 等必须入库）
 !assets/
 !assets/**
 
-# 旧文档
-AI Memory 系统白皮书.pdf
-AI Memory 系统白皮书（*.txt
-V2.0.0预测评.*
-记忆系统国际测评.txt
-Mnemosyne_论文_中文版.pdf
-Mnemosyne_v3.2_精华提炼报告.pdf
-skillhub_publish/
-~
-
 # ---------------------------------------------------------------------------
-# 运行期产物 —— 绝不入库（v8.0.0 补）
+# 运行期产物 —— 绝不入库
 # ---------------------------------------------------------------------------
-# 这些文件由程序在运行时生成，包含**凭据**或**真实记忆数据**。
-# 它们不属于源码，提交上去等于把控制台口令与用户记忆一起公开。
-#
-# web_config/users.json 是控制台账号库（口令哈希）—— v8.0.0 核对时发现它
-# 在本机存在且未被忽略，`git add -A` 会直接把它推上 GitHub。
+# 运行期生成的凭据与真实记忆数据绝不入库
 mnemosyne/webui/web_config/
 web_config/
 api_keys.json

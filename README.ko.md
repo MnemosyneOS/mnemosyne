@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,12 +48,32 @@
 <tr><td><b>다단계 기억</b></td><td>핫 / 웜 / 콜드 계층과 망각 경제학 — 가치가 낮은 기억을 마이그레이션하며, 절대 조용히 삭제하지 않습니다.</td></tr>
 <tr><td><b>해시 체인 원장</b></td><td>SHA-256 체인 원장 — <code>verify_chain()</code>이 위변조를 탐지하고 정확한 손상 기록을 찾아냅니다.</td></tr>
 <tr><td><b>플러그인 SDK</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> 및 공식 플러그인(<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP 서버</b></td><td>stdio JSON-RPC 기반 52개 도구, 토큰 인증 및 다중 테넌트 네임스페이스 격리 지원.</td></tr>
+<tr><td><b>MCP 서버</b></td><td>stdio JSON-RPC 기반 55개 도구, 토큰 인증 및 다중 테넌트 네임스페이스 격리 지원.</td></tr>
 <tr><td><b>웹 대시보드</b></td><td>외부 CDN 없이 <code>web_server.py</code>에서 제공되는 로컬 다크 대시보드(기술적 미감).</td></tr>
 <tr><td><b>비동기 API</b></td><td>고처리량 수집을 위한 <code>AsyncMemoryBrain</code> asyncio 래퍼.</td></tr>
 <tr><td><b>중국어 최적화</b></td><td>바이그램 토큰화 + FTS5 + 내장 동의어 사전.</td></tr>
 <tr><td><b>보안 공증</b></td><td>자격 증명, 보이지 않는 유니코드, HTML 인젝션을 탐지하고, 쓰기 전 필드 단위 마스킹을 수행합니다.</td></tr>
 </table>
+
+---
+
+## ☁️ Mnemosyne OS SaaS
+
+같은 엔진을 호스팅한 버전에 웹 콘솔을 더한 것입니다: **[ai-memory.net](https://ai-memory.net)**.
+호스팅 콘솔의 제품명은 **Mnemosyne OS SaaS** — 가입, API 키 생성, 기억 탐색, 구독 관리를 모두 그곳에서 합니다.
+
+| 요금제 | 가격 (USD) | 가격 (CNY) | 포함 내용 |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | 55개 MCP 도구 전부 사용 · 콜드 계층 기억 30일 회상 윈도 · 네임스페이스 1개 · 감사 윈도 7일 · 데이터는 삭제되지 않음 |
+| **Pro** | $6.9/월 · $69/년 | ¥9.9/월 · ¥99/년 | 콜드 계층 기억 영구 보관 · 네임스페이스 간 회상 · 감사 이력 무제한 · 전체 내보내기 |
+| **Team** | $19.9/시트/월 · $199/시트/년 | ¥29.9/시트/월 · ¥299/시트/년 | Pro의 모든 기능 · 다중 사용자 네임스페이스 · 팀 정책 · 감사 보고서 내보내기 (시트 단위 과금) |
+| **컴플라이언스 증명 패키지 (Compliance Add-on)** | $9.9/월 | ¥19.9/월 | Pro 또는 Team 위에 추가하는 선택 항목(독립 요금제가 아니며 연 결제는 없음): `verify_integrity` 정기 보고서, 삭제 증명 내보내기, 데이터 상주 위치 설정 |
+
+연 결제 = 10개월분을 내고 12개월 사용(약 16.7% 할인, Pro는 ¥8.25/월 상당).
+새 계정에는 **30일 Team 권한을 카드 등록 없이** 먼저 제공합니다 — 만료 후에는 Free로 영구히 남을 수 있습니다.
+USD는 PayPal 구독 자동 갱신(PayPal 안에서 언제든 해지 가능), CNY는 위챗 QR 코드 + 관리자 수동 확인으로 결제합니다.
+
+셀프 호스팅은 그대로 MIT이며 제한이 없습니다 — SaaS 라인은 서버를 직접 운영하고 싶지 않은 분을 위한 것입니다. 엔진은 완전히 동일하고, **오픈소스 버전에는 잠긴 기능이 없습니다**.
 
 ---
 
@@ -173,7 +193,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP 서버는 **52개 도구**를 제공합니다:
+MCP 서버는 **55개 도구**를 제공합니다:
 
 | 도구 | 설명 |
 | --- | --- |
@@ -190,6 +210,9 @@ MCP 서버는 **52개 도구**를 제공합니다:
 | `memory/export-v1` | 메모리 교환 프로토콜을 통한 내보내기. |
 | `memory/import-v1` | 메모리 교환 프로토콜을 통한 가져오기. |
 | `memory/claim` | 외부 내보내기에서 기억 가져오기. |
+| `memory_export-v1` | `memory/export-v1` 의 별칭 ("/"를 허용하지 않는 클라이언트용) |
+| `memory_import-v1` | `memory/import-v1` 의 별칭 ("/"를 허용하지 않는 클라이언트용) |
+| `memory_claim` | `memory/claim` 의 별칭 ("/"를 허용하지 않는 클라이언트용) |
 | `forget` | 기억 하나를 잊기 — 신뢰도를 0으로 설정하고 소프트 삭제 (`memory_id` 또는 자연어 `query` 허용) |
 | `consolidate` | 압축 엔진·기억 통합 — 매우 유사/동의어 기억을 하나의 대표 기억으로 병합하고 원본은 `consolidated`로 표시 (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | 압축 엔진·강화 성찰 — 총량, 유형/계층/사실 유형/신뢰도 분포, 상위 엔티티, 사실 충돌 탐지, 시간 밀도를 집계; `deep=true`는 인지 패턴 발견 추가 |
@@ -289,9 +312,6 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — 중국어 설명(중국어 README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — DeepSeek Harness 배포 (MCP 통합)
-- `docs/KNOWN_DEFECTS.md` — 8.1.0 메모리 스택에서 확인된 결함: 사실, 실측, 영향 및 수정
-- `docs/RECALL_STRATEGY.md` — 회상 메커니즘 및 턴별 주입 전략 평가
-- `docs/ACCEPTANCE_GUIDE.md` — 승인 가이드 (`scripts/verify_memory_lifecycle.py` 포함)
 - `docs/` — 전체 문서: 아키텍처, 데이터 모델, 모듈 문서, 플러그인 문서, API / CLI / MCP 참조, 배포, 통합
 - `COMPLIANCE.md` — HIPAA / 등보 / GDPR / PIPL 규정 준수 매핑
 - `comparison.md` — 대안 제품과의 기능 비교

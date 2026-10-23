@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,12 +48,32 @@
 <tr><td><b>ความจำแบบหลายระดับ</b></td><td>ชั้น hot / warm / cold พร้อมเศรษฐศาสตร์แห่งการลืม (forgetting economics) — ย้ายความจำที่มีค่าน้อยกว่าไปยังที่อื่น โดยไม่ลบทิ้งอย่างเงียบเชีย</td></tr>
 <tr><td><b>กระดาษบัญชีแบบโซ่แฮช</b></td><td>กระดาษบัญชีแบบโซ่ SHA-256 — <code>verify_chain()</code> ตรวจจับการแก้ไขผิดปกติและระบุบันทึกที่เสียหายได้อย่างแม่นยำ</td></tr>
 <tr><td><b>ชุดพัฒนาปลั๊กอิน</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> รวมถึงปลั๊กอินทางการ (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>)</td></tr>
-<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>52 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
+<tr><td><b>เซิร์ฟเวอร์ MCP</b></td><td>55 เครื่องมือผ่าน stdio JSON-RPC พร้อมการยืนยันตัวตนด้วยโทเค็น (token auth) และการแยกเนมสเปซแบบมัลติเทนแนนต์ (multi-tenant namespaces)</td></tr>
 <tr><td><b>แดชบอร์ดเว็บ</b></td><td>แดชบอร์ดสีเข้มแบบเทคโนโลยีบนเครื่อง (local dark dashboard) ไม่มี CDN ภายนอก — ให้บริการจาก <code>web_server.py</code></td></tr>
 <tr><td><b>API แบบอะซิงโครนัส</b></td><td>ตัวหุ้ม asyncio <code>AsyncMemoryBrain</code> สำหรับการนำเข้าข้อมูลปริมาณมาก</td></tr>
 <tr><td><b>ปรับให้เหมาะกับภาษาจีน</b></td><td>การแบ่งโทเค็นแบบบิแกรม (bigram tokenization) + FTS5 + พจนานุกรมคำเหมือนในตัว (built-in synonym dictionary)</td></tr>
 <tr><td><b>ฟังก์ชันผู้รับรองความปลอดภัย</b></td><td>ตรวจจับข้อมูลรับรอง, ยูนิโค้ดที่มองไม่เห็น และการแทรก HTML; ทำการปกปิดระดับฟิลด์ (field-level redaction) ก่อนเขียนลงไป</td></tr>
 </table>
+
+---
+
+## ☁️ Mnemosyne OS SaaS
+
+เอนจินเดียวกันในเวอร์ชันโฮสต์ พร้อมคอนโซลเว็บ: **[ai-memory.net](https://ai-memory.net)**
+คอนโซลเวอร์ชันโฮสต์มีชื่อผลิตภัณฑ์ว่า **Mnemosyne OS SaaS** — เป็นที่สำหรับสมัคร สร้างคีย์ API เรียกดูความจำ และจัดการการสมัครสมาชิก
+
+| แพ็กเกจ | ราคา (USD) | ราคา (CNY) | สิ่งที่ได้รับ |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | เครื่องมือ MCP ทั้ง 55 ตัว · หน้าต่างเรียกคืนความจำชั้นเย็น 30 วัน · เนมสเปซ 1 ชุด · หน้าต่างตรวจสอบ 7 วัน · ข้อมูลไม่ถูกลบ |
+| **Pro** | $6.9/เดือน · $69/ปี | ¥9.9/เดือน · ¥99/ปี | เก็บความจำชั้นเย็นแบบถาวร · เรียกคืนข้ามเนมสเปซ · ประวัติตรวจสอบไม่จำกัด · ส่งออกข้อมูลทั้งหมด |
+| **Team** | $19.9/ที่นั่ง/เดือน · $199/ที่นั่ง/ปี | ¥29.9/ที่นั่ง/เดือน · ¥299/ที่นั่ง/ปี | ทุกอย่างใน Pro · เนมสเปซแบบหลายผู้ใช้ · นโยบายของทีม · ส่งออกรายงานตรวจสอบ (คิดค่าบริการตามที่นั่ง) |
+| **แพ็กเกจรับรองการปฏิบัติตามข้อกำหนด (Compliance Add-on)** | $9.9/เดือน | ¥19.9/เดือน | รายการเสริมแบบเลือกได้บน Pro หรือ Team (ไม่ใช่ระดับแยกและไม่มีแบบรายปี): รายงาน `verify_integrity` ตามกำหนด, ส่งออกหลักฐานการลบ, ตั้งค่าที่ตั้งของข้อมูล |
+
+แบบรายปี = จ่าย 10 เดือน ใช้ 12 เดือน (ลดประมาณ 16.7% โดย Pro คิดเป็น ¥8.25/เดือน)
+บัญชีใหม่ทุกบัญชีได้รับ **สิทธิ์ Team 30 วันโดยไม่ต้องผูกบัตร** — เมื่อหมดอายุสามารถอยู่ใน Free ได้ตลอดไป
+USD ชำระผ่านการสมัครสมาชิก PayPal ที่ต่ออายุอัตโนมัติ (ยกเลิกได้ทุกเมื่อภายใน PayPal); CNY ชำระด้วย QR โค้ดของ WeChat + ผู้ดูแลยืนยันด้วยตนเอง
+
+การโฮสต์เองยังคงเป็น MIT และไม่มีข้อจำกัด — สาย SaaS มีไว้สำหรับผู้ที่ไม่ต้องการดูแลเซิร์ฟเวอร์เอง เอนจินเหมือนกันทุกประการ **ไม่มีฟังก์ชันใดถูกล็อกในเวอร์ชันโอเพนซอร์ส**
 
 ---
 
@@ -173,7 +193,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-เซิร์ฟเวอร์ MCP เปิดเผย **52 เครื่องมือ (tools)**:
+เซิร์ฟเวอร์ MCP เปิดเผย **55 เครื่องมือ (tools)**:
 
 | Tool | Description |
 | --- | --- |
@@ -190,6 +210,9 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `memory/export-v1` | ส่งออกผ่านโปรโตคอลการแลกเปลี่ยนความจำ |
 | `memory/import-v1` | นำเข้าผ่านโปรโตคอลการแลกเปลี่ยนความจำ |
 | `memory/claim` | เรียกร้องความจำจากการส่งออกภายนอก |
+| `memory_export-v1` | ชื่อแทนของ `memory/export-v1` สำหรับไคลเอนต์ที่ไม่รับ `/` ในชื่อเครื่องมือ |
+| `memory_import-v1` | ชื่อแทนของ `memory/import-v1` สำหรับไคลเอนต์ที่ไม่รับ `/` ในชื่อเครื่องมือ |
+| `memory_claim` | ชื่อแทนของ `memory/claim` สำหรับไคลเอนต์ที่ไม่รับ `/` ในชื่อเครื่องมือ |
 | `forget` | ลืมความจำหนึ่งรายการ — ตั้งค่าความเชื่อมั่นเป็น 0 และลบแบบซอฟต์ (รับ `memory_id` หรือ `query` ภาษาธรรมชาติ) |
 | `consolidate` | เอนจินบีบอัด·รวมความจำ — รวมความจำที่คล้ายกันมาก/มีความหมายเดียวกันเป็นความจำตัวแทนหนึ่งรายการ ความจำเดิมถูกทำเครื่องหมาย `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | เอนจินบีบอัด·สะท้อนคิดขั้นสูง — สรุปจำนวนตามประเภท/ชั้น/ประเภทข้อเท็จจริง/การกระจายความเชื่อมั่น, เอนทิตีที่พบบ่อย, ตรวจจับข้อขัดแย้งของข้อเท็จจริง, ความหนาแน่นเชิงเวลา; `deep=true` เพิ่มการค้นหารูปแบบทางปัญญา |
@@ -289,9 +312,6 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — คำอธิบายภาษาจีน (Chinese README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — ติดตั้งร่วมกับ DeepSeek Harness (ผ่าน MCP)
-- `docs/KNOWN_DEFECTS.md` — ข้อบกพร่องที่ยืนยันแล้วในหน่วยความจำเวอร์ชัน 8.1.0 พร้อมหลักฐานและการแก้ไข
-- `docs/RECALL_STRATEGY.md` — กลไกการเรียกคืนและกลยุทธ์การฉีดข้อมูลต่อรอบ
-- `docs/ACCEPTANCE_GUIDE.md` — คู่มือการตรวจรับ (พร้อม `scripts/verify_memory_lifecycle.py`)
 - `docs/` — เอกสารฉบับเต็ม: สถาปัตยกรรม, โมเดลข้อมูล, เอกสารโมดูล, เอกสารปลั๊กอิน, การอ้างอิง API / CLI / MCP, การติดตั้งใช้งาน, การบูรณาการ
 - `COMPLIANCE.md` — แผนที่การปฏิบัติตามมาตรฐาน HIPAA / 等保 / GDPR / PIPL
 - `comparison.md` — การเปรียบเทียบคุณสมบัตกับทางเลือกอื่น

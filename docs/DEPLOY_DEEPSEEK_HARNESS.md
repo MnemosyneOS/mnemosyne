@@ -223,13 +223,13 @@ mnemosyne init
 ### 4.2 冒烟测试（冒烟测试 = 快速验证"能跑通"的最小测试）
 
 ```powershell
-mnemosyne retain --content "测试记忆：我喜欢喝coffee"
+mnemosyne retain --content "测试记忆：我的工位在 3 楼靠窗"
 # 【这是什么】把一句话写入记忆库
 # 【为什么】验证"写入"通道正常
 ```
 
 ```powershell
-mnemosyne recall "coffee"
+mnemosyne recall "工位"
 # 【这是什么】按关键词从记忆库检索相关内容
 # 【为什么】验证"召回"通道正常，应能搜回刚才那句
 ```
@@ -353,7 +353,7 @@ C:\Users\你的用户名\.dsh\profiles\web\cordis.patch.yml
 
 > ⚠️ **三个易错点**：
 > 1. `command` 里路径的斜杠用 `/`（正斜杠），Windows 默认的 `\`（反斜杠）在某些场景会出问题
-> 2. 路径中的用户名（如 `<your-user>`）要替换成你自己的
+> 2. 路径中的用户名（如 `<你的用户名>`）要替换成你自己的
 > 3. 如果之前该文件已有内容（比如别的工具），**不要覆盖整份文件**，把上面这段**追加/合并**进已有的 `- insert:` 列表里
 
 ### 6.3 检查配置是否被 DSH 正确识别（不启动也能查）
@@ -455,7 +455,7 @@ Start-Process "http://127.0.0.1:3080"
 在 DSH 的**会话 A** 里输入：
 
 ```
-请记住：我的验证饮料是blue-739
+请记住：我的验证口令是 蓝色-739
 ```
 
 观察 AI 是否调用了 `mcp__mnemosyne__retain` 并返回成功。
@@ -465,15 +465,15 @@ Start-Process "http://127.0.0.1:3080"
 **新建**一个会话 B（模拟"隔天再来"），输入：
 
 ```
-我的验证饮料是什么？请查询记忆
+我的验证口令是什么？请查询记忆
 ```
 
-观察 AI 是否调用 `mcp__mnemosyne__recall` 并正确回答"blue-739"。
+观察 AI 是否调用 `mcp__mnemosyne__recall` 并正确回答"蓝色-739"。
 
 ### 8.3 通过命令行再交叉验证一次（可选，最严谨）
 
 ```powershell
-mnemosyne recall "blue"
+mnemosyne recall "蓝色"
 # 【这是什么】用命令行直接检索记忆库
 # 【为什么】如果命令行也能搜到，说明数据真实存在，AI 没在"编"
 ```
@@ -524,7 +524,7 @@ Get-Content "$env:USERPROFILE\.dsh\AGENTS.md"
 **新建一个会话**（旧会话不会重新加载规则），直接说：
 
 ```
-我喜欢喝coffee，家在杭州，做 AI 开源项目
+我喜欢手冲咖啡，家在杭州，做 AI 开源项目
 ```
 
 **不说"记住"**，看 AI 是否自动调用 `mcp__mnemosyne__retain`。然后新建会话问"我住在哪？"，看是否自动 `recall` 并答对。两条都过，你的"无感记忆"就完成了。
@@ -618,7 +618,7 @@ pause
 
 ```powershell
 mnemosyne retain --content "用户画像：我叫XX，在杭州，独立开发AI开源项目Mnemosyne，主力显卡RTX 4070"
-mnemosyne retain --content "用户偏好：喜欢喝茶（coffee/blue），偏好简洁直接的回复风格"
+mnemosyne retain --content "用户偏好：喜欢喝咖啡（手冲/美式），偏好简洁直接的回复风格"
 mnemosyne retain --content "项目背景：Mnemosyne定位为L1记忆缓存，纯Python零依赖无GPU"
 # 【这是什么】把三条画像信息批量写入记忆库
 # 【为什么】预置后 AI 需要时直接召回，不用你重新介绍

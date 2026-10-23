@@ -32,7 +32,7 @@
 |---|---|
 | A | an agent 的规则注入槽是 SOUL.md |
 | B | an agent 的记忆通道是云端 |
-| C | an agent 从 old version 升级到 new version |
+| C | an agent 从旧版本升级到新版本 |
 
 三条互不矛盾，描述同一个对象的不同侧面，却被判成一组冲突。
 
@@ -164,7 +164,7 @@ conflict_resolve(content="...", dry_run=False)
 
 | 用例 | 期望 |
 |---|---|
-| an agent 同实体不同方面 | 0 条 |
+| 同实体不同方面 | 0 条 |
 | 换公司（同属性不同值） | 1 条 `temporal_update`，动作 UPDATE |
 | 「安全」vs「不安全」 | 1 条 `logical_contradiction`，动作 KEEP_BOTH |
 | 不同 project | `scope_diff` |

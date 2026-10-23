@@ -133,7 +133,7 @@ def build_query(query: str, goal: str = "",
                 max_extra: int = 3) -> str:
     """① 查询构造。
 
-    单句查询是召回不准的第一大原因。the principle requires拼上三样：
+    单句查询是召回不准的第一大原因。该设计原则要求拼上三样：
 
     1. working memory 的 ``goal``（用户这次到底想达成什么）；
     2. 最近 3 轮对话（补足指代与省略）；

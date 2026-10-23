@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,12 +48,32 @@
 <tr><td><b>Memoria multinivel</b></td><td>Niveles caliente / tibio / frío con olvido económico — migra memorias de bajo valor, nunca las elimina silenciosamente.</td></tr>
 <tr><td><b>Libro de contabilidad de cadena hash</b></td><td>Libro de contabilidad encadenado SHA-256 — <code>verify_chain()</code> detecta manipulaciones y localiza el registro corrupto exacto.</td></tr>
 <tr><td><b>SDK de plugins</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + plugins oficiales (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>Servidor MCP</b></td><td>52 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
+<tr><td><b>Servidor MCP</b></td><td>55 herramientas sobre stdio JSON-RPC, con autenticación por token y espacios de nombres multiinquilino.</td></tr>
 <tr><td><b>Panel web</b></td><td>Panel local oscuro con estética tecnológica, sin CDN externo — servido desde <code>web_server.py</code>.</td></tr>
 <tr><td><b>API asíncrona</b></td><td><code>AsyncMemoryBrain</code> es un contenedor asyncio para ingesta de alto rendimiento.</td></tr>
 <tr><td><b>Optimizado para chino</b></td><td>Tokenización bigrama + FTS5 + diccionario de sinónimos integrado.</td></tr>
 <tr><td><b>Notario de seguridad</b></td><td>Detecta credenciales, Unicode invisible e inyección HTML; redacción a nivel de campo antes de escribir.</td></tr>
 </table>
+
+---
+
+## ☁️ Mnemosyne OS SaaS
+
+El mismo motor, alojado, con consola web: **[ai-memory.net](https://ai-memory.net)**.
+La consola alojada se llama **Mnemosyne OS SaaS** — ahí te registras, creas claves de API, exploras memorias y gestionas tu suscripción.
+
+| Plan | Precio (USD) | Precio (CNY) | Qué incluye |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | Las 55 herramientas MCP · ventana de recuperación de 30 días para la memoria fría · 1 espacio de nombres (namespace) · ventana de auditoría de 7 días · los datos nunca se borran |
+| **Pro** | $6.9/mes · $69/año | ¥9.9/mes · ¥99/año | Memoria fría permanente · recuperación entre espacios de nombres · historial de auditoría ilimitado · exportación completa |
+| **Team** | $19.9/asiento/mes · $199/asiento/año | ¥29.9/asiento/mes · ¥299/asiento/año | Todo lo de Pro · espacios de nombres multiusuario · políticas de equipo · exportación de informes de auditoría (facturación por asiento) |
+| **Complemento de cumplimiento (Compliance Add-on)** | $9.9/mes | ¥19.9/mes | Complemento opcional sobre Pro o Team (no es un nivel aparte y no tiene plan anual): informes periódicos de `verify_integrity`, exportación con prueba de borrado, configuración de residencia de datos |
+
+El plan anual = pagas 10 meses y usas 12 (≈16,7 % de descuento; Pro equivale a ¥8.25/mes).
+Cada cuenta nueva empieza con **30 días de acceso Team, sin tarjeta** — después puedes quedarte en Free para siempre.
+USD se cobra mediante una suscripción de PayPal con renovación automática (cancelable en cualquier momento dentro de PayPal); CNY se cobra con un código QR de WeChat + confirmación manual del administrador.
+
+El autohospedaje sigue siendo MIT y sin límites — la línea SaaS existe para quien prefiere no administrar un servidor. El motor es idéntico; **ninguna función está bloqueada en la versión de código abierto**.
 
 ---
 
@@ -173,7 +193,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-El servidor MCP expone **52 herramientas**:
+El servidor MCP expone **55 herramientas**:
 
 | Tool | Descripción |
 | --- | --- |
@@ -190,6 +210,9 @@ El servidor MCP expone **52 herramientas**:
 | `memory/export-v1` | Exporta vía el Protocolo de Intercambio de Memoria |
 | `memory/import-v1` | Importa vía el Protocolo de Intercambio de Memoria |
 | `memory/claim` | Reclama memorias desde una exportación externa |
+| `memory_export-v1` | Alias de `memory/export-v1` para clientes que rechazan `/` en los nombres de herramientas |
+| `memory_import-v1` | Alias de `memory/import-v1` para clientes que rechazan `/` en los nombres de herramientas |
+| `memory_claim` | Alias de `memory/claim` para clientes que rechazan `/` en los nombres de herramientas |
 | `forget` | Olvidar una memoria — fija la confianza en 0 y aplica borrado lógico (acepta `memory_id` o una `query` en lenguaje natural) |
 | `consolidate` | Compresión · consolidación de memoria — fusiona memorias muy similares / sinónimas en una memoria representativa; las originales se marcan como `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | Compresión · reflexión mejorada — totales por tipo / capa / tipo de hecho / confianza, entidades más frecuentes, detección de conflictos entre hechos y densidad temporal; `deep=true` añade descubrimiento de patrones cognitivos |
@@ -289,9 +312,6 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — Documentación en chino
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Despliegue con DeepSeek Harness (vía MCP)
-- `docs/KNOWN_DEFECTS.md` — Defectos confirmados en la pila de memoria 8.1.0, con evidencia y correcciones
-- `docs/RECALL_STRATEGY.md` — Mecánica de recuperación y estrategia de inyección por turno
-- `docs/ACCEPTANCE_GUIDE.md` — Guía de aceptación (con `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Documentación completa: arquitectura, modelo de datos, documentación de módulos, documentación de plugins, referencias de API / CLI / MCP, despliegue, integración
 - `COMPLIANCE.md` — Mapa de cumplimiento (HIPAA / 等保 / GDPR / PIPL)
 - `comparison.md` — Comparación de funciones con alternativas

@@ -8,7 +8,7 @@
 todo / lesson / belief / observation / strategy / reflective / web / identity /
 episodic / procedural），每种对应一个历史时期的用法。这带来两个后果：
 
-1. **分类无法治理**。the principle requires八类记忆各有独立的写入时机、检索触发与过期策略；
+1. **分类无法治理**。该设计原则要求八类记忆各有独立的写入时机、检索触发与过期策略；
    12 个 mtype 里 `preference` 和 `semantic` 的生命周期完全不同，却走同一套 TTL。
 2. **信封字段缺失**。principle的 envelope 有 `evidence`（证据链）、`t_invalid`
    （显式失效时间）、`ttl_days`、`structured`（SPO 三元组）、四维 `scope`。
@@ -249,7 +249,7 @@ def scope_of(record: Dict[str, Any]) -> Dict[str, str]:
     """四维命名空间。
 
     8.0.0 只有 namespace（等价 user 级）、project、session_id，**没有 agent 维度**。
-    the principle requires四维，因为「同一个用户在同一个项目下，被两个不同的 Agent 写入的记忆
+    该设计原则要求四维，因为「同一个用户在同一个项目下，被两个不同的 Agent 写入的记忆
     不应该互相污染」——这是多 Agent 协作场景的基本隔离要求。
 
     agent 维度从 ``meta.agent`` / ``tool_name`` / ``tags`` 里的 ``agent:<name>`` 取。

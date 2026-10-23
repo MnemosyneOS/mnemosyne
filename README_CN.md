@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
+  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
   <a href="#-快速开始"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="零依赖"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
@@ -31,7 +31,7 @@
 </p>
 
 **Mnemosyne OS 8.1.0** —— 零依赖、本地优先的 AI 记忆系统。自带图记忆、多模态摄入、
-重排、时序推理、哈希链审计账本、无损压缩，以及 52 个 MCP 工具（41 原生 + 11 客户端兼容）。
+重排、时序推理、哈希链审计账本、无损压缩，以及 55 个 MCP 工具（44 原生 + 11 客户端兼容）。
 
 8.1.0 补上了两层。**记忆形成层**：会话摘要、冲突消解、任务与经验、代码演进、敏感度治理——
 让系统不只「找得出记忆」，还能「把经历变成记忆」。**记忆运行层**：画像卡、上下文注入、
@@ -49,12 +49,14 @@
 同一个引擎，托管版，带 Web 面板：**[ai-memory.net](https://ai-memory.net)**。
 托管面板的产品名就叫 **Mnemosyne OS SaaS** —— 注册、建密钥、浏览记忆、管理订阅都在那里。
 
-| 档位 | 价格 | 内容 |
-|---|---|---|
-| **Free** | $0 | 55 个 MCP 工具全开 · 冷层记忆 30 天召回窗口 · 1 个命名空间 · 审计窗口 7 天 |
-| **Pro** | $6.9/月 · $69/年 | 永久冷层记忆 · 跨命名空间召回 · 审计历史无限制 · 全量导出 |
-| **Team** | $19.9/席位/月 · $199/席位/年 | Pro 全部能力 · 多用户命名空间 · 团队记忆策略 · 审计报告导出 |
-| **合规证明包** | $9.9/月 | Pro / Team 之上的可选加购：verify_integrity 定期报告、删除证明导出、数据驻留配置 |
+| 档位 | 价格（USD） | 价格（CNY） | 内容 |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | 55 个 MCP 工具全开 · 冷层记忆 30 天召回窗口 · 1 个命名空间 · 审计窗口 7 天 |
+| **Pro** | $6.9/月 · $69/年 | ¥9.9/月 · ¥99/年 | 永久冷层记忆 · 跨命名空间召回 · 审计历史无限制 · 全量导出 |
+| **Team** | $19.9/席位/月 · $199/席位/年 | ¥29.9/席位/月 · ¥299/席位/年 | Pro 全部能力 · 多用户命名空间 · 团队记忆策略 · 审计报告导出 |
+| **合规证明包** | $9.9/月 | ¥19.9/月 | **只有月付。** Pro / Team 之上的可选加购（非独立层级）：verify_integrity 定期报告、删除证明导出、数据驻留配置 |
+
+年付为「**付 10 个月用 12 个月**」（约 16.7% off，折合 ¥8.25/月）。
 
 每个新账号先送 **30 天 Team 权益，无需绑卡** —— 到期后可以永久留在 Free，
 或升级保住全部记忆。美元走 PayPal 订阅自动续费（随时可在 PayPal 内取消）；
@@ -237,11 +239,11 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选，但建议设置
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**52 个工具** —— 41 个原生工具（其中 21 个是 8.1.0 新增：9 个记忆形成层 + 12 个记忆运行层），
+**55 个工具** —— 44 个原生工具（其中 21 个是 8.1.0 新增：9 个记忆形成层 + 12 个记忆运行层），
 外加 11 个沿用通行 Agent 记忆工具命名的工具，
 已有的 MCP 客户端不必改写工具定义就能直接指向 Mnemosyne。
 
-**原生 · 检索与治理（20）：**
+**原生 · 检索与治理（23）：**
 
 | 工具 | 说明 |
 | --- | --- |
@@ -265,6 +267,9 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `memory/export-v1` | 按 Memory Exchange Protocol 导出 |
 | `memory/import-v1` | 按 Memory Exchange Protocol 导入 |
 | `memory/claim` | 从外部导出接管记忆 |
+| `memory_export-v1` | `memory/export-v1` 的别名（供不接受 `/` 的客户端使用） |
+| `memory_import-v1` | `memory/import-v1` 的别名（供不接受 `/` 的客户端使用） |
+| `memory_claim` | `memory/claim` 的别名（供不接受 `/` 的客户端使用） |
 
 **原生 · 记忆形成层（9，v8.1.0 新增）：**
 
@@ -426,7 +431,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # 控制台 + REST 宿主
     ├── api_routes.py    # /v1 /v2 /v3 路由
-    ├── mcp_server.py    # 41 个原生 MCP 工具（含 21 个新增于 8.1.0）
+    ├── mcp_server.py    # 44 个原生 MCP 工具（含 21 个新增于 8.1.0）
     └── mcp_api.py       # 11 个客户端兼容 MCP 工具
 
 storage/                 # SQLite 后端、哈希链账本、插件 SDK
@@ -452,9 +457,6 @@ python scripts/verify_recall_quality.py       # 端到端召回质量
 ## 📚 文档
 
 - [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) —— 通行的 Agent 记忆调用形态
-- [docs/ACCEPTANCE_GUIDE.md](docs/ACCEPTANCE_GUIDE.md) —— 验收判据及对应脚本
-- [docs/RECALL_STRATEGY.md](docs/RECALL_STRATEGY.md) —— 召回如何组装与预算
-- [docs/KNOWN_DEFECTS.md](docs/KNOWN_DEFECTS.md) —— 已确证缺陷，含实测与修法
 - [docs/DEPLOY_DEEPSEEK_HARNESS.md](docs/DEPLOY_DEEPSEEK_HARNESS.md) —— MCP 部署实操
 - [CHANGELOG.md](CHANGELOG.md) —— 版本历史
 

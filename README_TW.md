@@ -12,7 +12,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="授權: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
@@ -25,7 +25,7 @@
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.1.0** —— 零依賴 (zero-dependency)、本地優先 (local-first) 的 AI 記憶系統。自帶圖記憶 (graph memory)、多模態攝入 (multimodal ingestion)、重排 (rerank)、時序推理 (temporal reasoning)、哈希鏈審計賬本 (hash-chain audit ledger)、無損壓縮 (lossless compression)，以及 52 個 MCP 工具 (41 原生 + 11 用戶端兼容)。
+**Mnemosyne OS 8.1.0** —— 零依賴 (zero-dependency)、本地優先 (local-first) 的 AI 記憶系統。自帶圖記憶 (graph memory)、多模態攝入 (multimodal ingestion)、重排 (rerank)、時序推理 (temporal reasoning)、哈希鏈審計賬本 (hash-chain audit ledger)、無損壓縮 (lossless compression)，以及 55 個 MCP 工具 (41 原生 + 11 用戶端兼容)。
 
 8.1.0 補上了兩層。**記憶形成層 (memory formation layer)**：會話摘要 (session summary)、衝突消解 (conflict resolution)、任務與經驗 (tasks & playbooks)、代碼演進 (code evolution)、敏感度治理 (sensitivity policy)——讓系統不只「找得出記憶」，還能「把經歷變成記憶」。**記憶運行層 (memory runtime layer)**：畫像卡 (profile card)、上下文注入 (context injection)、漸進披露 (progressive disclosure)、鞏固 (consolidation)、度量 (metrics)、遮罩 (mask)、級聯刪除 (cascade delete)——為模型組裝合適的上下文，並管理記憶的生命週期。
 
@@ -117,6 +117,26 @@ curl -X POST http://127.0.0.1:8788/v3/memories/add/ \
 
 ---
 
+## ☁️ Mnemosyne OS SaaS
+
+同一個引擎，託管版，附 Web 控制台：**[ai-memory.net](https://ai-memory.net)**。
+託管控制台的產品名就叫 **Mnemosyne OS SaaS** —— 註冊、建立 API 金鑰、瀏覽記憶、管理訂閱都在那裡。
+
+| 方案 | 價格（USD） | 價格（CNY） | 內容 |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | 55 個 MCP 工具全開 · 冷層記憶 30 天召回視窗 · 1 個命名空間 (namespace) · 審計視窗 7 天 · 資料永不刪除 |
+| **Pro** | $6.9/月 · $69/年 | ¥9.9/月 · ¥99/年 | 永久冷層記憶 · 跨命名空間召回 · 審計歷史無限制 · 全量匯出 |
+| **Team** | $19.9/席位/月 · $199/席位/年 | ¥29.9/席位/月 · ¥299/席位/年 | Pro 全部能力 · 多使用者命名空間 · 團隊記憶策略 · 審計報告匯出（按席位計費） |
+| **合規證明包 (Compliance Add-on)** | $9.9/月 | ¥19.9/月 | Pro / Team 之上的加購項（不是獨立層級，不提供年付）：`verify_integrity` 定期報告、刪除證明匯出、資料駐留配置 |
+
+年付 = 付 10 個月用 12 個月（約 16.7% off，Pro 折合 ¥8.25/月）。
+每個新帳號先送 **30 天 Team 權益，無需綁卡** —— 到期後可以永久留在 Free。
+美元走 PayPal 訂閱自動續費（隨時可在 PayPal 內取消）；人民幣走微信收款碼 + 管理員人工確認。
+
+自部署永遠是 MIT、不設限 —— SaaS 線只是給「不想自己跑伺服器」的人準備的。引擎完全一致，**開源版沒有任何功能被鎖**。
+
+---
+
 ## 📊 基準測試
 
 用倉庫內隨套件交付的複現腳本實測得出。複現腳本：`scripts/verify_recall_quality.py`、`scripts/verify_precision_recall.py`。
@@ -204,9 +224,9 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可選，但建議設定
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**52 個工具** —— 41 個原生工具（其中 21 個是 8.1.0 新增：9 個記憶形成層 + 12 個記憶執行層），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
+**55 個工具** —— 41 個原生工具（其中 21 個是 8.1.0 新增：9 個記憶形成層 + 12 個記憶執行層），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
 
-**原生 · 檢索與治理（20）：**
+**原生 · 檢索與治理（23）：**
 
 | 工具 | 說明 |
 | --- | --- |
@@ -230,6 +250,9 @@ python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 | `memory/export-v1` | 依 Memory Exchange Protocol 匯出 |
 | `memory/import-v1` | 依 Memory Exchange Protocol 匯入 |
 | `memory/claim` | 認領外部匯出的記憶 |
+| `memory_export-v1` | `memory/export-v1` 的別名（供不接受 `/` 的用戶端使用） |
+| `memory_import-v1` | `memory/import-v1` 的別名（供不接受 `/` 的用戶端使用） |
+| `memory_claim` | `memory/claim` 的別名（供不接受 `/` 的用戶端使用） |
 
 **原生 · 記憶形成層（9，v8.1.0 新增）：**
 
@@ -394,7 +417,7 @@ mnemosyne/
 storage/                 # SQLite 後端、哈希鏈賬本、外掛 SDK
 security/                # 矛盾偵測、安全報告
 scripts/                 # 驗收腳本
-docs/                    # 驗收principle、召回策略、相容說明
+docs/                    # 相容說明
 ```
 
 ---
@@ -414,9 +437,6 @@ python scripts/verify_recall_quality.py       # 端到端召回品質
 ## 📚 文件
 
 - [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) —— 通行的 Agent 記憶呼叫形態
-- [docs/ACCEPTANCE_GUIDE.md](docs/ACCEPTANCE_GUIDE.md) —— 驗收判準及對應腳本
-- [docs/RECALL_STRATEGY.md](docs/RECALL_STRATEGY.md) —— 召回如何組裝與預算
-- [docs/KNOWN_DEFECTS.md](docs/KNOWN_DEFECTS.md) —— 已確證缺陷，含實測與修法
 - [docs/DEPLOY_DEEPSEEK_HARNESS.md](docs/DEPLOY_DEEPSEEK_HARNESS.md) —— MCP 部署實操
 - [CHANGELOG.md](CHANGELOG.md) —— 版本歷史
 

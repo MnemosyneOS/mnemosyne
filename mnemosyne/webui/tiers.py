@@ -8,28 +8,29 @@
    `notary.py` 是记忆引擎核心，门控一律在**出口**做（结果投影层过滤），
    不改检索参数、不改 SQL、不改存储。这样即使门控逻辑写错，最坏情况是
    "少返回几条"，而不是"记忆被删 / 索引被污染"。
-2. **两个入口共用一份规则**：`mcp_server.py`（41 个原生工具）与
+2. **两个入口共用一份规则**：`mcp_server.py`（原生工具）与
    `mcp_api.py`（11 个客户端兼容工具）必须给出**完全一致**的判定，
    否则用户会看到"同一个概念，换个工具名就绕过限制"。
 3. **自部署默认关闭**：`MNEMOSYNE_TIER_GATE=1` 才生效。PyPI / 本地用户
-   没有 SaaS 账号，默认行为必须与 8.1.0 完全一致 —— 这是「本地优先、
-   zero-dependency」承诺的一部分。云端 Fly 部署在 fly.toml 显式开启。
+   没有托管版账号，默认行为必须与 8.1.0 完全一致 —— 这是「本地优先、
+   zero-dependency」承诺的一部分。托管部署在外层配置里显式开启。
 
-定价条款对照
-──────────────────────────────────
-    Free  : $0        冷层 30 天窗口 / 审计 7 天 / 单 namespace
-    Pro   : $6.9/月   $69/年   永久冷层 / 跨 ns / 无限审计 / 全量导出
-    Team  : $19.9/月/席位      同 Pro + 多席位 / 团队策略 / 审计报告导出
+定价条款对照（与 https://ai-memory.net/api/pricing 一致）
+──────────────────────────────────────────────────────
+    Free  : $0 / ¥0     冷层 30 天窗口 / 审计 7 天 / 单 namespace
+    Pro   : $6.9/月  $69/年   ¥9.9/月  ¥99/年
+    Team  : $19.9/月/席位  $199/年/席位  ¥29.9/月/席位  ¥299/年/席位
+    Add-on: $9.9/月  ¥19.9/月（加购项，仅月付，非独立层级）
 
 「冷层窗口」的精确语义（**不是**按 created_at 一刀切）
 ──────────────────────────────────────────────────────
-Design note:「冷层记忆仅返回 created_at > now() - 30d 的条目；不要过滤热层和温层，
+设计口径：「冷层记忆仅返回 created_at > now() - 30d 的条目；不要过滤热层和温层，
 只对冷层施加时间窗口。」
 
 所以判定是**两个条件的合取**：
     tier == "cold"  AND  created_at < cutoff   →  排除
 热层（hot）/ 温层（warm）无论多老都保留 —— 它们代表"用户还在用"的记忆，
-砍掉它们等于惩罚活跃用户，与trial period"先让用户感受到价值"的策略直接冲突。
+砍掉它们等于惩罚活跃用户。
 
 时间格式陷阱（实测 2026-10-23）
 ──────────────────────────────
@@ -97,9 +98,9 @@ TIER_ORDER = {"free": 0, "pro": 1, "team": 2}
 # ---------------------------------------------------------------------------
 # 2. 工具分类（按类别门控，不逐个工具判断）
 # ---------------------------------------------------------------------------
-# The design requires「按工具类别执行（不是逐个工具判断）」。这里给出三个受门控的类别；
+# 门控按工具类别执行（不是逐个工具判断）。这里给出三个受门控的类别；
 # 未列出的工具（写入类 / 形成与巩固类）一律无限制放行 —— 这是**刻意**的：
-# trial period要让人写得进去，才可能被窗口摩擦到。
+# 写入通道永远开放，收费层级只收窄读取窗口，不阻止用户把数据写进来。
 
 # 召回类：受冷层时间窗口 + 跨 namespace 限制
 RECALL_TOOLS = frozenset({
@@ -146,8 +147,7 @@ GATED_TOOLS = RECALL_TOOLS | AUDIT_TOOLS | EXPORT_TOOLS
 def gate_enabled() -> bool:
     """门控总开关。默认 **False** —— 自部署 / PyPI 用户行为不变。
 
-    PROMO_STRATEGY: trial period靠"用得爽"acquisition，绝不因为门控误判把本地用户拦死。
-    云端在 fly.toml 里显式设 MNEMOSYNE_TIER_GATE=1。
+    托管部署在部署配置里显式设 MNEMOSYNE_TIER_GATE=1。
     """
     return str(os.environ.get("MNEMOSYNE_TIER_GATE") or "").strip().lower() in (
         "1", "true", "yes", "on")
@@ -156,9 +156,9 @@ def gate_enabled() -> bool:
 def resolve_tier(user_context=None) -> str:
     """确定本次调用的层级。
 
-    优先级（**每次请求实时解析，不缓存** —— the design requirement 明确要求）：
-      1. user_context['tier']（由 8789 控制台经内部头下发，最可信）
-      2. 环境变量 MNEMOSYNE_DEFAULT_TIER（网关兜底）
+    优先级（**每次请求实时解析，不缓存**）：
+      1. user_context['tier']（由网关层经内部头下发，最可信）
+      2. 环境变量 MNEMOSYNE_DEFAULT_TIER（兜底）
       3. "free"（fail-closed：拿不到身份时按最低权限）
 
     ⚠️ 绝不读 token 内嵌 tier：token 是共享的，且客户端可伪造请求体。
@@ -248,7 +248,7 @@ def is_excluded_by_window(record, tier: str, window_days) -> bool:
         return False
     if not isinstance(record, dict):
         return False
-    # 只有冷层受窗口约束（the design requirement 明文要求，不可扩大）
+    # 只有冷层受窗口约束（口径固定，不可扩大）
     if str(record.get("tier") or "hot").strip().lower() != "cold":
         return False
     created = _parse_created(record.get("created_at"))
@@ -270,8 +270,8 @@ def check_tier_gate(tool_name: str, params=None, user_context=None):
     ⚠️ 注意：本函数**只做「能不能调」**的判断，不做结果过滤。
     召回/审计/导出的窗口收窄是**出口过滤**（见下面三个 filter_*），
     因为它们必须是"少返回几条"，而不是"整个工具报错"——
-    报错会让 Agent 以为记忆系统坏了，从而放弃使用；少返回几条则表现为
-    "记忆变淡了"，这正是trial period想要的windowing effect。
+    报错会让 Agent 以为记忆系统坏了，从而放弃使用；少返回几条才是
+    Free 层的正确表现，数据本身一条都不会被删除。
 
     目前只有一种硬拒绝：Free 层跨 namespace 访问。
     """

@@ -24,7 +24,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README_CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
@@ -48,12 +48,32 @@
 <tr><td><b>Многоуровневая память</b></td><td>Уровни hot / warm / cold с экономикой забывания — малозначимые воспоминания переносятся, но никогда не удаляются молча.</td></tr>
 <tr><td><b>Хеш-цепочечный реестр</b></td><td>Реестр на основе цепочки SHA-256 — <code>verify_chain()</code> обнаруживает подделку и указывает точную повреждённую запись.</td></tr>
 <tr><td><b>SDK плагинов</b></td><td><code>VectorBackendPlugin</code> / <code>CryptoPlugin</code> / <code>RerankerPlugin</code> + официальные плагины (<code>numpy_vector</code>, <code>crypto</code>, <code>reranker</code>, <code>hrr</code>, <code>async</code>, <code>context-engine</code>).</td></tr>
-<tr><td><b>MCP-сервер</b></td><td>52 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
+<tr><td><b>MCP-сервер</b></td><td>55 инструментов поверх stdio JSON-RPC с токен-аутентификацией и многопользовательскими пространствами имён.</td></tr>
 <tr><td><b>Веб-панель управления</b></td><td>Локальная тёмная панель в технологичном стиле без внешних CDN — обслуживается из <code>web_server.py</code>.</td></tr>
 <tr><td><b>Асинхронный API</b></td><td><code>AsyncMemoryBrain</code> — обёртка asyncio для высокопроизводительного приёма данных.</td></tr>
 <tr><td><b>Оптимизация для китайского</b></td><td>Биграммная токенизация + FTS5 + встроенный словарь синонимов.</td></tr>
 <tr><td><b>Нотариус безопасности</b></td><td>Обнаруживает учётные данные, невидимый Unicode и HTML-инъекции; полеуровневое сокрытие чувствительных данных перед записью.</td></tr>
 </table>
+
+---
+
+## ☁️ Mnemosyne OS SaaS
+
+Тот же движок, но в хостинговом варианте, с веб-консолью: **[ai-memory.net](https://ai-memory.net)**.
+Продукт называется **Mnemosyne OS SaaS** — именно там вы регистрируетесь, создаёте API-ключи, просматриваете воспоминания и управляете подпиской.
+
+| Тариф | Цена (USD) | Цена (CNY) | Что входит |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | Все 55 инструментов MCP · 30-дневное окно поиска по холодному слою памяти · 1 пространство имён (namespace) · окно аудита 7 дней · данные никогда не удаляются |
+| **Pro** | $6.9/мес · $69/год | ¥9.9/мес · ¥99/год | Постоянное хранение холодного слоя · поиск между пространствами имён · неограниченная история аудита · полный экспорт |
+| **Team** | $19.9/место/мес · $199/место/год | ¥29.9/место/мес · ¥299/место/год | Всё из Pro · многопользовательские пространства имён · командные политики · экспорт отчётов аудита (оплата за место) |
+| **Пакет подтверждения соответствия (Compliance Add-on)** | $9.9/мес | ¥19.9/мес | Необязательная докупка к Pro или Team (не отдельный тариф, годовой оплаты нет): регулярные отчёты `verify_integrity`, экспорт с подтверждением удаления, настройка места хранения данных |
+
+Годовая оплата = платите за 10 месяцев, пользуетесь 12 (скидка ≈16,7 %; Pro — это ¥8.25/мес).
+Каждый новый аккаунт получает **30 дней доступа Team без привязки карты** — после этого можно навсегда остаться на Free.
+USD списывается через подписку PayPal с автопродлением (отменить можно в любой момент внутри PayPal); CNY — по QR-коду WeChat с ручным подтверждением администратора.
+
+Самостоятельный хостинг по-прежнему под MIT и без ограничений — линия SaaS существует для тех, кто не хочет держать собственный сервер. Движок полностью идентичен, **в открытой сборке ни одна функция не заблокирована**.
 
 ---
 
@@ -173,7 +193,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional token auth
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-MCP-сервер предоставляет **52 инструментов**:
+MCP-сервер предоставляет **55 инструментов**:
 
 | Инструмент | Описание |
 | --- | --- |
@@ -190,6 +210,9 @@ MCP-сервер предоставляет **52 инструментов**:
 | `memory/export-v1` | Экспорт через Memory Exchange Protocol |
 | `memory/import-v1` | Импорт через Memory Exchange Protocol |
 | `memory/claim` | Получить воспоминания из внешнего экспорта |
+| `memory_export-v1` | Псевдоним `memory/export-v1` для клиентов, не принимающих `/` в именах инструментов |
+| `memory_import-v1` | Псевдоним `memory/import-v1` для клиентов, не принимающих `/` в именах инструментов |
+| `memory_claim` | Псевдоним `memory/claim` для клиентов, не принимающих `/` в именах инструментов |
 | `forget` | Забыть воспоминание — уверенность становится 0 и выполняется мягкое удаление (принимает `memory_id` или `query` на естественном языке) |
 | `consolidate` | Движок сжатия · консолидация памяти — объединяет сильно похожие / синонимичные воспоминания в одно репрезентативное; исходные помечаются `consolidated` (`min_similarity`, `max_group`, `generate_summary`, `dry_run`) |
 | `reflect` | Движок сжатия · расширенная рефлексия — итоги по типу / слою / типу факта / уверенности, частые сущности, обнаружение конфликтов фактов, временная плотность; `deep=true` добавляет поиск когнитивных паттернов |
@@ -289,9 +312,6 @@ python -m unittest tests.test_plugins -v
 
 - `README_CN.md` — описание на китайском (китайское README)
 - `docs/DEPLOY_DEEPSEEK_HARNESS.md` — Развёртывание с DeepSeek Harness (через MCP)
-- `docs/KNOWN_DEFECTS.md` — Подтверждённые дефекты стека памяти 8.1.0: факты, измерения, влияние и исправления
-- `docs/RECALL_STRATEGY.md` — Механика поиска и стратегия инъекции на каждом ходу
-- `docs/ACCEPTANCE_GUIDE.md` — Руководство по приёмке (со `scripts/verify_memory_lifecycle.py`)
 - `docs/` — Полная документация: архитектура, модель данных, документация по модулям, плагинам, справочники API / CLI / MCP, развёртывание, интеграция
 - `COMPLIANCE.md` — соответствие HIPAA / 等保 / GDPR / PIPL
 - `comparison.md` — сравнение возможностей с аналогами

@@ -5,7 +5,7 @@
 这一版补的是**记忆形成层**。
 
 8.0.0 把「检索」做到了国际一流水准——五路融合、预算召回、相关性下限、胶囊压缩、
-记忆交换协议。但对照industry practice逐项实测后发现一个结构性偏斜：
+记忆交换协议。但对照业界通行的记忆系统设计原则逐项实测后发现一个结构性偏斜：
 
 > **8.0.0 擅长「把记忆找出来」，不擅长「把经历变成记忆」。**
 
@@ -321,7 +321,7 @@ hits = m.search("what does alice prefer?", filters={"user_id": "alice"})
 | `verify.py` | ✅ exit 0（两树一致） |
 | `scripts/verify_memory_lifecycle.py` | ✅ 失败项 0（两树一致） |
 | `scripts/verify_precision_recall.py` | ✅ 失败项 0（两树一致） |
-| `scripts/verify_recall_quality.py` | 2 项失败 —— **两棵树完全相同**（本机未运行 qdrant + 胶囊缓存命中率），既有环境问题，非本次引入 |
+| `scripts/verify_recall_quality.py` | 2 项失败 —— **两棵树完全相同**（未运行 qdrant + 胶囊缓存命中率），既有环境问题，非本次引入 |
 
 ### 向后兼容
 
@@ -561,8 +561,7 @@ hits = m.search("what does alice prefer?", filters={"user_id": "alice"})
   （都是小标量，内存影响可忽略），并在文件里注明两处必须同步。
   *（7.0.2 实测确证：投影已带出 `superseded_by=<新记忆id>`。此前验收脚本误报"未修"的原因，
   见下方"验收"一节的修订说明。）*
-- **文档版本号残留**：`docs/DEPLOY_DEEPSEEK_HARNESS.md` 与 `deploy-to-github.md` 里残留的
-  `7.0.0` 订正，作者本机私有路径换成通用占位符。
+- **文档版本号残留**：对外文档里残留的 `7.0.0` 已逐处订正，私有路径换成通用占位符。
 - **`MCP 13 Tools` 计数**：逐版订正为 **20 Tools**（7.0.1 起 `forget` 入库，7.0.2 增
   `recall_health` / `capsule` / `expand`）。
 
@@ -572,7 +571,7 @@ hits = m.search("what does alice prefer?", filters={"user_id": "alice"})
   原子守恒（含 `6333`/`1024`/`bge-m3`/`gpt-4o`/`cn-hangzhou` 这类**取值与身份标识**）、
   零幻觉（抽取式）、无损可逆（逐字往返 + 哈希校验）、预算诚实与分档、
   相关性下限、跨调用隔离、写入去重的原子硬约束、分层阶梯确实产生多档。
-  它是改代码后的第一道预检（见 `docs/ACCEPTANCE_GUIDE.md` 第 8 节与文末分工说明）。
+  它是改代码后的第一道预检。
 - `scripts/verify_memory_lifecycle.py` 断言 21 → **35 项，全部通过**（真实 Qdrant + BGE-M3
   向量栈）。新增第 6 节 **AIC 胶囊验收** + 「无关查询受下限约束」+「原文超预算时确实发生
   分层降级」。实测：`capsule(budget=40)` 对 73 token 的原文产出 `level=pointer`、
@@ -637,10 +636,10 @@ hits = m.search("what does alice prefer?", filters={"user_id": "alice"})
   持久**的向量索引；内置熔断器、代理绕过、`warmup()` 预建集合与 `health()` 诊断。
   见 `docs/plugins/qdrant.md`。
 - **文档与脚本**：
-  - `docs/KNOWN_DEFECTS.md` —— 11 项已确证缺陷，逐项给出事实、实测证据、影响面与修法。
-  - `docs/RECALL_STRATEGY.md` —— 召回通路拓扑、四路打分构成、语义候选召回与
+  - 缺陷清单 —— 11 项已确证缺陷，逐项给出事实、实测证据、影响面与修法。
+  - 召回策略 —— 召回通路拓扑、四路打分构成、语义候选召回与
     "每轮召回"的代价评估。
-  - `docs/ACCEPTANCE_GUIDE.md` —— 验收principle：握手与工具面、子进程环境逐键对齐、
+  - 验收principle —— 握手与工具面、子进程环境逐键对齐、
     冷热延迟预算、命名空间隔离、审计链、生命周期闭环、假失败速查。
   - `scripts/verify_memory_lifecycle.py` —— 参数化的 21 项断言生命周期验收脚本。
 
@@ -700,5 +699,5 @@ Mnemosyne 7.0.0 正式版。核心为**零依赖、本地优先**的 AI 记忆�
 ### 升级须知
 - Python 要求 ≥ 3.8。
 - 核心零第三方依赖；仅示例中的 Ollama / LangChain / numpy / HRR 插件在启用时按需本地依赖。
-- 首次运行 Web 管理端会自动创建 `admin/mnemosyne` 默认账号，请登录后修改密码。
+- 首次运行 Web 管理端会自动创建一个初始管理员账号（用户名与初始口令见安装输出），请登录后立即修改密码。
 - 历史 JSONL 记忆库可用 `migrate` 命令升级到 SQLite 后端。

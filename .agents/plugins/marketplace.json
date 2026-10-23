@@ -48,17 +48,6 @@
         "mcp",
         "kimi"
       ]
-    },
-    {
-      "name": "dsh-agent-llm",
-      "source": "./dsh-plugin",
-      "description": "DeepSeek Harness plugin that bridges the an agent / an agent / Hermes Agent models already signed in on the machine into the DSH model library.",
-      "tags": [
-        "dsh",
-        "deepseek-harness",
-        "llm-provider",
-        "model-inference"
-      ]
     }
   ]
 }

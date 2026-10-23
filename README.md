@@ -12,7 +12,7 @@
   <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#mcp-server"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
+  <a href="#mcp-server"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="Zero dependencies"></a>
   <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
@@ -31,7 +31,7 @@
 # Mnemosyne OS
 
 **Local-first MCP memory server for AI agents.** Zero third-party
-dependencies, SQLite on your own disk, 52 MCP tools with Mem0-compatible
+dependencies, SQLite on your own disk, 55 MCP tools with Mem0-compatible
 names. MIT licensed, runs on a laptop, a server, or serverless alike.
 
 > **Already using Mem0's MCP tools?** Point your client at Mnemosyne OS.
@@ -89,12 +89,15 @@ The same engine, hosted, with a web console: **[ai-memory.net](https://ai-memory
 The hosted console is called **Mnemosyne OS SaaS** — it is where you register,
 create API keys, browse memories, and manage your subscription.
 
-| Plan | Price | What you get |
-|---|---|---|
-| **Free** | $0 | All 55 MCP tools · 30-day cold-memory recall window · 1 namespace · 7-day audit window |
-| **Pro** | $6.9/mo · $69/yr | Permanent cold memory · cross-namespace recall · unlimited audit history · full export |
-| **Team** | $19.9/seat/mo · $199/seat/yr | Everything in Pro · multi-user namespaces · team policies · audit report export |
-| **Compliance Add-on** | $9.9/mo | Optional, on top of Pro or Team: scheduled `verify_integrity` reports, deletion-proof export, data-residency configuration |
+| Plan | Price (USD) | Price (CNY) | What you get |
+|---|---|---|---|
+| **Free** | $0 | ¥0 | All 55 MCP tools · 30-day cold-memory recall window · 1 namespace · 7-day audit window |
+| **Pro** | $6.9/mo · $69/yr | ¥9.9/mo · ¥99/yr | Permanent cold memory · cross-namespace recall · unlimited audit history · full export |
+| **Team** | $19.9/seat/mo · $199/seat/yr | ¥29.9/seat/mo · ¥299/seat/yr | Everything in Pro · multi-user namespaces · team policies · audit report export |
+| **Compliance Add-on** | $9.9/mo | ¥19.9/mo | **Monthly only.** Optional add-on on top of Pro or Team (not a standalone tier): scheduled `verify_integrity` reports, deletion-proof export, data-residency configuration |
+
+Annual billing is **pay 10 months, use 12** (≈16.7% off; Pro works out to about
+¥8.25/mo).
 
 Every new account starts with **30 days of Team access, no card required** — after
 that you keep Free forever, or upgrade to keep your memories intact. USD is billed
@@ -322,12 +325,12 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # optional, but recommended
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**52 tools** — forty-one native (twenty-one of them new in 8.1.0: nine in the memory
+**55 tools** — forty-four native (twenty-one of them new in 8.1.0: nine in the memory
 formation layer, twelve in the memory runtime layer), plus eleven that reuse the
 conventional agent-memory tool names, so an existing MCP client can be pointed at
 Mnemosyne without rewriting its tool definitions.
 
-**Native · retrieval & governance (20):**
+**Native · retrieval & governance (23):**
 
 | Tool | Purpose |
 | --- | --- |
@@ -351,6 +354,9 @@ Mnemosyne without rewriting its tool definitions.
 | `memory/export-v1` | Export via the Memory Exchange Protocol |
 | `memory/import-v1` | Import via the Memory Exchange Protocol |
 | `memory/claim` | Take over memories from an external export |
+| `memory_export-v1` | Alias of `memory/export-v1` for clients that reject `/` in tool names |
+| `memory_import-v1` | Alias of `memory/import-v1` for clients that reject `/` in tool names |
+| `memory_claim` | Alias of `memory/claim` for clients that reject `/` in tool names |
 
 **Native · memory formation (9, new in 8.1.0):**
 
@@ -513,7 +519,7 @@ mnemosyne/
 └── webui/
     ├── web_server.py    # console + REST host
     ├── api_routes.py    # /v1 /v2 /v3 routes
-    ├── mcp_server.py    # 41 native MCP tools (incl. 21 new in 8.1.0)
+    ├── mcp_server.py    # 44 native MCP tools (incl. 21 new in 8.1.0)
     └── mcp_api.py       # 11 client-compatible MCP tools
 
 storage/                 # SQLite backend, hash-chained ledger, plugin SDK
@@ -539,9 +545,6 @@ python scripts/verify_recall_quality.py       # end-to-end recall quality
 ## 📚 Documentation
 
 - [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) — the conventional agent-memory call shape
-- [docs/ACCEPTANCE_GUIDE.md](docs/ACCEPTANCE_GUIDE.md) — acceptance criteria and the script for each
-- [docs/RECALL_STRATEGY.md](docs/RECALL_STRATEGY.md) — how retrieval is assembled and budgeted
-- [docs/KNOWN_DEFECTS.md](docs/KNOWN_DEFECTS.md) — confirmed defects, with measurements and fixes
 - [docs/DEPLOY_DEEPSEEK_HARNESS.md](docs/DEPLOY_DEEPSEEK_HARNESS.md) — MCP deployment walkthrough
 - [CHANGELOG.md](CHANGELOG.md) — version history
 

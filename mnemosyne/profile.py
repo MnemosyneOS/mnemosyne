@@ -400,7 +400,7 @@ def review_candidates(records: Iterable[Dict[str, Any]],
                       now: Optional[datetime] = None) -> List[Dict[str, Any]]:
     """身份层「一年未复核」的候选。
 
-    身份信息变化最慢，但不是不变（换职业、换时区、换母语）。the principle requires
+    身份信息变化最慢，但不是不变（换职业、换时区、换母语）。该设计原则要求
     「不过期，但每年复核一次」—— 这里只产出待复核清单，是否修改由人或
     上游决定，不自动改内容。
     """
