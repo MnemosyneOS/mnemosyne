@@ -1,0 +1,44 @@
+name: Bug report
+description: Something does not work the way the documentation says it should
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Mnemosyne OS version
+      description: Output of `pip show mnemosyne-os`
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and OS
+      placeholder: "3.11.7 on Windows 11 / 3.12 on Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Smallest reproduction
+      description: A script or command sequence that shows the problem
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: verify
+    attributes:
+      label: verify.py output (if recall-related)
+      description: Output of `python verify.py` or `python scripts/verify_recall_quality.py`
+      render: shell
