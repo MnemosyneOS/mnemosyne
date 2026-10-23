@@ -2,7 +2,16 @@
   <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
 </p>
 
-# mnemosyne OS
+
+<p align="center">
+  <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
+  <a href="https://github.com/MnemosyneOS/mnemosyne">GitHub</a> ·
+  <a href="README_CN.md">中文</a>
+</p>
+<p align="center">
+  <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
+</p>
+
 
 <p align="center">
   <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
@@ -10,46 +19,61 @@
   <a href="README_CN.md">中文</a>
 </p>
 
-<p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#-mcp-server"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
-  <a href="#quick-start"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="Zero dependencies"></a>
-  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
-  <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
-</p>
+# Mnemosyne OS
 
-<p align="center">
-  <a href="README_TW.md"><img src="https://img.shields.io/badge/Lang-繁體中文-red?style=for-the-badge" alt="繁體中文"></a>
-  <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
-  <a href="README.ru.md"><img src="https://img.shields.io/badge/Lang-Русский-blue?style=for-the-badge" alt="Русский"></a>
-  <a href="README.de.md"><img src="https://img.shields.io/badge/Lang-Deutsch-lightgrey?style=for-the-badge" alt="Deutsch"></a>
-  <a href="README.th.md"><img src="https://img.shields.io/badge/Lang-ไทย-blue?style=for-the-badge" alt="ไทย"></a>
-  <a href="README.ko.md"><img src="https://img.shields.io/badge/Lang-한국어-green?style=for-the-badge" alt="한국어"></a>
-  <a href="README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
-</p>
+**Local-first MCP memory server for AI agents.** Zero third-party
+dependencies, SQLite on your own disk, 52 MCP tools with Mem0-compatible
+names. MIT licensed, runs on a laptop, a server, or serverless alike.
 
-**Mnemosyne OS 8.1.0** — a zero-dependency, local-first AI memory system. Graph
-memory, multimodal ingestion, reranking, temporal reasoning, a hash-chained audit
-ledger, lossless compression, and 52 MCP tools (41 native + 11 client-compatible).
+> **Already using Mem0's MCP tools?** Point your client at Mnemosyne OS.
+> Same tool names, no prompt changes — see [Switching from Mem0](#-switching-from-mem0).
 
-8.1.0 adds two layers. The **memory formation layer** — session summaries, conflict
-resolution, task and experience memory, code evolution memory, sensitivity governance —
-so the engine no longer just *retrieves* memories, it *turns experience into memory*.
-And the **memory runtime layer** — profile cards, context injection, progressive
-disclosure, consolidation, metrics, masking, cascade delete — assembles the right
-context for the model and manages the memory lifecycle.
+The only AI memory engine whose **core genuinely carries zero third-party
+dependencies** — no vector database, no LLM runtime, no cloud account.
+`install_requires` is an empty list.
 
-> The only AI memory engine whose **core genuinely carries zero third-party
-> dependencies** — no vector database, no LLM runtime, no cloud account.
-> `install_requires` is an empty list. It runs on a laptop, a server, or
-> serverless infrastructure alike.
+Use it as a **Python library**, a **CLI**, an **HTTP API**, or an **MCP server**:
 
-Use it as a **Python library**, a **CLI**, an **HTTP API**, or an **MCP server**.
+```bash
+pip install mnemosyne-os
+```
+
+```python
+from mnemosyne import Memory
+
+m = Memory()                       # built-in embedder + rule-based extractor
+m.add("I prefer dark mode and use vim keybindings. My name is Alice.",
+      user_id="alice")
+
+for hit in m.search("what does alice prefer", filters={"user_id": "alice"})["results"]:
+    print(f"{hit['score']:.3f}  {hit['memory']}")
+```
+
+Offline. No API key. No model download. No database to install.
 
 ---
 
+## 📊 The only reproducible benchmark in this category
+
+Every memory engine claims high recall. **Mnemosyne OS is the only one
+that ships the harness so you can check.** Run it against your own corpus:
+
+| Benchmark | Mnemosyne OS | Mem0 (published) |
+|---|---|---|
+| LongMemEval | **96.2** | 94.4 |
+| LoCoMo | **94.8** | 92.5 |
+| BEAM 1M | **68.5** | 64.1 |
+| BEAM 10M | **53.9** | 48.6 |
+
+```bash
+python scripts/verify_recall_quality.py
+```
+
+Mem0's figures are the ones Mem0 publishes at [mem0.ai/research](https://mem0.ai/research).
+Full harness, adapters and machine-readable results live in the
+standalone **[MnemosyneOS/mnemosyne-bench](https://github.com/MnemosyneOS/mnemosyne-bench)** repository.
+
+---
 ## ☁️ Mnemosyne OS SaaS
 
 The same engine, hosted, with a web console: **[ai-memory.net](https://ai-memory.net)**.
@@ -158,6 +182,42 @@ curl -X POST http://127.0.0.1:8788/v3/memories/add/ \
 
 ---
 
+---
+
+## 🔄 Switching from Mem0
+
+Mnemosyne OS implements the 11 conventional agent-memory tool names
+(`add_memory`, `search_memories`, `get_memories`, and the rest of the
+client-compatible set). Point your existing MCP client at it and your
+prompts keep working:
+
+```json
+{
+  "mcpServers": {
+    "mnemosyne": {
+      "command": "python",
+      "args": ["-m", "mnemosyne.webui.mcp_server",
+               "--brain-dir", "./mem", "--namespace", "default"],
+      "env": { "MNEMOSYNE_MCP_TOKEN": "<random 32+ chars>" }
+    }
+  }
+}
+```
+
+---
+
+## 🪝 Built with itself
+
+Mnemosyne OS is developed using Mnemosyne OS. The repository carries
+the plugin manifests for Claude Code, Codex, Cursor, Kimi and DeepSeek
+Harness, plus the `session/` and `context/` directories the engine
+itself writes to during development.
+
+That is not a badge — it is why the memory formation layer exists.
+Session summaries, conflict resolution and code-evolution memory were
+built because the engine's own development history needed them.
+
+---
 ## 📊 Benchmarks
 
 Measured with the harness shipped in this repository. Reproduce with
@@ -175,6 +235,9 @@ Scores are out of 100.
 ---
 
 ## 🧩 Capabilities
+
+<details>
+<summary>Full capability matrix (click to expand)</summary>
 
 <table>
 <tr><td><b>Memory API</b></td><td><code>Memory</code> / <code>AsyncMemory</code> / <code>MemoryClient</code> with a complete method surface: <code>add</code> <code>get</code> <code>get_all</code> <code>search</code> <code>update</code> <code>delete</code> <code>delete_all</code> <code>history</code> <code>reset</code> <code>close</code> <code>from_config</code>.</td></tr>
@@ -194,6 +257,8 @@ Scores are out of 100.
 </table>
 
 ---
+
+</details>
 
 ## 🔌 Integrations
 
