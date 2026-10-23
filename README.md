@@ -8,9 +8,6 @@
   <a href="https://github.com/MnemosyneOS/mnemosyne">GitHub</a> ·
   <a href="README_CN.md">中文</a>
 </p>
-<p align="center">
-  <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
-</p>
 
 
 <p align="center">
