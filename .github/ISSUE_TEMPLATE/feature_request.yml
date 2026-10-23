@@ -1,0 +1,26 @@
+name: Feature request
+description: A capability you expected to find and did not
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you were trying to do
+      description: The task, not the solution. "I wanted X and could not" beats "add Y".
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why the existing tools do not cover it
+      description: Which of the 52 MCP tools you tried, and where they fell short
+    validations:
+      required: true
+  - type: checkboxes
+    id: core
+    attributes:
+      label: Dependency check
+      description: The core carries zero third-party dependencies by design.
+      options:
+        - label: This request does not require a new runtime dependency in the core
+          required: true
