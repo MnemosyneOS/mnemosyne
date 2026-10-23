@@ -6,7 +6,7 @@ Mnemosyne OS — client API MCP tools
 
 The eleven tool names a client written for the reference MCP server will call,
 implemented against the compatibility layer.  They are added *alongside* the
-twenty-nine native tools rather than replacing them, so an existing Mnemosyne client
+twenty native tools rather than replacing them, so an existing Mnemosyne client
 keeps working and a migrating client finds every name it expects.
 
 ======================  =========================================================
@@ -37,6 +37,16 @@ through them even though the reference server offers no such tools.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+
+# 订阅门控（v8.1.1 SaaS 层）。防御性导入：门控缺失绝不能把 11 个兼容工具
+# 一起带下线 —— 自部署用户根本不该感知到它的存在。
+try:
+    from . import tiers as _tiers
+except Exception:                                    # pragma: no cover
+    try:
+        import tiers as _tiers
+    except Exception:
+        _tiers = None
 
 __all__ = ["TOOLS", "TOOL_NAMES", "handle"]
 
@@ -238,6 +248,74 @@ def handle(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     transport-level failure that hides the reason.
     """
     args = arguments if isinstance(arguments, dict) else {}
+
+    # 订阅门控（与 mcp_server.py 共用同一份规则 —— 否则「换个工具名就绕过」
+    # 是最容易被发现、也最难解释的漏洞）。三段式：准入 → 执行 → 出口过滤。
+    if _tiers is not None:
+        try:
+            allowed, reason = _tiers.check_tier_gate(name, args, _tier_ctx(args))
+            if not allowed:
+                return {"error": reason or "tier_gate_denied",
+                        "code": "TIER_GATE_001", "tool": name}
+        except Exception:
+            pass
+    result = _handle_raw(name, args)
+    try:
+        return _apply_gate(name, args, result)
+    except Exception:
+        return result
+
+
+def _tier_ctx(args: Dict[str, Any]) -> Dict[str, Any]:
+    ctx: Dict[str, Any] = {}
+    for key in ("_tier", "_namespace", "_allowed_namespaces"):
+        if key in args:
+            ctx[key[1:]] = args[key]
+    return ctx
+
+
+def _apply_gate(name: str, args: Dict[str, Any], result):
+    """出口过滤：召回类按冷层窗口收窄，并附 upgrade_hint 数据信号。"""
+    if _tiers is None or not _tiers.gate_enabled():
+        return result
+    if not isinstance(result, dict) or result.get("error"):
+        return result
+    if name not in _tiers.RECALL_TOOLS:
+        return result
+    tier = _tiers.resolve_tier(_tier_ctx(args))
+    for key in ("results", "items", "memories"):
+        if isinstance(result.get(key), list):
+            # 投影不回传 tier → 按 memory_id 回查存储（见 tiers.py 文档）
+            kept, dropped = _tiers.filter_recall_items(
+                result[key], tier, record_lookup=_make_lookup())
+            if dropped:
+                result[key] = kept
+                hint = _tiers.upgrade_hint(tier, dropped, "cold")
+                if hint:
+                    result["upgrade_hint"] = hint
+            break
+    return result
+
+
+def _make_lookup():
+    """兼容层按 id 回查真实记录的闭包。
+
+    注意：兼容层（`api.memory.Memory`）的存储不是 `brain.store`，
+    而是它自己的 `_brain`。拿不到就返回 None —— 门控会退化为
+    「不回查、按返回值判断」，此时不会误删数据，只是少拦几条。
+    """
+    try:
+        mem = _memory()
+        brain = getattr(mem, "_brain", None) or getattr(mem, "brain", None)
+        store = getattr(brain, "store", None)
+        if store is None or not hasattr(store, "find_by_id"):
+            return None
+        return lambda mid: store.find_by_id(mid)
+    except Exception:
+        return None
+
+
+def _handle_raw(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
     mem = _memory()
 
     if name == "add_memory":

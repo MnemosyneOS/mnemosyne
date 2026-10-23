@@ -24,6 +24,17 @@ Authentication (v7.0.0 阶段4):
 import sys, json, os, argparse, hashlib, hmac
 from mnemosyne import MemoryBrain
 
+# 订阅门控（v8.1.1 · SaaS 层）。**防御性导入**：门控模块缺失或语法错误
+# 绝不能把 52 个工具一起带下线 —— 自部署用户（MNEMOSYNE_TIER_GATE 未设）
+# 根本不该感知到它的存在。
+try:
+    from . import tiers as _tiers
+except Exception:                                    # pragma: no cover
+    try:
+        import tiers as _tiers                       # 直接按文件跑（stdio 场景）
+    except Exception:
+        _tiers = None
+
 DEFAULT_BRAIN = os.path.expanduser("~/.mnemosyne")
 brain = None
 _brain_dir = None
@@ -32,8 +43,17 @@ _auth_token = None
 
 
 def _get_expected_token():
-    """Return the configured MCP token, or None if auth is disabled."""
-    return os.environ.get("MNEMOSYNE_MCP_TOKEN") or _auth_token
+    """Return the configured MCP token, or None if auth is disabled.
+
+    🔴 2026-10-22 安全加固：``MNEMOSYNE_TOKEN``（控制台门面用的那个）与
+    ``MNEMOSYNE_MCP_TOKEN``（Agent 侧用的那个）在本机约定同值，任一存在即启用鉴权。
+    此前只读 ``MNEMOSYNE_MCP_TOKEN``，于是「只配了 MNEMOSYNE_TOKEN」时
+    源码层会认为「未启用鉴权」而放行 —— 与网关层的判定不一致。
+    现在两个变量都认，口径与 mcp_http.py 一致。
+    """
+    return (os.environ.get("MNEMOSYNE_MCP_TOKEN")
+            or os.environ.get("MNEMOSYNE_TOKEN")
+            or _auth_token)
 
 
 def _request_token(req):
@@ -59,10 +79,18 @@ def _request_token(req):
 
 
 def _authorized(req):
-    """Return True if the request is authorized (or auth is disabled)."""
+    """Return True if the request is authorized.
+
+    🔴 2026-10-22 安全加固（fail-open → fail-closed）：
+    原实现是「没配令牌就当已授权」—— 一次变量名笔误或 secrets 被误删，
+    整个 MCP 面就变成无鉴权公网端口。现在没有令牌 = 一律拒绝。
+    宁可服务不可用，也不能静默裸奔。
+    """
     expected = _get_expected_token()
     if not expected:
-        return True
+        print("[warn] no MCP token configured — refusing the request (fail-closed).",
+              flush=True)
+        return False
     supplied = _request_token(req)
     return bool(supplied) and hmac.compare_digest(str(supplied), str(expected))
 
@@ -121,11 +149,25 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"namespace":{"type":"string"}},"required":["memory_id"]}},
     {"name":"confidence_history","description":"Confidence trajectory 查询；memory_id: 目标id; namespace: 可选",
      "inputSchema":{"type":"object","properties":{"memory_id":{"type":"string"},"namespace":{"type":"string"}},"required":["memory_id"]}},
-    {"name":"memory/export-v1","description":"Export all active memories to JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导出目录路径",
+    # 导入导出三个工具的名字在 8.1.1 由 `memory/xxx` 改为 `memory_xxx`。
+    # 为什么改：DeepSeek Harness 的 dsh-mcp-client 把 MCP 工具名投影成公开名时，
+    # 只允许 [A-Za-z0-9_-]，`/` 会被换成 `_` 并**追加 12 位 SHA-256 后缀**
+    # （见 publicToolName）。于是客户端看到的是 `memory_export-v1_251be4a7ac40`
+    # 这种名字，与文档、控制台目录里的 `memory/export-v1` 对不上，数工具时
+    # 会以为「少了一个」。
+    # 改名是**纯增量**：旧名继续注册为别名，两个名字都接受，老客户端不破。
+    # 详见 src/CHANGELOG.md 8.1.1。
+    {"name":"memory_export-v1","description":"Export all active memories to JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导出目录路径",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
-    {"name":"memory/import-v1","description":"Import memories from JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导入目录路径",
+    {"name":"memory/export-v1","description":"Export all active memories to JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导出目录路径。Deprecated alias of memory_export-v1 —— 保留以兼容旧客户端",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
-    {"name":"memory/claim","description":"Claim memories from an external export (import-and-merge logic)。namespace: 可选; filepath: 导入目录路径",
+    {"name":"memory_import-v1","description":"Import memories from JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导入目录路径",
+     "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
+    {"name":"memory/import-v1","description":"Import memories from JSONL + manifest.json (Memory Exchange Protocol)。namespace: 可选; filepath: 导入目录路径。Deprecated alias of memory_import-v1 —— 保留以兼容旧客户端",
+     "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
+    {"name":"memory_claim","description":"Claim memories from an external export (import-and-merge logic)。namespace: 可选; filepath: 导入目录路径",
+     "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
+    {"name":"memory/claim","description":"Claim memories from an external export (import-and-merge logic)。namespace: 可选; filepath: 导入目录路径。Deprecated alias of memory_claim —— 保留以兼容旧客户端",
      "inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"filepath":{"type":"string"}},"required":["filepath"]}},
     {"name":"consolidate","description":"压缩引擎·记忆合并：把高度相似/同义的记忆聚合并合并成一条代表性记忆，原记忆标记 consolidated。min_similarity: 相似度阈值(默认0.6); max_group: 每组最大条数(默认5); generate_summary: 是否生成合并摘要(默认true); dry_run: 仅统计不执行(默认false); namespace: 可选",
      "inputSchema":{"type":"object","properties":{"dry_run":{"type":"boolean","default":False},"min_similarity":{"type":"number","default":0.6},"max_group":{"type":"integer","default":5},"generate_summary":{"type":"boolean","default":True},"namespace":{"type":"string"}},"required":[]}},
@@ -142,8 +184,8 @@ TOOLS = [
      "inputSchema":{"type":"object","properties":{"content":{"type":"string"},"mtype":{"type":"string","default":"semantic"},"dry_run":{"type":"boolean","default":True},"apply":{"type":"boolean","default":False},"scope":{"type":"string","enum":["single","audit"],"default":"single"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"task_record","description":"记录【任务事实】（Working Memory 事实层，只追加不改写）。goal: 目标; goal_type: 任务类别（同类检索的关键）; context: {constraints, preconditions}; steps: [{action,result,reason}]; outcome: success/partial/failed/rolled_back",
      "inputSchema":{"type":"object","properties":{"goal":{"type":"string"},"goal_type":{"type":"string","default":"general"},"context":{"type":"object"},"steps":{"type":"array","items":{"type":"object"}},"artifacts":{"type":["array","string"]},"outcome":{"type":"string","default":"success"},"duration_min":{"type":"number"},"rework_count":{"type":"integer"},"user_feedback":{"type":"string","default":"unknown"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["goal"]}},
-    {"name":"playbook_save","description":"沉淀【经验】（Working Memory 经验层）。pattern: 可复用方法; preconditions 必填三件套 {must, must_not, typical_env}——不带适用条件的经验会在条件不匹配时把 Agent 带沟里; failure_modes: [{when,why}] 已知失效场景; anti_patterns: 反模式",
-     "inputSchema":{"type":"object","properties":{"pattern":{"type":"string"},"goal_type":{"type":"string","default":"general"},"preconditions":{"type":"object"},"steps":{"type":"array","items":{"type":"string"}},"failure_modes":{"type":"array","items":{"type":"object"}},"anti_patterns":{"type":"array","items":{"type":"string"}},"scope":{"type":"object"},"evidence":{"type":"array","items":{"type":"string"}},"project":{"type":"string"},"namespace":{"type":"string"}},"required":["pattern","preconditions"]}},
+    {"name":"playbook_save","description":"沉淀【经验】（Working Memory 经验层）。pattern: 可复用方法; preconditions 必填三件套 {must, must_not, typical_env}——不带适用条件的经验会在条件不匹配时把 Agent 带沟里; failure_modes: [{when,why}] 已知失效场景; anti_patterns: 反模式。\n\n【回写模式】传 memory_id 时不新建，而是记一次应用结果：success 更新成功率，deviation 记录「这次为什么没按它做」（principle 7.4 第 05 步：允许偏离并把偏离点作为经验进化的数据源）。返回 should_demote=true 表示成功率已跌破阈值，应降级不再主动注入。",
+     "inputSchema":{"type":"object","properties":{"pattern":{"type":"string"},"goal_type":{"type":"string","default":"general"},"preconditions":{"type":"object"},"steps":{"type":"array","items":{"type":"string"}},"failure_modes":{"type":"array","items":{"type":"object"}},"anti_patterns":{"type":"array","items":{"type":"string"}},"scope":{"type":"object"},"evidence":{"type":"array","items":{"type":"string"}},"memory_id":{"type":"string","description":"回写模式：要回写的经验记忆 id"},"success":{"type":"boolean","default":True,"description":"回写模式：本次应用是否成功"},"deviation":{"type":"string","description":"回写模式：偏离点与原因（没按建议做的部分）"},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"playbook_recall","description":"检索候选经验并做【前置条件校验】。返回项带 applicable/blocked_by：只应把 applicable=true 的注入上下文，其余丢弃（防负迁移）。context: 当前任务环境描述，用于 must/must_not 比对",
      "inputSchema":{"type":"object","properties":{"goal_type":{"type":"string"},"context":{"type":"object"},"k":{"type":"integer","default":3},"project":{"type":"string"},"namespace":{"type":"string"}},"required":[]}},
     {"name":"code_change_record","description":"记录【代码变更事件】（Coding Memory）——存 git 缺失的三样东西：意图、约束、放弃的方案。intent: 这次改动想解决什么; constraints: 当时约束; files/symbols: 影响面（符号级锚点）; rejected_approaches: [{what,why_not}]; outcome: merged/reverted/superseded; lesson: 一句话教训",
@@ -199,7 +241,235 @@ NATIVE_TOOL_COUNT = len(TOOLS) - len(_API_TOOLS)
 def handle_tools_list():
     return {"tools": TOOLS}
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 订阅门控（v8.1.1 SaaS 层）—— **入口准入 + 出口过滤**，引擎零改动
+# ═══════════════════════════════════════════════════════════════════════════
+# 设计取舍（为什么用「包一层」而不是「在每个分支里插 if」）：
+#
+#   · 40 个工具分支里逐个插判断 = 40 个可能写漏的地方，且新加工具必然忘记；
+#   · 包一层只有**一个**判定点，新工具自动被覆盖（默认放行，符合"trial period
+#     要让人写得进去"的策略）；
+#   · 出口过滤只碰**返回值**，不碰检索参数、不碰 SQL、不碰存储 ——
+#     即使门控逻辑写错，最坏结果是"少返回几条"，绝不会删数据或污染索引。
+#
+# 三层判定：
+#   ① 准入（check_tier_gate）：目前只有 Free 层跨 namespace 会被硬拒绝；
+#   ② 出口过滤（filter_*）：召回/审计/导出按窗口收窄；
+#   ③ 数据信号（upgrade_hint）：告诉调用方"有多少条被窗口排除"，不是广告。
+#
+# 总开关 MNEMOSYNE_TIER_GATE：未设置 = 完全跳过（自部署 / PyPI 用户行为不变）。
+
+def _tier_context(arguments):
+    """从本次调用参数里取出身份上下文。
+
+    线上由 8788 网关把内部头（X-Mnemosyne-Tier 等）注入成参数；
+    直连 stdio 的用户不会带这些键，于是 resolve_tier 回落到环境变量/Free。
+    """
+    if not isinstance(arguments, dict):
+        return {}
+    ctx = {}
+    for key in ("_tier", "_namespace", "_allowed_namespaces"):
+        if key in arguments:
+            ctx[key[1:]] = arguments[key]
+    return ctx
+
+
+def _extract_records_for_gate(result, tool_name):
+    """从工具返回值里取出「可以被窗口过滤的记录列表」。
+
+    不同工具的返回形状差异很大，这里只处理**已知且确定**的几种；
+    认不出的形状原样放行 —— 门控宁可少拦，也不能把正常结果吞掉。
+    """
+    if not isinstance(result, dict):
+        return None
+    if isinstance(result.get("results"), list):
+        return "results"
+    if isinstance(result.get("items"), list):
+        return "items"
+    if isinstance(result.get("memories"), list):
+        return "memories"
+    return None
+
+
+def _make_record_lookup(arguments):
+    """构造「按 memory_id 回查真实记录」的闭包。
+
+    为什么需要它：召回投影里**没有 tier 字段**（见 tiers.filter_recall_items
+    的文档）。门控要判断"这条是不是冷层"，只能回存储拿原始记录。
+
+    命名空间必须与本次调用一致 —— 用 arguments['namespace']，
+    而不是全局 _default_namespace，否则跨 ns 调用会查到错的库。
+    """
+    if _tiers is None:
+        return None
+    ns = None
+    if isinstance(arguments, dict):
+        ns = arguments.get("namespace")
+    try:
+        brain = _ensure_brain(namespace=ns)
+        store = brain.store
+    except Exception:
+        return None
+    if store is None or not hasattr(store, "find_by_id"):
+        return None
+
+    def _lookup(memory_id):
+        try:
+            return store.find_by_id(memory_id)
+        except Exception:
+            return None
+
+    return _lookup
+
+
+def _apply_tier_gate(name, arguments, result):
+    """出口门控：按层级收窄返回值。返回（可能被修改的）result。"""
+    if _tiers is None or not _tiers.gate_enabled():
+        return result
+    if not isinstance(result, dict) or result.get("error"):
+        return result
+
+    ctx = _tier_context(arguments)
+    tier = _tiers.resolve_tier(ctx)
+
+    # ---- ① 召回类：冷层时间窗口 ----
+    if name in _tiers.RECALL_TOOLS:
+        key = _extract_records_for_gate(result, name)
+        if key:
+            # 投影不回传 tier，必须按 memory_id 回查存储 —— 见 tiers.py
+            # filter_recall_items 的文档（2026-10-23 实测踩过这个坑）。
+            lookup = _make_record_lookup(arguments)
+            kept, dropped = _tiers.filter_recall_items(
+                result[key], tier, record_lookup=lookup)
+            if dropped:
+                result[key] = kept
+                hint = _tiers.upgrade_hint(tier, dropped, "cold")
+                if hint:
+                    # PROMO_STRATEGY: 不是广告，是数据信号 —— 只陈述"被排除了几条"
+                    result["upgrade_hint"] = hint
+        return result
+
+    # ---- ② 审计类：按时间窗口 ----
+    if name in _tiers.AUDIT_TOOLS:
+        for key in ("entries", "history", "trail"):
+            if isinstance(result.get(key), list):
+                kept, dropped = _tiers.filter_audit_entries(result[key], tier)
+                if dropped:
+                    result[key] = kept
+                    if isinstance(result.get("count"), int):
+                        result["count"] = len(kept)
+                    hint = _tiers.upgrade_hint(tier, dropped, "audit")
+                    if hint:
+                        result["upgrade_hint"] = hint
+                break
+        return result
+
+    # ---- ③ 导出类：热层 + 窗口内冷层 ----
+    # 导出的过滤发生在**文件写出之前**，所以不能在这里做 —— 见
+    # `_export_with_tier_gate()`：它先过滤记录再交给引擎落盘。
+    return result
+
+
+def _export_with_tier_gate(b, arguments, ns):
+    """带门控的导出。
+
+    为什么不能复用 brain.export_memories()：它内部直接遍历
+    store.all_records() 写 JSONL，没有任何注入点。所以这里自己做同样的
+    落盘动作（同一 schema、同一 manifest 字段），只在写之前过滤记录。
+    **不修改引擎**，也不产生第二种导出格式 —— manifest 里额外写
+    `tier_gate` 字段，让用户明确知道"这份导出被窗口收窄过"。
+    """
+    import time as _time
+    filepath = arguments.get("filepath")
+    if not filepath:
+        return {"error": "filepath parameter required"}
+
+    ctx = _tier_context(arguments)
+    tier = _tiers.resolve_tier(ctx)
+    cfg = _tiers.tier_config(tier)
+
+    os.makedirs(filepath, exist_ok=True)
+    records = [r for r in b.store.all_records()
+               if r.get("status") in (None, "active")]
+    total_before = len(records)
+    kept, dropped = _tiers.filter_export_records(records, tier)
+
+    jsonl_path = os.path.join(filepath, "memories.jsonl")
+    with open(jsonl_path, "w", encoding="utf-8") as f:
+        for r in kept:
+            f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+
+    ledger_hash = ""
+    if getattr(b, "ledger", None) is not None:
+        try:
+            v = b.ledger.verify_chain()
+            ledger_hash = "valid:%s:%s" % (v.get("valid"), v.get("total", 0))
+        except Exception:
+            pass
+
+    manifest = {
+        "schema_version": "1.0",
+        "export_timestamp": _time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "namespace": ns or _default_namespace,
+        "latest_ledger_hash": ledger_hash,
+        "record_count": len(kept),
+        "format": "jsonl",
+    }
+    if dropped:
+        # FREE_TIER: export = hot/warm + cold within 30d; nothing was deleted
+        manifest["tier_gate"] = {
+            "tier": tier,
+            "window_days": cfg.get("export_window_days"),
+            "excluded_count": dropped,
+            "total_before_gate": total_before,
+            "note": ("%d cold-tier memories fall outside the %s-day Free export "
+                     "window. They remain stored and were not deleted."
+                     % (dropped, cfg.get("export_window_days"))),
+        }
+    manifest_path = os.path.join(filepath, "manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+
+    out = {"result": "success", "record_count": len(kept),
+           "exported_path": jsonl_path, "manifest_path": manifest_path}
+    if dropped:
+        out["excluded_count"] = dropped
+        out["upgrade_hint"] = _tiers.upgrade_hint(tier, dropped, "export")
+    return out
+
+
 def handle_tools_call(name, arguments):
+    """工具调用入口 —— 门控包装层。
+
+    准入 → 执行 → 出口过滤，三段式。任何一段抛异常都不能让工具整体失败：
+    门控是**附加价值**，不是可用性的前置条件。
+    """
+    if not isinstance(arguments, dict):
+        arguments = {}
+
+    # ---- ① 准入 ----
+    if _tiers is not None:
+        try:
+            allowed, reason = _tiers.check_tier_gate(
+                name, arguments, _tier_context(arguments))
+            if not allowed:
+                return {"error": reason or "tier_gate_denied",
+                        "code": "TIER_GATE_001", "tool": name}
+        except Exception:
+            pass  # 门控自身故障 → 放行（宁可多给，不可误拦）
+
+    # ---- ② 执行 ----
+    result = _handle_tools_call_raw(name, arguments)
+
+    # ---- ③ 出口过滤 ----
+    try:
+        return _apply_tier_gate(name, arguments, result)
+    except Exception:
+        return result
+
+
+def _handle_tools_call_raw(name, arguments):
     # client API tools route through the compatibility layer, which keeps its
     # own Memory instance and its own four-dimension physical scoping.  Checked
     # first because the compatible names are exact and unambiguous.
@@ -434,17 +704,27 @@ def handle_tools_call(name, arguments):
         except Exception as e:
             return {"error": str(e)}
 
-    elif name == "memory/export-v1":
+    # 8.1.1 起正名是 memory_export-v1 / memory_import-v1 / memory_claim；
+    # 带斜杠的旧名作为 deprecated 别名继续接受（见上面 TOOLS 里的注释）。
+    elif name in ("memory_export-v1", "memory/export-v1"):
         filepath = arguments.get("filepath")
         if not filepath:
             return {"error": "filepath parameter required"}
+        # FREE_TIER: export = hot/warm + cold within 30d —— 门控在**写盘之前**
+        # 过滤记录（引擎的 export_memories 没有注入点，见 _export_with_tier_gate）。
+        # 未开启门控时（自部署）走原引擎实现，行为逐字节不变。
+        if _tiers is not None and _tiers.gate_enabled():
+            try:
+                return _export_with_tier_gate(b, arguments, ns)
+            except Exception as e:
+                return {"error": str(e)}
         try:
             result = b.export_memories(filepath, namespace=ns or _default_namespace)
             return {"result": "success", **result}
         except Exception as e:
             return {"error": str(e)}
 
-    elif name == "memory/import-v1":
+    elif name in ("memory_import-v1", "memory/import-v1"):
         filepath = arguments.get("filepath")
         if not filepath:
             return {"error": "filepath parameter required"}
@@ -454,7 +734,7 @@ def handle_tools_call(name, arguments):
         except Exception as e:
             return {"error": str(e)}
 
-    elif name == "memory/claim":
+    elif name in ("memory_claim", "memory/claim"):
         filepath = arguments.get("filepath")
         if not filepath:
             return {"error": "filepath parameter required"}
@@ -569,6 +849,19 @@ def handle_tools_call(name, arguments):
     elif name == "playbook_save":
         try:
             from ..working import WorkingMemory
+            # 回写分支：带 memory_id 表示「这条经验刚被用过一次」，
+            # 不是新建。合并进同一个工具而不是另开一个 playbook_feedback，
+            # 是为了不改变对外工具数（52）——工具面已经对外承诺过。
+            _mid = str(arguments.get("memory_id") or "")
+            if _mid:
+                out = WorkingMemory(b).update_playbook_stats(
+                    playbook_id=str(arguments.get("playbook_id") or ""),
+                    success=bool(arguments.get("success", True)),
+                    memory_id=_mid,
+                    deviation=str(arguments.get("deviation") or ""),
+                )
+                out["namespace"] = ns or _default_namespace
+                return out
             out = WorkingMemory(b).save_playbook(
                 pattern=arguments["pattern"],
                 goal_type=arguments.get("goal_type", "general"),
@@ -826,9 +1119,25 @@ def handle_request(req):
                 ns_hint = cn.split(":", 1)[1]
         # Eagerly initialise the brain for the requested namespace
         _ensure_brain(namespace=ns_hint)
-        result = {"protocolVersion":"2024-11-05",
+        # ── 协议版本协商（2026-10-21 修）──────────────────────────────
+        # 原来这里写死 "2024-11-05"：客户端提议什么版本，服务端都回同一个字符串。
+        # 按 MCP 规范，服务端应当回**自己支持的**版本：客户端提议的版本在支持
+        # 列表里就照它回，否则回自己最高的那个。写死会导致：
+        #   · 新版客户端（2025-06-18）看到服务端版本更旧，日志里永远是同一个值；
+        #   · 演示给技术方看时，一眼就发现"版本从来不变"= 不是真协商。
+        _MCP_SUPPORTED = ("2025-06-18", "2025-03-26", "2024-11-05")
+        proposed = ""
+        try:
+            proposed = str((params or {}).get("protocolVersion") or "").strip()
+        except Exception:
+            proposed = ""
+        accepted = proposed if proposed in _MCP_SUPPORTED else _MCP_SUPPORTED[0]
+        result = {"protocolVersion": accepted,
                   "serverInfo":{"name":"mnemosyne-memory","version":"8.1.0"},
-                  "capabilities":{"tools":{}}}
+                  "capabilities":{"tools":{}},
+                  "protocol": {"proposed": proposed or None,
+                               "accepted": accepted,
+                               "supported": list(_MCP_SUPPORTED)}}
         if ns_hint:
             result["namespace"] = ns_hint
         return {"jsonrpc":"2.0","id":rid,"result":result}

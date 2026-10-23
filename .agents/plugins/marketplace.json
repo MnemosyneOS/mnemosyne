@@ -13,25 +13,52 @@
       "name": "Mnemosyne",
       "source": "./.claude-plugin",
       "description": "Memory tools, reference skills and opt-in lifecycle hooks. Registers the mnemosyne MCP server automatically.",
-      "tags": ["memory", "mcp", "context"]
+      "tags": [
+        "memory",
+        "mcp",
+        "context"
+      ]
     },
     {
       "name": "Mnemosyne for Codex",
       "source": "./.codex-plugin",
       "description": "Codex-native plugin with the memory protocol skill and session hooks.",
-      "tags": ["memory", "mcp", "codex"]
+      "tags": [
+        "memory",
+        "mcp",
+        "codex"
+      ]
     },
     {
       "name": "Mnemosyne for Cursor",
       "source": "./.cursor-plugin",
       "description": "MCP server plus the SDK reference skill.",
-      "tags": ["memory", "mcp", "cursor"]
+      "tags": [
+        "memory",
+        "mcp",
+        "cursor"
+      ]
     },
     {
       "name": "Mnemosyne for Kimi",
       "source": "./.kimi-plugin",
       "description": "MCP server plus reference skills.",
-      "tags": ["memory", "mcp", "kimi"]
+      "tags": [
+        "memory",
+        "mcp",
+        "kimi"
+      ]
+    },
+    {
+      "name": "dsh-agent-llm",
+      "source": "./dsh-plugin",
+      "description": "DeepSeek Harness plugin that bridges the an agent / an agent / Hermes Agent models already signed in on the machine into the DSH model library.",
+      "tags": [
+        "dsh",
+        "deepseek-harness",
+        "llm-provider",
+        "model-inference"
+      ]
     }
   ]
 }

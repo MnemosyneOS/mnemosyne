@@ -50,6 +50,30 @@ Use it as a **Python library**, a **CLI**, an **HTTP API**, or an **MCP server**
 
 ---
 
+## ☁️ Mnemosyne OS SaaS
+
+The same engine, hosted, with a web console: **[ai-memory.net](https://ai-memory.net)**.
+The hosted console is called **Mnemosyne OS SaaS** — it is where you register,
+create API keys, browse memories, and manage your subscription.
+
+| Plan | Price | What you get |
+|---|---|---|
+| **Free** | $0 | All 55 MCP tools · 30-day cold-memory recall window · 1 namespace · 7-day audit window |
+| **Pro** | $6.9/mo · $69/yr | Permanent cold memory · cross-namespace recall · unlimited audit history · full export |
+| **Team** | $19.9/seat/mo · $199/seat/yr | Everything in Pro · multi-user namespaces · team policies · audit report export |
+| **Compliance Add-on** | $9.9/mo | Optional, on top of Pro or Team: scheduled `verify_integrity` reports, deletion-proof export, data-residency configuration |
+
+Every new account starts with **30 days of Team access, no card required** — after
+that you keep Free forever, or upgrade to keep your memories intact. USD is billed
+through PayPal Subscriptions (automatic renewal, cancel anytime in PayPal); CNY is
+billed by WeChat QR and confirmed by the operator.
+
+Self-hosting stays MIT and unlimited — the SaaS line exists for people who would
+rather not run a server. The engine itself is identical; **no feature is paywalled
+in the open-source build**.
+
+---
+
 ## 🚀 Quick start
 
 ### Install
