@@ -267,7 +267,7 @@ class SentenceTransformerReranker(RerankerProvider):
         except ImportError as e:
             raise ProviderUnavailable(
                 "sentence_transformer", f"sentence-transformers not installed ({e})",
-                hint="pip install mnemosyne-os[local-reranker]",
+                hint="pip install ai-memo-os[local-reranker]",
             ) from None
         self.model = self.config.get("model") or self.default_model
         self._model = None

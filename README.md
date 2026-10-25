@@ -3,18 +3,18 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
+  <a href="https://pypi.org/project/ai-memo-os/">PyPI</a> ·
   <a href="https://github.com/MnemosyneOS/mnemosyne">GitHub</a> ·
   <a href="README_CN.md">中文</a>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
+  <a href="https://pypi.org/project/ai-memo-os/"><img src="https://img.shields.io/badge/PyPI-ai--memo--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
   <a href="#mcp-server"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="Model Context Protocol"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="Zero dependencies"></a>
-  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
+  <a href="https://pepy.tech/projects/ai-memo-os"><img src="https://img.shields.io/pepy/dt/ai-memo-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
 </p>
 
@@ -44,7 +44,7 @@ dependencies** — no vector database, no LLM runtime, no cloud account.
 Use it as a **Python library**, a **CLI**, an **HTTP API**, or an **MCP server**:
 
 ```bash
-pip install mnemosyne-os
+pip install ai-memo-os
 ```
 
 ```python
@@ -115,7 +115,7 @@ in the open-source build**.
 ### Install
 
 ```bash
-pip install mnemosyne-os          # core: zero third-party dependencies
+pip install ai-memo-os          # core: zero third-party dependencies
 ```
 
 ### Remember and recall without configuring anything

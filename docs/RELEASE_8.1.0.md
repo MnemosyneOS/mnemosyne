@@ -130,7 +130,7 @@ envelope; it spins up an ephemeral local listener on `127.0.0.1` and tears it do
 ## Install
 
 ```
-pip install mnemosyne-os        # zero third-party dependencies
+pip install ai-memo-os        # zero third-party dependencies
 ```
 
 ```python

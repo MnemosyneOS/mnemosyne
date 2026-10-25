@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Mnemosyne OS — zero-dependency AI Agent Memory Engine.
-PyPI: mnemosyne-os (mnemosyne-memory is taken by mnemosyne-oss)
+PyPI: ai-memo-os (mnemosyne-memory is taken by mnemosyne-oss)
 """
 from setuptools import setup, find_packages
 import os
@@ -18,7 +18,7 @@ def _read_long_desc():
     return "Zero-dependency AI Agent Memory Engine."
 
 setup(
-    name="mnemosyne-os",
+    name="ai-memo-os",
     version="8.1.0",
     description="Zero-dependency, local-first AI memory engine: graph memory, multimodal ingestion, reranking, temporal reasoning, hash-chained audit ledger, capsule compression, memory formation + runtime layers.",
     long_description=_read_long_desc(),

@@ -5,18 +5,18 @@
 # mnemosyne OS
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/">PyPI</a> ·
+  <a href="https://pypi.org/project/ai-memo-os/">PyPI</a> ·
   <a href="https://github.com/MnemosyneOS/mnemosyne">GitHub</a> ·
   <a href="README.md">English</a>
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/mnemosyne-os/"><img src="https://img.shields.io/badge/PyPI-mnemosyne--os-blue?style=for-the-badge" alt="PyPI"></a>
+  <a href="https://pypi.org/project/ai-memo-os/"><img src="https://img.shields.io/badge/PyPI-ai--memo--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
   <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
   <a href="#-快速开始"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="零依赖"></a>
-  <a href="https://pepy.tech/projects/mnemosyne-os"><img src="https://img.shields.io/pepy/dt/mnemosyne-os?style=for-the-badge" alt="Downloads"></a>
+  <a href="https://pepy.tech/projects/ai-memo-os"><img src="https://img.shields.io/pepy/dt/ai-memo-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
 </p>
 
@@ -72,7 +72,7 @@
 ### 安装
 
 ```bash
-pip install mnemosyne-os          # 核心：零三方依赖
+pip install ai-memo-os          # 核心：零三方依赖
 ```
 
 ### 零配置就能记住和想起

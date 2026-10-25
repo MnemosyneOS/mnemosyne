@@ -17,7 +17,7 @@ extras. If your change needs a new provider, it belongs there.
 
 Please include:
 
-- Mnemosyne OS version (`pip show mnemosyne-os`)
+- Mnemosyne OS version (`pip show ai-memo-os`)
 - Python version and operating system
 - The smallest command or script that reproduces the behaviour
 - What you expected, and what happened instead

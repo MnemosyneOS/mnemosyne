@@ -929,7 +929,7 @@ class SDKVectorStore(VectorStoreProvider):
         except ImportError as e:
             raise ProviderUnavailable(
                 provider, f"{spec['module']} not installed ({e})",
-                hint=(f"pip install mnemosyne-os[{spec['extra']}] "
+                hint=(f"pip install ai-memo-os[{spec['extra']}] "
                       f"(requires {' + '.join(spec['requires'])})"),
             ) from None
         obj = module

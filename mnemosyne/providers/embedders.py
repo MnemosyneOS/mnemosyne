@@ -461,7 +461,7 @@ class FastEmbedEmbedder(EmbedderProvider):
             from fastembed import TextEmbedding
         except ImportError as e:
             raise ProviderUnavailable("fastembed", f"fastembed not installed ({e})",
-                                      hint="pip install mnemosyne-os[fastembed]") from None
+                                      hint="pip install ai-memo-os[fastembed]") from None
         self.model = self.config.get("model") or self.default_model
         self._model = TextEmbedding(model_name=self.model)
         self.dims = int(self.config.get("embedding_dims") or self.default_dims)
@@ -514,7 +514,7 @@ class BedrockEmbedder(EmbedderProvider):
             import boto3
         except ImportError as e:
             raise ProviderUnavailable("aws_bedrock", f"boto3 not installed ({e})",
-                                      hint="pip install mnemosyne-os[bedrock]") from None
+                                      hint="pip install ai-memo-os[bedrock]") from None
         self.region = (self.config.get("aws_region")
                        or _first_env("AWS_REGION", "AWS_DEFAULT_REGION") or "us-east-1")
         self.model = self.config.get("model") or self.default_model

@@ -6,7 +6,7 @@ means it survives n8n upgrades without maintenance.
 ## 1. Run the memory server
 
 ```bash
-pip install mnemosyne-os
+pip install ai-memo-os
 mnemosyne-web --port 8788
 ```
 
@@ -138,7 +138,7 @@ services:
   memory:
     image: python:3.12-slim
     command: >
-      sh -c "pip install --no-cache-dir mnemosyne-os &&
+      sh -c "pip install --no-cache-dir ai-memo-os &&
              mnemosyne-web --port 8788 --host 0.0.0.0"
     environment:
       MNEMOSYNE_DIR: /data

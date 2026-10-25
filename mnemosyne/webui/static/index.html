@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mnemosyne Web Dashboard</title>
+<style>
+  :root{
+    --bg:#0A0A0F;
+    --neon-blue:#00D4FF;
+    --accent-purple:#A855F7;
+    --green:#22C55E;
+    --yellow:#F59E0B;
+    --red:#EF4444;
+    --card-bg:rgba(17,18,28,0.72);
+    --card-border:rgba(255,255,255,0.08);
+    --text:#E6EAF2;
+    --muted:#8b93a7;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,sans-serif;
+    background:#0A0A0F;color:var(--text);overflow-x:hidden;
+  }
+  #bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+  .login-shell{
+    position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#0A0A0F 0%,#0e1230 60%,#1a0f2e 100%);
+    backdrop-filter:blur(20px);
+  }
+  .mono{font-family:"JetBrains Mono","Fira Code","SFMono-Regular",Consolas,monospace;}
+</style>
+<link rel="stylesheet" href="/css/app.css?v=20260824c">
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<!-- ===================== 登录视图 ===================== -->
+<div class="login-shell" id="login-view" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">M</div>
+    <h1 class="login-title">Mnemosyne</h1>
+    <p class="login-sub">认知记忆引擎 · Web 管理端</p>
+
+    <div class="mode-seg" id="login-mode-seg">
+      <button class="mode-seg-btn" data-mode="c">C 端 · 个人用户</button>
+      <button class="mode-seg-btn active" data-mode="b">B 端 · 企业客户</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">用户名</label>
+      <input type="text" class="form-input" id="login-username" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密码</label>
+      <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <div class="login-error" id="login-error" style="display:none;"></div>
+    <button class="btn btn-primary btn-block" id="login-btn">登 录</button>
+    <p class="login-hint">初始账号 <span class="mono">admin</span> / 密码 <span class="mono">mnemosyne</span>（登录后请修改）</p>
+  </div>
+</div>
+
+<!-- ===================== 应用视图 ===================== -->
+<div id="app-view" style="display:none;">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <img class="logo" src="/logo.jpg" alt="LOGO">
+      <div class="brand">
+        <div class="brand-name">Mnemosyne</div>
+        <div class="brand-sub">7.0.0 · Web</div>
+      </div>
+      <button class="sidebar-toggle" id="sidebar-toggle" title="折叠 / 展开">◀</button>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="lang-switch" id="lang-switch"><span>🌐</span><span id="lang-label">中文</span></div>
+    </div>
+  </aside>
+
+  <div class="main-content" id="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h2 class="page-title" id="page-title">仪表盘</h2>
+        <span class="mode-badge" id="mode-badge">B 端 · 企业客户</span>
+      </div>
+      <div class="topbar-right">
+        <div class="agent-selector" title="智能体记忆隔离">
+          <label class="agent-selector-label">智能体</label>
+          <select class="form-select agent-select" id="agent-select-top"></select>
+        </div>
+        <span class="ns-badge" id="ns-badge" title="当前命名空间">default</span>
+        <span class="user-chip" id="user-chip"></span>
+        <button class="btn btn-ghost" id="logout-btn" title="退出登录">退出</button>
+      </div>
+    </header>
+
+    <main class="pages" id="pages">
+
+      <!-- 仪表盘 -->
+      <section class="page" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card stat-blue"><div class="stat-value mono" id="stat-total">0</div><div class="stat-label">记忆总数</div></div>
+          <div class="stat-card stat-purple"><div class="stat-value mono" id="stat-active">0</div><div class="stat-label">活跃记忆</div></div>
+          <div class="stat-card stat-green"><div class="stat-value mono" id="stat-hot">0</div><div class="stat-label">热层</div></div>
+          <div class="stat-card stat-yellow"><div class="stat-value mono" id="stat-warm">0</div><div class="stat-label">温层</div></div>
+          <div class="stat-card stat-red"><div class="stat-value mono" id="stat-cold">0</div><div class="stat-label">冷层</div></div>
+          <div class="stat-card stat-cyan"><div class="stat-value mono" id="stat-suspicious">0</div><div class="stat-label">可疑记忆</div></div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-header"><div class="card-title"># 记忆分层分布</div></div>
+            <canvas id="tier-donut" height="220"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"># 容量使用</div>
+            </div>
+            <div class="capacity-bar" id="capacity-bar"><div class="capacity-fill" id="capacity-fill" style="width:0%">0%</div></div>
+            <div class="capacity-text" id="capacity-text">0 / ∞ 活跃记忆</div>
+            <div class="storage-mini" id="storage-mini"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 核心功能面板</div>
+            <span class="hint">点击进入对应功能</span>
+          </div>
+          <div class="feature-grid" id="feature-grid"></div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"># 账本完整性</div>
+              <button class="btn btn-secondary btn-sm" onclick="verifyLedger()">验证完整性</button>
+            </div>
+            <div id="ledger-status">加载中…</div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title"># 最近记忆</div></div>
+            <div class="mini-list" id="recent-memories"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 最近审计日志</div></div>
+          <div class="timeline" id="audit-timeline"><div class="timeline-item"><div class="action">加载中…</div></div></div>
+        </div>
+      </section>
+
+      <!-- 记忆管理 -->
+      <section class="page" id="page-memories" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 记忆管理</div>
+            <button class="btn btn-primary" onclick="openAddModal()">+ 添加记忆</button>
+          </div>
+          <div class="toolbar">
+            <input type="text" class="form-input grow" id="search-input" placeholder="搜索记忆…（回车 / 输入触发）" oninput="searchMemories()">
+            <select class="form-select" id="tier-filter" onchange="loadMemories()">
+              <option value="">全部层级</option>
+              <option value="hot">热层</option>
+              <option value="warm">温层</option>
+              <option value="cold">冷层</option>
+            </select>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr>
+                <th>ID</th><th>内容</th><th>类型</th><th>置信度</th><th>重要性</th><th>层级</th><th>状态</th><th>操作</th>
+              </tr></thead>
+              <tbody id="memories-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 记忆预算器 -->
+      <section class="page" id="page-budget" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 记忆预算器（Token 经济学）</div></div>
+          <p class="desc">在 token 预算约束下检索记忆，系统按边际价值选择最有价值的记忆送入上下文，并给出 cost_report。</p>
+          <div class="toolbar">
+            <input type="text" class="form-input grow" id="budget-query" placeholder="输入检索问题，例如：项目的技术架构决策">
+            <input type="number" class="form-input" id="budget-tokens" value="500" min="50" style="width:140px" title="预算 tokens">
+            <input type="number" class="form-input" id="budget-k" value="10" min="1" max="20" style="width:90px" title="候选数 k">
+            <button class="btn btn-primary" onclick="runBudget()">执行预算检索</button>
+          </div>
+          <div class="split">
+            <div>
+              <div class="card-title sub">检索结果</div>
+              <div id="budget-results" class="mini-list"></div>
+            </div>
+            <div>
+              <div class="card-title sub">Cost Report</div>
+              <div id="cost-report" class="kv-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 遗忘经济学 -->
+      <section class="page" id="page-forgetting" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 遗忘经济学（记忆分层迁移）</div></div>
+          <p class="desc">按价值模型（重要性×2 + 访问次数×0.05 + 置信度×3 + 近因×2 + 命中率）排序，将低价值记忆迁移到温/冷层（迁移而非删除）。</p>
+          <div id="forgetting-tiers" class="stats-grid" style="margin-top:12px;"></div>
+          <div class="toolbar">
+            <input type="number" class="form-input" id="demote-budget" value="0" min="0" style="width:180px" title="预算字节（0=自动降级最低 20%）">
+            <button class="btn btn-primary" onclick="runDemoteCycle()">执行降级周期</button>
+          </div>
+          <div id="demote-report" class="kv-grid"></div>
+        </div>
+      </section>
+
+      <!-- 记忆公证所 -->
+      <section class="page" id="page-notary" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 记忆公证所</div>
+            <div class="seg" id="notary-filter">
+              <button class="seg-btn active" data-f="all">全部</button>
+              <button class="seg-btn" data-f="suspicious">可疑</button>
+            </div>
+          </div>
+          <div id="notary-list" class="mini-list"></div>
+        </div>
+      </section>
+
+      <!-- 记忆图谱 -->
+      <section class="page" id="page-graph" style="display:none;">
+        <div class="graph-page" id="graph-page">
+          <div class="graph-toolbar">
+            <button class="graph-play-btn" id="graph-play-btn" title="播放">
+              <svg id="graph-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+            </button>
+            <div class="graph-track" id="graph-track"><div class="graph-track-line"></div></div>
+          </div>
+          <div class="graph-canvas-wrap" id="graph-canvas-wrap">
+            <canvas class="graph-canvas" id="graph-canvas"></canvas>
+            <div class="graph-empty" id="graph-empty" style="display:none;">暂无记忆数据</div>
+            <div class="graph-legend" id="graph-legend">
+              <div class="lg-row"><span class="lg-dot skill"></span>技能</div>
+              <div class="lg-row"><span class="lg-dot memory"></span>记忆</div>
+              <div class="lg-hint" id="graph-legend-date">中心=最早 · 外层=最新</div>
+            </div>
+            <button class="graph-export" id="graph-export" title="导出图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
+            </button>
+            <div class="graph-tooltip" id="graph-tooltip"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 知识树 -->
+      <section class="page" id="page-tree" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 知识树</div><span class="hint">按实体聚合，点击展开</span></div>
+          <div id="tree-container" class="tree"></div>
+        </div>
+      </section>
+
+      <!-- 审计日志 -->
+      <section class="page" id="page-audit" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 审计日志时间线</div></div>
+          <div class="timeline" id="audit-timeline-full"><div class="timeline-item">加载中…</div></div>
+        </div>
+      </section>
+
+      <!-- 会话历史 -->
+      <section class="page" id="page-sessions" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 会话历史</div></div>
+          <div class="toolbar">
+            <input type="text" class="form-input grow" id="session-search" placeholder="搜索会话…" oninput="searchSessions()">
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>会话ID</th><th>轮次</th></tr></thead>
+              <tbody id="sessions-table-body"></tbody>
+            </table>
+          </div>
+          <div class="card-title sub" style="margin-top:16px;">最近对话（实时刷新）</div>
+          <div id="recent-turns" class="mini-list"></div>
+        </div>
+      </section>
+
+      <!-- 用户画像 -->
+      <section class="page" id="page-profile" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 用户画像（自定义管理）</div>
+            <button class="btn btn-primary" onclick="showProfileForm()">+ 新增画像</button>
+          </div>
+          <div id="profile-form" style="display:none;" class="profile-form">
+            <textarea class="form-textarea" id="profile-content-input" placeholder="输入画像内容，例如：用户偏好结论先行的回答风格，讨厌冗余…"></textarea>
+            <div class="row-end">
+              <button class="btn btn-secondary" onclick="hideProfileForm()">取消</button>
+              <button class="btn btn-primary" onclick="saveProfile()">保存</button>
+            </div>
+          </div>
+          <div id="profile-content" class="mini-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 快照注入预览</div><span class="hint">默认画像在快照中优先展示</span></div>
+          <pre class="snapshot-box" id="snapshot-preview">加载中…</pre>
+        </div>
+      </section>
+
+      <!-- 多租户 -->
+      <section class="page" id="page-namespaces" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 多租户切换</div></div>
+          <div id="namespace-list" class="mini-list"></div>
+        </div>
+      </section>
+
+      <!-- 容量监控 -->
+      <section class="page" id="page-capacity" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 容量监控</div></div>
+          <div id="capacity-detail" class="kv-grid"></div>
+        </div>
+      </section>
+
+      <!-- 账本验证 -->
+      <section class="page" id="page-ledger" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 记忆账本</div>
+            <button class="btn btn-primary" onclick="verifyLedgerDetail()">验证完整性</button>
+          </div>
+          <div id="ledger-verify-result" class="kv-grid"></div>
+          <div class="card-title sub">最近条目</div>
+          <div id="ledger-entries" class="mini-list"></div>
+        </div>
+      </section>
+
+      <!-- 知识库 -->
+      <section class="page" id="page-knowledge" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 知识库上传</div></div>
+          <p class="desc">上传 .txt / .md / .csv / .json 文本文件，自动解析并写入记忆（可批量拆分）。</p>
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="kb-file" accept=".txt,.md,.markdown,.csv,.json" style="display:none;">
+            <div class="drop-hint">点击选择文件，或拖拽到此处</div>
+            <div class="drop-meta" id="kb-meta"></div>
+          </div>
+          <div class="progress" id="kb-progress" style="display:none;"><div class="progress-fill" id="kb-progress-fill"></div></div>
+          <div id="kb-result" class="kv-grid"></div>
+        </div>
+      </section>
+
+      <!-- 热力图 / 长期画像 -->
+      <section class="page" id="page-heatmap" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 记忆热力图</div></div>
+          <div id="heatmap-notice" class="notice"></div>
+          <canvas id="heatmap-canvas" height="160"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 用户长期画像</div></div>
+          <div id="insights-text" class="desc"></div>
+          <div id="insights-meta" class="kv-grid"></div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section class="page" id="page-settings" style="display:none;">
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 账户管理</div></div>
+          <div class="account-row">当前用户名：<b class="mono" id="current-username">-</b></div>
+          <div class="settings-form">
+            <label class="form-label">修改用户名</label>
+            <input type="text" class="form-input" id="new-username" placeholder="新用户名（字母/数字/下划线/点/@）">
+            <button class="btn btn-secondary" onclick="changeUsername()">修改用户名</button>
+          </div>
+          <div class="settings-form" style="margin-top:16px;">
+            <label class="form-label">修改密码</label>
+            <input type="password" class="form-input" id="pw-old" placeholder="旧密码">
+            <input type="password" class="form-input" id="pw-new" placeholder="新密码（至少 6 位）">
+            <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 命名空间管理</div></div>
+          <p class="desc">右上角“当前命名空间”可在此修改名称。重命名将克隆当前命名空间数据到新名称并切换（原命名空间保留）。</p>
+          <div class="settings-form">
+            <label class="form-label">当前命名空间：<b class="mono" id="settings-namespace">-</b></label>
+            <input type="text" class="form-input" id="namespace-new" placeholder="新命名空间名称（字母/数字/下划线/点/连字符）">
+            <button class="btn btn-primary" onclick="renameNamespace()">重命名并切换</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"># 智能体管理（记忆隔离）</div>
+            <span class="hint">每个智能体对应独立记忆空间</span>
+          </div>
+          <p class="desc">添加多个 AI 智能体后，各智能体记忆完全隔离；右上角可切换查看。</p>
+          <div class="settings-form">
+            <label class="form-label">新增智能体名称</label>
+            <input type="text" class="form-input" id="agent-new-name" placeholder="例如：DeepSeek Harness / Hermes Agent / OpenClaw / Codex">
+            <button class="btn btn-primary" onclick="addAgent()">+ 添加智能体</button>
+          </div>
+          <div id="agent-list" class="mini-list" style="margin-top:14px;"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 外部数据源（自动抓取）</div></div>
+          <p class="desc">配置外部智能体的 HTTP API 或共享目录，Web 端定时抓取记忆写入本地（每 60 秒自动同步）。</p>
+          <div class="settings-form">
+            <input type="text" class="form-input" id="src-name" placeholder="数据源名称，例如：Hermes 记忆服务">
+            <select class="form-select" id="src-type">
+              <option value="api">HTTP API（GET 返回 JSON 数组/JSONL）</option>
+              <option value="dir">共享目录（扫描 .json/.jsonl）</option>
+            </select>
+            <input type="text" class="form-input" id="src-url" placeholder="API 地址，例如 http://127.0.0.1:8000/memories 或共享目录路径">
+            <input type="text" class="form-input" id="src-agent" placeholder="归属智能体（可选，例如 DeepSeek Harness）">
+            <button class="btn btn-primary" onclick="addSource()">+ 添加数据源</button>
+          </div>
+          <div id="source-list" class="mini-list" style="margin-top:14px;"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 常用 Agent 对接</div></div>
+          <p class="desc">选择常用 Agent 后保存偏好。<strong>注：自动配置功能将在后续版本提供，当前仅保存偏好，不做实际对接。</strong></p>
+          <div class="toolbar">
+            <select class="form-select grow" id="agent-select"></select>
+            <button class="btn btn-primary" onclick="saveAgent()">确认</button>
+          </div>
+          <div id="agent-status" class="desc"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 导入导出</div></div>
+          <div class="settings-form">
+            <div class="card-title sub">记忆导出 / 导入</div>
+            <p class="desc">导出为 ZIP（memories.jsonl + manifest.json）；上传 JSONL 或 ZIP 导入。</p>
+            <div class="toolbar" style="margin:0;">
+              <button class="btn btn-primary" onclick="exportMemories()">导出记忆</button>
+              <input type="file" class="form-input" id="import-file" accept=".jsonl,.zip" style="flex:1;min-width:0;">
+              <button class="btn btn-secondary" onclick="importMemories()">导入记忆</button>
+            </div>
+            <div id="import-result" class="kv-grid"></div>
+          </div>
+          <div class="settings-form" style="margin-top:14px;">
+            <div class="card-title sub">Web 配置导出 / 导入</div>
+            <div class="toolbar" style="margin:0;">
+              <button class="btn btn-secondary" onclick="exportConfig()">导出配置</button>
+              <input type="file" class="form-input" id="config-file" accept=".json" style="flex:1;min-width:0;">
+              <button class="btn btn-secondary" onclick="importConfig()">导入配置</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 使用模式（C 端 / B 端）</div></div>
+          <div class="mode-seg" id="settings-mode-seg">
+            <button class="mode-seg-btn" data-mode="c">C 端 · 个人用户</button>
+            <button class="mode-seg-btn" data-mode="b">B 端 · 企业客户</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title"># 关于</div></div>
+          <div class="about-box">
+            <div class="about-name">Mnemosyne OS</div>
+            <div class="about-company">广东鑫室铭实业有限公司 · 版权所有</div>
+            <div class="about-phone">全国统一客服电话：0756-8935999</div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="spinner" class="spinner-overlay" style="display:none;"><div class="spinner"></div></div>
+
+<!-- 添加 / 编辑记忆弹窗 -->
+<div class="modal-overlay" id="add-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header"><span id="add-modal-title">添加记忆</span><button class="modal-close" onclick="closeAddModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">内容</label>
+        <textarea class="form-textarea" id="new-memory-content" placeholder="输入要记忆的内容…"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">类型</label>
+          <select class="form-select" id="new-memory-type">
+            <option value="semantic">semantic</option><option value="episodic">episodic</option>
+            <option value="procedural">procedural</option><option value="preference">preference</option>
+            <option value="lesson">lesson</option><option value="identity">identity</option>
+            <option value="belief">belief</option><option value="observation">observation</option>
+            <option value="strategy">strategy</option><option value="note">note</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">重要性</label>
+          <input type="number" class="form-input" id="new-memory-importance" value="3" min="1" max="5"></div>
+      </div>
+      <input type="hidden" id="edit-memory-id">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveMemory()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js?v=20260824c"></script>
+</body>
+</html>

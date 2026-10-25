@@ -31,6 +31,10 @@ dist/
 # 仓库资源目录（README banner 等必须入库）
 !assets/
 !assets/**
+# Web 面板静态资源（mnemosyne-web 依赖，必须入库）
+!mnemosyne/webui/static/index.html
+!mnemosyne/webui/static/logo.jpg
+
 
 # ---------------------------------------------------------------------------
 # 运行期产物 —— 绝不入库
