@@ -25,7 +25,7 @@
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.ja.md"><img src="https://img.shields.io/badge/Lang-日本語-red?style=for-the-badge" alt="日本語"></a>
 </p>
 
-**Mnemosyne OS 8.1.0** —— 零依賴 (zero-dependency)、本地優先 (local-first) 的 AI 記憶系統。自帶圖記憶 (graph memory)、多模態攝入 (multimodal ingestion)、重排 (rerank)、時序推理 (temporal reasoning)、哈希鏈審計賬本 (hash-chain audit ledger)、無損壓縮 (lossless compression)，以及 55 個 MCP 工具 (41 原生 + 11 用戶端兼容)。
+**Mnemosyne OS 8.1.0** —— 零依賴 (zero-dependency)、本地優先 (local-first) 的 AI 記憶系統。自帶圖記憶 (graph memory)、多模態攝入 (multimodal ingestion)、重排 (rerank)、時序推理 (temporal reasoning)、哈希鏈審計賬本 (hash-chain audit ledger)、無損壓縮 (lossless compression)，以及 52 個 MCP 工具 (41 原生 + 11 用戶端兼容)。
 
 8.1.0 補上了兩層。**記憶形成層 (memory formation layer)**：會話摘要 (session summary)、衝突消解 (conflict resolution)、任務與經驗 (tasks & playbooks)、代碼演進 (code evolution)、敏感度治理 (sensitivity policy)——讓系統不只「找得出記憶」，還能「把經歷變成記憶」。**記憶運行層 (memory runtime layer)**：畫像卡 (profile card)、上下文注入 (context injection)、漸進披露 (progressive disclosure)、鞏固 (consolidation)、度量 (metrics)、遮罩 (mask)、級聯刪除 (cascade delete)——為模型組裝合適的上下文，並管理記憶的生命週期。
 
