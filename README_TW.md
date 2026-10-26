@@ -12,7 +12,7 @@
   <a href="https://pypi.org/project/ai-memo-os/"><img src="https://img.shields.io/badge/PyPI-ai--memo--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="授權: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文協定"></a>
   <a href="https://pepy.tech/projects/ai-memo-os"><img src="https://img.shields.io/pepy/dt/ai-memo-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
   <a href="https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md"><img src="https://img.shields.io/badge/Lang-English-blue?style=for-the-badge" alt="English"></a>
@@ -124,7 +124,7 @@ curl -X POST http://127.0.0.1:8788/v3/memories/add/ \
 
 | 方案 | 價格（USD） | 價格（CNY） | 內容 |
 |---|---|---|---|
-| **Free** | $0 | ¥0 | 55 個 MCP 工具全開 · 冷層記憶 30 天召回視窗 · 1 個命名空間 (namespace) · 審計視窗 7 天 · 資料永不刪除 |
+| **Free** | $0 | ¥0 | 52 個 MCP 工具全開 · 冷層記憶 30 天召回視窗 · 1 個命名空間 (namespace) · 審計視窗 7 天 · 資料永不刪除 |
 | **Pro** | $6.9/月 · $69/年 | ¥9.9/月 · ¥99/年 | 永久冷層記憶 · 跨命名空間召回 · 審計歷史無限制 · 全量匯出 |
 | **Team** | $19.9/席位/月 · $199/席位/年 | ¥29.9/席位/月 · ¥299/席位/年 | Pro 全部能力 · 多使用者命名空間 · 團隊記憶策略 · 審計報告匯出（按席位計費） |
 | **合規證明包 (Compliance Add-on)** | $9.9/月 | ¥19.9/月 | Pro / Team 之上的加購項（不是獨立層級，不提供年付）：`verify_integrity` 定期報告、刪除證明匯出、資料駐留配置 |
