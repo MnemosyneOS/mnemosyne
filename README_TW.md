@@ -224,7 +224,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可選，但建議設定
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**55 個工具** —— 41 個原生工具（其中 21 個是 8.1.0 新增：9 個記憶形成層 + 12 個記憶執行層），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
+**52 個工具** —— 41 個原生工具（其中 21 個是 8.1.0 新增：9 個記憶形成層 + 12 個記憶執行層），外加 11 個沿用通行 Agent 記憶工具命名的工具，已有的 MCP 宿主（Claude Desktop、Hermes Agent 等）不必改寫工具定義就能直接指向 Mnemosyne。
 
 **原生 · 檢索與治理（23）：**
 
