@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/ai-memo-os/"><img src="https://img.shields.io/badge/PyPI-ai--memo--os-blue?style=for-the-badge" alt="PyPI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="许可证: MIT"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+"></a>
-  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-55%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
+  <a href="#-mcp-服务器"><img src="https://img.shields.io/badge/MCP-52%20Tools-00ADD8?style=for-the-badge" alt="模型上下文协议"></a>
   <a href="#-快速开始"><img src="https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge" alt="零依赖"></a>
   <a href="https://pepy.tech/projects/ai-memo-os"><img src="https://img.shields.io/pepy/dt/ai-memo-os?style=for-the-badge" alt="Downloads"></a>
   <a href="https://x.com/mnemosyne_oos"><img src="https://img.shields.io/badge/X-@mnemosyne_oos-black?style=for-the-badge&logo=x&logoColor=white" alt="X"></a>
@@ -31,7 +31,7 @@
 </p>
 
 **Mnemosyne OS 8.1.0** —— 零依赖、本地优先的 AI 记忆系统。自带图记忆、多模态摄入、
-重排、时序推理、哈希链审计账本、无损压缩，以及 55 个 MCP 工具（44 原生 + 11 客户端兼容）。
+重排、时序推理、哈希链审计账本、无损压缩，以及 52 个 MCP 工具（41 原生 + 11 客户端兼容）。
 
 8.1.0 补上了两层。**记忆形成层**：会话摘要、冲突消解、任务与经验、代码演进、敏感度治理——
 让系统不只「找得出记忆」，还能「把经历变成记忆」。**记忆运行层**：画像卡、上下文注入、
@@ -51,7 +51,7 @@
 
 | 档位 | 价格（USD） | 价格（CNY） | 内容 |
 |---|---|---|---|
-| **Free** | $0 | ¥0 | 55 个 MCP 工具全开 · 冷层记忆 30 天召回窗口 · 1 个命名空间 · 审计窗口 7 天 |
+| **Free** | $0 | ¥0 | 52 个 MCP 工具全开 · 冷层记忆 30 天召回窗口 · 1 个命名空间 · 审计窗口 7 天 |
 | **Pro** | $6.9/月 · $69/年 | ¥9.9/月 · ¥99/年 | 永久冷层记忆 · 跨命名空间召回 · 审计历史无限制 · 全量导出 |
 | **Team** | $19.9/席位/月 · $199/席位/年 | ¥29.9/席位/月 · ¥299/席位/年 | Pro 全部能力 · 多用户命名空间 · 团队记忆策略 · 审计报告导出 |
 | **合规证明包** | $9.9/月 | ¥19.9/月 | **只有月付。** Pro / Team 之上的可选加购（非独立层级）：verify_integrity 定期报告、删除证明导出、数据驻留配置 |
@@ -239,7 +239,7 @@ export MNEMOSYNE_MCP_TOKEN="your-secret-token"   # 可选，但建议设置
 python -m mnemosyne.webui.mcp_server --brain-dir ./mem --namespace default
 ```
 
-**55 个工具** —— 44 个原生工具（其中 21 个是 8.1.0 新增：9 个记忆形成层 + 12 个记忆运行层），
+**52 个工具** —— 41 个原生工具（其中 21 个是 8.1.0 新增：9 个记忆形成层 + 12 个记忆运行层），
 外加 11 个沿用通行 Agent 记忆工具命名的工具，
 已有的 MCP 客户端不必改写工具定义就能直接指向 Mnemosyne。
 
