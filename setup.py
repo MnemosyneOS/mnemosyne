@@ -2,7 +2,7 @@
 """Mnemosyne OS — zero-dependency AI Agent Memory Engine.
 
 PyPI 包名：``mnemosyne-os``（导入名仍是 ``mnemosyne``）。
-历史上短暂发布过 ``mnemosyne-os``，2026-10-26 起统一回 ``mnemosyne-os``。
+历史上短暂发布过 ``ai-memo-os``，2026-10-26 起统一回 ``mnemosyne-os``。
 """
 from setuptools import setup, find_packages
 import os
