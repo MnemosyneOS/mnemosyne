@@ -1,5 +1,15 @@
 # 更新记录（Release Notes）
 
+## 8.1.0.post1（2026-10-26）
+
+**打包与文档补丁，引擎代码与 8.1.0 完全一致。**
+
+- PyPI 包名统一回 `mnemosyne-os`（历史上短暂用过 `ai-memo-os`）。
+  `pip install mnemosyne-os` 安装的仍是 8.1.0 的功能。
+- 9 个语言版本 README 的 PyPI 徽章文本 `AI-MEMO-OS` → `MNEMOSYNE-OS`。
+  此前 shields.io 的双连字符编码（`ai--memo--os`）绕过了批量替换。
+- 仓库内所有安装命令、`pip show` 示例与运行时错误提示同步改名。
+
 ## 8.1.0（2026-10-19）
 
 这一版补的是**记忆形成层**。

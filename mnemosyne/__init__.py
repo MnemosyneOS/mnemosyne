@@ -22,7 +22,7 @@ _PARENT = os.path.dirname(_ROOT)
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-__version__ = "8.1.0"
+__version__ = "8.1.0.post1"
 VERSION = "8.1.0"
 
 # === Core classes ===

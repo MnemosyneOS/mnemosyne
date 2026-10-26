@@ -21,7 +21,7 @@ def _read_long_desc():
 
 setup(
     name="mnemosyne-os",
-    version="8.1.0",
+    version="8.1.0.post1",
     description="Zero-dependency, local-first AI memory engine: graph memory, multimodal ingestion, reranking, temporal reasoning, hash-chained audit ledger, capsule compression, memory formation + runtime layers.",
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
