@@ -16,7 +16,7 @@ One binary serves both vocabularies: the native command set (`retain`, `recall`,
 ## Setup
 
 ```bash
-pip install ai-memo-os
+pip install mnemosyne-os
 mnemosyne init                       # initialises the store and writes the CLI config
 mnemosyne config --show              # the effective configuration, defaults included
 ```

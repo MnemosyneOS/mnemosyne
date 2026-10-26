@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: Mnemosyne OS version
-      description: Output of `pip show ai-memo-os`
+      description: Output of `pip show mnemosyne-os`
     validations:
       required: true
   - type: input

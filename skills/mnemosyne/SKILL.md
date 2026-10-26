@@ -23,7 +23,7 @@ Mnemosyne unchanged.
 ## Install
 
 ```bash
-pip install ai-memo-os          # core, zero dependencies
+pip install mnemosyne-os          # core, zero dependencies
 ```
 
 There is no extra to install for the provider adapters: the ones that need no

@@ -3,7 +3,7 @@ name: Publish to PyPI
 # Publishes to PyPI with trusted publishing (OIDC) — no long-lived token stored in
 # the repo or in CI secrets. One-time setup on PyPI:
 #
-#   https://pypi.org/manage/project/ai-memo-os/settings/publishing/
+#   https://pypi.org/manage/project/mnemosyne-os/settings/publishing/
 #     GitHub Repository : MnemosyneOS/mnemosyne
 #     Workflow name     : publish.yml
 #     Environment name  : (leave empty)

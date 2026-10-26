@@ -556,7 +556,7 @@ class LangChainLLM(LLMProvider):
         except ImportError as e:
             raise ProviderUnavailable(
                 "langchain", f"langchain-core not installed ({e})",
-                hint="pip install ai-memo-os[langchain]",
+                hint="pip install mnemosyne-os[langchain]",
             ) from None
         self._msgs = (SystemMessage, HumanMessage, AIMessage)
         llm = self.config.get("llm")
@@ -601,7 +601,7 @@ class BedrockLLM(LLMProvider):
             import boto3
         except ImportError as e:
             raise ProviderUnavailable("aws_bedrock", f"boto3 not installed ({e})",
-                                      hint="pip install ai-memo-os[bedrock]") from None
+                                      hint="pip install mnemosyne-os[bedrock]") from None
         self.region = (self.config.get("aws_region")
                        or _first_env("AWS_REGION", "AWS_DEFAULT_REGION") or "us-east-1")
         self.model = (self.config.get("model")

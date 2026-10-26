@@ -11,7 +11,7 @@ whole surface, and they run against a self-hosted Mnemosyne REST server.
 ### 1. Run the server
 
 ```bash
-pip install ai-memo-os
+pip install mnemosyne-os
 mnemosyne-web --port 8788          # console + REST on one port
 ```
 
@@ -124,7 +124,7 @@ Dify apps often run somewhere you do not control the filesystem of. The REST
 surface means the memory lives on your machine, Dify holds only a URL and a key,
 and moving the memory store is a config change rather than a migration.
 
-If your Dify deployment can run Python code with `ai-memo-os` installed, you can
+If your Dify deployment can run Python code with `mnemosyne-os` installed, you can
 skip the server entirely and use the embedded client in a Code node:
 
 ```python

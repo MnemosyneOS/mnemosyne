@@ -1134,7 +1134,7 @@ def t_no_third_party(quick: bool) -> None:
 
     Adapters that legitimately require an SDK are allowed to raise
     ``ImportError`` *when instantiated*, but importing the module itself must
-    never fail — that is the property that keeps ``pip install ai-memo-os`` free
+    never fail — that is the property that keeps ``pip install mnemosyne-os`` free
     of dependencies.
     """
     import importlib

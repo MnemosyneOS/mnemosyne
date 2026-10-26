@@ -21,7 +21,7 @@ Two deliberate departures from the reference, both of which make the same config
 mean something *safe* here rather than merely accepting it:
 
 **No third-party models.** Validation uses plain dataclasses. The reference
-builds pydantic models, which would make ``pip install ai-memo-os`` pull in a
+builds pydantic models, which would make ``pip install mnemosyne-os`` pull in a
 validation library the core otherwise never touches.
 
 **Dimension coherence is checked.** The reference lets you pair a 1536-dimension

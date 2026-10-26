@@ -244,7 +244,7 @@ class NeptuneGraphStore(GraphStoreProvider):
         except ImportError:
             raise ProviderUnavailable(
                 "neptune", "IAM signing requires botocore and no authorization_header was given",
-                hint="pip install ai-memo-os[bedrock] or pass a pre-signed authorization_header.",
+                hint="pip install mnemosyne-os[bedrock] or pass a pre-signed authorization_header.",
             ) from None
         import botocore.auth
         import botocore.awsrequest
@@ -332,7 +332,7 @@ class KuzuGraphStore(GraphStoreProvider):
             import kuzu
         except ImportError as e:
             raise ProviderUnavailable("kuzu", f"kuzu not installed ({e})",
-                                      hint="pip install ai-memo-os[kuzu]") from None
+                                      hint="pip install mnemosyne-os[kuzu]") from None
         self.db_path = self.config.get("db_path") or "./kuzu_graph.db"
         self._db = kuzu.Database(self.db_path)
         self._conn = kuzu.Connection(self._db)

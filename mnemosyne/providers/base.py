@@ -54,7 +54,7 @@ class ProviderUnavailable(ProviderError):
         self.reason = reason
         self.hint = hint or (
             f"Install the optional extras for '{provider}' "
-            f"(pip install ai-memo-os[providers]) or switch to a "
+            f"(pip install mnemosyne-os[providers]) or switch to a "
             f"pure-standard-library provider."
         )
         super().__init__(f"provider '{provider}' unavailable: {reason}")

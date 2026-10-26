@@ -1,5 +1,5 @@
 {
-  "name": "ai-memo-os",
+  "name": "mnemosyne-os",
   "version": "8.1.0",
   "description": "Mnemosyne OS — a zero-dependency, local-first AI memory engine.",
   "owner": {

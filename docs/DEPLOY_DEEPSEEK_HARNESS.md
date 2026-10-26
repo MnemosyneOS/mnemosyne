@@ -179,15 +179,15 @@ npm --version
 ### 3.1 用 pip 安装（pip 是 Python 的官方安装工具）
 
 ```powershell
-pip install ai-memo-os
-# 【这是什么】从 Python 官方仓库下载并安装 ai-memo-os（Mnemosyne 的正式包名）
+pip install mnemosyne-os
+# 【这是什么】从 Python 官方仓库下载并安装 mnemosyne-os（Mnemosyne 的正式包名）
 # 【为什么】这就是 Mnemosyne 8.1.0 本体，装好后你的电脑就有了记忆引擎
 ```
 
 **如果网速慢/装不动（国内常见）**，改用国内镜像源（镜像源 = 官方仓库的国内加速副本）：
 
 ```powershell
-pip install ai-memo-os -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install mnemosyne-os -i https://pypi.tuna.tsinghua.edu.cn/simple
 # 【这是什么】加 -i 参数指定清华镜像源下载
 # 【为什么】直连国外仓库慢/失败，镜像源速度快得多
 ```
@@ -197,7 +197,7 @@ pip install ai-memo-os -i https://pypi.tuna.tsinghua.edu.cn/simple
 ### 3.2 验证安装成功
 
 ```powershell
-pip show ai-memo-os | Select-String "Version|Requires"
+pip show mnemosyne-os | Select-String "Version|Requires"
 # 【这是什么】显示已安装的版本号和依赖列表
 # 【为什么】确认装的是 8.1.0；Requires（依赖）为空说明它是零依赖设计，很干净
 ```
@@ -669,13 +669,13 @@ Copy-Item "$env:USERPROFILE\.mnemosyne" "$env:USERPROFILE\.mnemosyne_backup" -Re
 ### 13.2 升级 Mnemosyne
 
 ```powershell
-pip install -U ai-memo-os
-# 【这是什么】-U = --upgrade，把 ai-memo-os 升级到最新版
+pip install -U mnemosyne-os
+# 【这是什么】-U = --upgrade，把 mnemosyne-os 升级到最新版
 # 【为什么】获取新功能、性能优化和 Bug 修复
 ```
 
 ```powershell
-mnemosyne --version   # 或 pip show ai-memo-os | Select-String Version
+mnemosyne --version   # 或 pip show mnemosyne-os | Select-String Version
 # 【这是什么】确认新版本号
 # 【为什么】确认真的升上去了
 ```
@@ -718,7 +718,7 @@ mnemosyne migrate
 
 | 现象 | 原因 | 解决办法 |
 | --- | --- | --- |
-| pip 装 ai-memo-os 很慢/失败 | 直连国外源慢，或开着代理 | 关代理 + 用清华镜像（第 3.1 步） |
+| pip 装 mnemosyne-os 很慢/失败 | 直连国外源慢，或开着代理 | 关代理 + 用清华镜像（第 3.1 步） |
 | 提示 `mnemosyne` 不是命令 | Python 没加 PATH / 没重开窗口 | 重开终端；确认装了 Python 且勾了 PATH |
 | `dsh --version` 找不到 dsh | 全局安装失败 / PATH 没刷新 | 关代理重装；**新开**终端窗口 |
 | DSH 网页打不开 | 没启动 dsh web / 端口被占用 | 运行 `dsh web`；`netstat` 查 3080 |
