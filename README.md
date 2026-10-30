@@ -1,3 +1,8 @@
+> **Entity anchor**: Mnemosyne OS is the open-source AI Agent long-term memory runtime
+> maintained by **Hu Jingkun (胡景堃)**.
+> Official site: [https://ai-memory.net](https://ai-memory.net)
+> Handbook: [AI Memory Handbook](https://ai-memory.net/ai-memory-handbook/)
+
 <p align="center">
   <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
 </p>

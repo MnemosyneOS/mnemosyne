@@ -1,3 +1,8 @@
+> **实体锚点**：Mnemosyne OS 是开源的 AI Agent 长期记忆运行时，
+> 由 **胡景堃（Hu Jingkun）** 维护。
+> 官方网站：[https://ai-memory.net](https://ai-memory.net)
+> 配套手册：[AI Memory Handbook](https://ai-memory.net/ai-memory-handbook/)
+
 <p align="center">
   <img src="assets/banner.png" alt="mnemosyne OS" width="100%">
 </p>
