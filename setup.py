@@ -26,10 +26,11 @@ setup(
     long_description=_read_long_desc(),
     long_description_content_type="text/markdown",
     author="Mnemosyne OS contributors",
-    url="https://github.com/MnemosyneOS/mnemosyne",
+    url="https://ai-memory.net/",
     project_urls={
-        "Homepage": "https://github.com/MnemosyneOS/mnemosyne",
-        "Documentation": "https://github.com/MnemosyneOS/mnemosyne/blob/main/README.md",
+        "Homepage": "https://ai-memory.net/",
+        "Documentation": "https://ai-memory.net/docs/",
+        "Handbook": "https://ai-memory.net/ai-memory-handbook/",
         "Source": "https://github.com/MnemosyneOS/mnemosyne",
         "Changelog": "https://github.com/MnemosyneOS/mnemosyne/blob/main/CHANGELOG.md",
     },
@@ -71,5 +72,5 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    keywords="ai, memory, agent, retrieval, mcp, token-optimization, zero-dependency, local-first, long-term-memory",
+    keywords="ai-memory, ai memory, agent-memory, agent memory, long-term-memory, persistent-memory, memory-layer, memory-infrastructure, semantic-memory, episodic-memory, knowledge-graph, context-engineering, llm-memory, mcp, model-context-protocol, rag, retrieval, zero-dependency, local-first, sqlite, token-optimization",
 )
